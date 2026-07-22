@@ -21,6 +21,23 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 const app = $('#app');
 
+// built AFTER every subject file has pushed its skills
+const SKILL_MAP = Object.fromEntries(SKILLS.map(s => [s.id, s]));
+
+// ---------------- audio (built-in voices, free & offline) ----------------
+function speak(text, lang = 'es-ES') {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang === 'en' ? 'en-US' : lang;
+  u.rate = 0.82;
+  speechSynthesis.speak(u);
+}
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-say]');
+  if (btn) { e.stopPropagation(); speak(btn.dataset.say, btn.dataset.lang || 'es-ES'); }
+}, true);
+
 // ---------------- date helpers ----------------
 const dstr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -62,30 +79,40 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+const PLAN_VERSION = 2; // bump when the skill catalog changes shape
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};
-  if (DB.plans[kidId][wk]) return DB.plans[kidId][wk];
-  // Build: prioritize lowest-mastery skills, spread strands across the week.
+  const stored = DB.plans[kidId][wk];
+  if (stored && stored.v === PLAN_VERSION) return stored.days;
+
+  // Build: per school day → 2 math, 1 language, 1 science (M/W/F) or
+  // Spanish (T/Th), 1 wildcard (lowest score anywhere). Lowest-mastery first.
   const rnd = mulberry32(hashStr(kidId + wk));
   const stats = kidStats(kidId);
-  const scored = SKILLS.map(s => ({ id: s.id, strand: s.strand, sc: (stats[s.id] || { s: 0 }).s, r: rnd() }))
+  const bySubject = {};
+  for (const sub of SUBJECTS) bySubject[sub.id] = [];
+  const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
+  const scored = SKILLS.map(s => ({ id: s.id, subject: strandSubject[s.strand], sc: (stats[s.id] || { s: 0 }).s, r: rnd() }))
     .sort((a, b) => (a.sc - b.sc) || (a.r - b.r));
-  const chosen = [];
-  const perStrand = {};
-  for (const s of scored) {
-    if (chosen.length >= 20) break;
-    if ((perStrand[s.strand] || 0) >= 2) continue; // max 2 per strand for variety
-    chosen.push(s.id); perStrand[s.strand] = (perStrand[s.strand] || 0) + 1;
-  }
-  for (const s of scored) { // fill up if strand cap left gaps
-    if (chosen.length >= 20) break;
-    if (!chosen.includes(s.id)) chosen.push(s.id);
-  }
-  const plan = [0, 1, 2, 3, 4].map(d => chosen.slice(d * 4, d * 4 + 4));
-  DB.plans[kidId][wk] = plan;
+  for (const s of scored) bySubject[s.subject].push(s.id);
+  const all = scored.map(s => s.id);
+  const used = new Set();
+  const take = (list) => {
+    for (const id of list) if (!used.has(id)) { used.add(id); return id; }
+    return null;
+  };
+  const days = [0, 1, 2, 3, 4].map(d => {
+    const daySubj = (d % 2 === 0) ? 'science' : 'spanish'; // M/W/F science, T/Th spanish
+    const tasks = [
+      take(bySubject.math), take(bySubject.math),
+      take(bySubject.ela), take(bySubject[daySubj]), take(all),
+    ].filter(Boolean);
+    return tasks;
+  });
+  DB.plans[kidId][wk] = { v: PLAN_VERSION, days };
   save();
-  return plan;
+  return days;
 }
 function taskDoneToday(sid, dayStr = dstr()) {
   const day = kidLog()[dayStr];
@@ -291,9 +318,18 @@ function renderToday() {
 // ============================================================
 // PRACTICE (skill catalog)
 // ============================================================
+let PRACTICE_SUBJ = 'math';
 function renderPractice() {
   const st = kidStats();
-  const html = STRANDS.map(strand => {
+  const tabs = SUBJECTS.map(sub => {
+    const skills = SKILLS.filter(s => (STRANDS.find(x => x.id === s.strand) || {}).subject === sub.id);
+    const done = skills.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
+    return `<button class="subj-tab ${sub.id === PRACTICE_SUBJ ? 'active' : ''}" data-subj="${sub.id}" style="--subj:${sub.color}">
+      <span class="se">${sub.emoji}</span><span>${sub.name}</span><span class="sd">${done}/${skills.length} 🌻</span>
+    </button>`;
+  }).join('');
+
+  const html = STRANDS.filter(x => x.subject === PRACTICE_SUBJ).map(strand => {
     const skills = SKILLS.filter(s => s.strand === strand.id);
     const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
     const rows = skills.map(s => {
@@ -305,16 +341,28 @@ function renderPractice() {
         <span class="sc">${sc}</span>
       </button>`;
     }).join('');
+    const lessonBtn = strand.lesson
+      ? `<button class="btn small sky" data-lesson="${strand.id}">📖 Learn</button>` : '';
+    const lessonCard = strand.lesson
+      ? `<div class="card lesson-card" id="lesson-${strand.id}" style="display:none">${strand.lesson}</div>` : '';
     return `<div class="strand-head">
         <span class="bubble" style="background:${strand.color}">${strand.emoji}</span>
-        <h3>${strand.name}</h3><span class="meter">${avg} avg</span>
+        <h3>${strand.name}</h3>${lessonBtn}<span class="meter">${avg} avg</span>
       </div>
+      ${lessonCard}
       <div class="skill-list">${rows}</div>`;
   }).join('');
+
   app.innerHTML = `<div class="reveal">
+    <div class="subj-tabs">${tabs}</div>
     <div class="card tilt-l" style="padding:14px 20px"><p style="font-weight:800;text-align:center">${PLANT_LEGEND}</p></div>
     ${html}</div>`;
+  $$('[data-subj]').forEach(b => b.onclick = () => { PRACTICE_SUBJ = b.dataset.subj; renderPractice(); });
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
+  $$('[data-lesson]').forEach(b => b.onclick = () => {
+    const el = $('#lesson-' + b.dataset.lesson);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  });
 }
 
 // ============================================================
@@ -359,6 +407,11 @@ function nextQuestion() {
       ${q.suffix ? `<span style="font-family:var(--font-display);font-size:30px;align-self:center;font-weight:600">${q.suffix}</span>` : ''}
       <button class="btn primary big" id="checkBtn">Check ✓</button>
     </div>`;
+  } else if (q.type === 'text') {
+    answerUI = `<div class="answer-row">
+      <input class="num-input" id="numIn" style="width:260px" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button class="btn primary big" id="checkBtn">Check ✓</button>
+    </div>`;
   }
   card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
   card.innerHTML = `
@@ -369,7 +422,7 @@ function nextQuestion() {
 
   if (q.type === 'mc') {
     $$('.choice', card).forEach(b => b.onclick = () => grade(b.dataset.c, b));
-  } else if (q.type === 'num') {
+  } else if (q.type === 'num' || q.type === 'text') {
     const inp = $('#numIn');
     const check = () => { if (inp.value.trim() !== '') grade(inp.value); };
     $('#checkBtn').onclick = check;
@@ -392,6 +445,8 @@ function grade(given, btn) {
   let correct;
   if (q.type === 'num' || q.type === 'line') {
     correct = Number(String(given).replace(/[,\s]/g, '')) === Number(q.answer);
+  } else if (q.type === 'text') {
+    correct = String(given).trim().toLowerCase() === String(q.answer).trim().toLowerCase();
   } else {
     correct = String(given) === String(q.answer);
   }
@@ -431,7 +486,7 @@ function grade(given, btn) {
       if (b.dataset.c === String(q.answer)) b.classList.add('right');
       else if (b === btn && !correct) b.classList.add('wrong');
     });
-  } else if (q.type === 'num') {
+  } else if (q.type === 'num' || q.type === 'text') {
     $('#numIn').disabled = true; $('#checkBtn').disabled = true;
     $('#numIn').style.background = correct ? 'var(--ok-bg)' : 'var(--bad-bg)';
   }
@@ -529,15 +584,18 @@ function renderProgress() {
   const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
   const streak = streakDays();
 
-  // strand mastery bars
-  const bars = STRANDS.map(strand => {
-    const skills = SKILLS.filter(s => s.strand === strand.id);
-    const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
-    return `<div class="row">
-      <span class="lbl">${strand.emoji} ${strand.name}</span>
-      <span class="track"><span class="fill" style="width:${avg}%"></span></span>
-      <span class="val">${avg}</span>
-    </div>`;
+  // strand mastery bars, grouped by subject
+  const bars = SUBJECTS.map(sub => {
+    const strandRows = STRANDS.filter(x => x.subject === sub.id).map(strand => {
+      const skills = SKILLS.filter(s => s.strand === strand.id);
+      const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
+      return `<div class="row">
+        <span class="lbl">${strand.emoji} ${strand.name}</span>
+        <span class="track"><span class="fill" style="width:${avg}%"></span></span>
+        <span class="val">${avg}</span>
+      </div>`;
+    }).join('');
+    return `<div style="font-family:var(--font-display);font-weight:600;font-size:18px;margin:16px 0 8px">${sub.emoji} ${sub.name}</div>${strandRows}`;
   }).join('');
 
   // this week vs last week
@@ -818,13 +876,15 @@ function renderGrownups() {
       <button class="btn ghost" id="backHome">← Back</button></div>
     </div>
     <div class="card tilt-r">
-      <h2><span class="bubble" style="background:var(--sun)">💡</span>How Math Garden works</h2>
+      <h2><span class="bubble" style="background:var(--sun)">💡</span>How Learning Garden works</h2>
       <p class="note">
-        • <b>Questions are made fresh every time</b> by little math recipes, so practice never runs out and no two days are the same.<br><br>
-        • <b>The garden score (0–100)</b> works like IXL's SmartScore: right answers grow it, wrong answers shrink it a little, and 100 = mastered (🌻). Skills covered match 2nd-grade standards.<br><br>
-        • <b>A new weekly plan grows every Monday</b> — 4 skills per school day, automatically mixing new material with skills that need review.<br><br>
-        • <b>Everything is saved on this computer only.</b> No accounts, no ads, no fees, works without internet. To use it on another device, copy the whole folder over.<br><br>
-        • Aim for <b>10 questions a day</b> — that keeps the streak alive and takes about 5 minutes.
+        • <b>Four subjects</b> — Math, Language, Science, and Spanish — matching what 2nd graders learn (modeled on IXL's grade-2 skill lists).<br><br>
+        • <b>Questions are made fresh every time</b> by little question recipes, so practice never runs out.<br><br>
+        • <b>The garden score (0–100)</b> works like IXL's SmartScore: right answers grow it, wrong answers shrink it a little, and 100 = mastered (🌻).<br><br>
+        • <b>A new weekly plan grows every Monday</b> — 5 skills per school day: 2 math, 1 language, science on Mon/Wed/Fri, Spanish on Tue/Thu, plus 1 review pick.<br><br>
+        • <b>Mini-lessons instead of videos:</b> tap 📖 Learn on any topic for a kid-level lesson card. Spanish words have 🔊 buttons that speak out loud using the Mac's built-in voice. For real videos, search the topic name + "for kids" on YouTube Kids — Homeschool Pop, Jack Hartmann, and Scratch Garden are great free channels.<br><br>
+        • <b>Each kid has their own garden.</b> Progress, plans, streaks, and badges are tracked separately per child — switch kids by tapping the name chip up top.<br><br>
+        • <b>Everything is saved on this computer only.</b> No accounts, no ads, no fees, works without internet. Aim for <b>10 questions a day</b> per kid.
       </p>
     </div>
   </div>`;

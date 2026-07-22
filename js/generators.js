@@ -243,8 +243,15 @@ function verticalMath(a, b, op) {
 }
 
 // ============================================================
-// STRANDS
+// SUBJECTS & STRANDS
 // ============================================================
+
+const SUBJECTS = [
+  { id: 'math', name: 'Math', emoji: '🧮', color: 'var(--sky)' },
+  { id: 'ela', name: 'Language', emoji: '📚', color: 'var(--coral)' },
+  { id: 'science', name: 'Science', emoji: '🔬', color: 'var(--leaf)' },
+  { id: 'spanish', name: 'Spanish', emoji: '🌎', color: 'var(--sun)' },
+];
 
 const STRANDS = [
   { id: 'count', name: 'Counting & Patterns', emoji: '🔢', color: 'var(--sun)' },
@@ -260,6 +267,7 @@ const STRANDS = [
   { id: 'data',  name: 'Graphs & Data',       emoji: '📊', color: 'var(--berry)' },
   { id: 'mult',  name: 'Getting Ready to ×',  emoji: '✖️', color: 'var(--cocoa)' },
 ];
+STRANDS.forEach(s => { s.subject = 'math'; });
 
 // ============================================================
 // SKILLS — each gen() returns:
@@ -376,7 +384,8 @@ const SKILLS = [
     gen: () => {
       const n = ri(100, 999);
       const s = String(n);
-      const pos = ri(0, 2);
+      const nonZero = [0, 1, 2].filter(i => +s[i] !== 0);
+      const pos = pick(nonZero);
       const digit = +s[pos];
       const value = digit * [100, 10, 1][pos];
       const placeName = ['hundreds', 'tens', 'ones'][pos];
@@ -1068,17 +1077,18 @@ const SKILLS = [
   {
     id: 'mult_array', strand: 'mult', name: 'Arrays & repeated addition',
     gen: () => {
-      const r = ri(2, 4), c = ri(2, 6);
+      const r = ri(2, 4);
+      let c = ri(2, 6); while (c === r) c = ri(2, 6);
       const correct = `${Array(r).fill(c).join(' + ')} = ${r * c}`;
       const wrongs = [
         `${Array(c).fill(r).join(' + ')} = ${r * c + r}`,
         `${Array(r).fill(c + 1).join(' + ')} = ${r * (c + 1)}`,
         `${c} + ${r} = ${c + r}`,
-      ];
+      ].filter(w => w !== correct);
       return {
         prompt: `Which addition sentence matches the rows of this array?`,
         body: arraySVG(r, c), wide: true,
-        type: 'mc', choices: shuffle([correct, ...wrongs]), answer: correct,
+        type: 'mc', choices: shuffle([correct, ...[...new Set(wrongs)]]), answer: correct,
         explain: `There are <b>${r} rows</b> with <b>${c} dots</b> in each row: ${correct}. ✓`,
       };
     },
@@ -1116,5 +1126,3 @@ function skipCount(step) {
     explain: `Each number goes up by <b>${step}</b>. ${full[blankIdx - 1]} + ${step} = <b>${answer}</b>.`,
   };
 }
-
-const SKILL_MAP = Object.fromEntries(SKILLS.map(s => [s.id, s]));
