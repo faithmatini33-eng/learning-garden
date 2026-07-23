@@ -17,7 +17,7 @@ Note (macOS): the system Python can't read `~/Desktop` (TCC). Serve from a copy 
 | `js/sounds.js` | WebAudio sound kit (`GardenSounds.*`) — from the design handoff, production-ready |
 | `js/generators.js` | helpers (`ri/pick/shuffle/mcSet`), SVG widgets (number line, clock, coins, graphs…), `SUBJECTS`, `STRANDS`, 56 math skills. `gen(lvl)` = adaptive difficulty (1 easy / 2 on-level / 3 stretch) |
 | `js/ela.js` `js/science.js` `js/spanish.js` `js/social.js` `js/typing.js` | push subject strands + skills into the shared arrays; strand `lesson` HTML = the 📖 Learn cards |
-| `js/learn.js` | guided lessons: owl teaches idea-by-idea (Plant it) → 2 unrecorded warmups (Water it) → normal mastery run (Watch it grow); watched lessons in `DB.lessons` |
+| `js/learn.js` | the Learn system (design v3): per-strand lesson paths (strict order), fox-taught lessons — 5 subject variants (diagram/blocks/sentence/vocab/sort) + auto-taught lessons for every other skill, try-it checks (reteach, never buzz), My Learning dashboard, intro/resume/complete/path-complete moments; completing a lesson plants its skill in Practice at sprouting (25). `DB.learn` |
 | `js/sprint.js` | ⚡ 60-second fact drills (timer ring + keypad); personal bests in `DB.sprint` |
 | `js/coach.js` | school-focus sync (`SKILL_KEYWORDS`), diagnostics ("Garden Checkup"), Daily Mix, Socratic math tutor + solo transfer step, word-problem wizard w/ **listening ears** (free `SpeechRecognition` — the owl hears the kid read & prefills their numbers), Tricky Words (syllable card + say-it-back listening + saved chips), parent report |
 | `js/custom.js` | parent-authored lessons (`DB.custom` → real skills) + homework photo helper |

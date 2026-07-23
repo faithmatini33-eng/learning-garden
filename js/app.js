@@ -291,7 +291,7 @@ function show(view, param) {
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
     worksheet: renderWorksheetMaker, garden: renderMyGarden, profile: renderProfile,
-    lesson: () => renderGuidedLesson(param),
+    learn: renderMyLearning, learnpath: () => renderLearnPath(param),
   };
   (views[view] || renderKids)();
 }
@@ -799,69 +799,121 @@ function openSettings() {
 // PRACTICE (skill catalog)
 // ============================================================
 let PRACTICE_SUBJ = 'math';
+const STAGE_OF = (s) => s >= 100 ? 'mastered!' : s >= 75 ? 'blooming' : s >= 50 ? 'growing' : s >= 25 ? 'sprouting' : 'new';
+const STAGE_COLOR = (s) => s >= 100 ? 'var(--gold)' : s >= 75 ? '#F58BA4' : s >= 25 ? 'var(--green)' : 'var(--muted)';
 function renderPractice() {
   const st = kidStats();
   const subs = activeSubjects();
   if (!subs.some(s => s.id === PRACTICE_SUBJ)) PRACTICE_SUBJ = 'math';
+  const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
+
+  // app bar = page header (design 10a, per the full-width-bar rule)
+  setAppbar(`
+    <div class="hero-meta"><div class="hi">Practice</div>
+      <p class="note" style="margin-top:0">Pick a garden bed and grow a skill</p></div>
+    <span class="ab-spacer"></span>
+    <span class="pill">${icon('flame', 15)} ${streakDays()}</span>
+    <span class="pill gold">${icon('star', 15)} ${levelInfo().stars}</span>`);
+
+  // 1 — subject chip row (counts inline; My Lessons dashed)
   const tabs = subs.map(sub => {
     const u = subjUI(sub.id);
-    const skills = SKILLS.filter(s => (STRANDS.find(x => x.id === s.strand) || {}).subject === sub.id);
+    const skills = SKILLS.filter(s => strandSubject[s.strand] === sub.id);
     const done = skills.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
     const active = sub.id === PRACTICE_SUBJ;
-    return `<button class="subj-tab ${active ? 'active' : ''}" data-subj="${sub.id}"
-      style="${active ? `background:${u.tint};border-color:${u.color}` : ''}">
-      ${subjTile(sub.id, 40, 20)}<span>${sub.name}</span>
-      <span class="sd" ${active ? `style="color:${u.dark};font-weight:700"` : ''}>${done}/${skills.length} mastered</span>
+    return `<button class="subj-chip ${active ? 'active' : ''} ${sub.id === 'custom' ? 'dashed' : ''}" data-subj="${sub.id}"
+      style="${active ? `background:${u.tint};border-color:${u.color};color:${u.dark}` : ''}">
+      <span style="color:${u.color}">${icon(u.icon, 16)}</span> ${sub.name}
+      <span class="cnt">${done}/${skills.length}</span>
     </button>`;
   }).join('');
 
-  const html = STRANDS.filter(x => x.subject === PRACTICE_SUBJ).map(strand => {
-    const skills = SKILLS.filter(s => s.strand === strand.id);
-    const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
-    const su = subjUI(strand.subject);
-    const rows = skills.map(s => {
-      const sc = (st[s.id] || { s: 0 }).s;
-      return `<button class="skill-row" data-skill="${s.id}">
-        <span class="plant">${plantSVG(sc, 28)}</span>
-        <span class="info"><span class="nm">${s.name}</span>
-          <span class="bar"><i style="width:${sc}%"></i></span></span>
-        <span class="sc">${sc}</span>
-      </button>`;
-    }).join('');
-    const watched = kidLessons()[strand.id];
-    const lessonBtn = strand.lesson
-      ? `<button class="btn small sky" data-lesson="${strand.id}">${icon('bulb', 14)} Learn${watched ? ` ${icon('check', 12)}` : ''}</button>` : '';
-    return `<div class="strand-head">
-        <span class="bubble" style="background:${su.tint};color:${su.color}">${strand.emoji}</span>
-        <h3>${strand.name}</h3>${lessonBtn}<span class="meter">${avg} avg</span>
-      </div>
-      <div class="skill-list">${rows}</div>`;
-  }).join('');
+  // 2 — "Keep growing" hero: most recently practiced unfinished skill
+  const log = kidLog();
+  let heroSkill = null;
+  for (const day of Object.keys(log).sort().reverse()) {
+    for (const sid of Object.keys(log[day].per || {})) {
+      const sc = (st[sid] || { s: 0 }).s;
+      if (SKILL_MAP[sid] && sc > 0 && sc < 100) { heroSkill = SKILL_MAP[sid]; break; }
+    }
+    if (heroSkill) break;
+  }
+  if (!heroSkill) heroSkill = SKILLS.map(s => ({ s, v: st[s.id] || { s: 0, a: 0 } })).filter(x => x.v.a > 0 && x.v.s < 100).sort((a, b) => b.v.s - a.v.s).map(x => x.s)[0] || null;
+  const heroHTML = heroSkill ? (() => {
+    const v = st[heroSkill.id] || { s: 0, c: 0 };
+    const sub = SUBJECTS.find(x => x.id === strandSubject[heroSkill.strand]);
+    const toBloom = Math.max(1, Math.ceil((75 - v.s) / 6));
+    return `<div class="keep-hero">
+      <span class="kh-plant">${plantSVG(v.s, 44)}</span>
+      <span style="flex:1;min-width:0">
+        <span class="eyebrow" style="color:var(--green)">Keep growing</span>
+        <b class="kh-name">${esc(heroSkill.name)}</b>
+        <p class="note">${sub ? esc(sub.name) : ''} · ${STAGE_OF(v.s)} · ${v.c || 0} correct so far${v.s < 75 ? ` — about ${toBloom} more to bloom` : ''}</p>
+      </span>
+      <button class="btn primary caps-btn" data-skill="${heroSkill.id}">Continue</button>
+    </div>`;
+  })() : '';
 
-  const legend = `<div class="legend-pill">
-    ${plantSVG(0, 18)} new → ${plantSVG(30, 18)} sprouting → ${plantSVG(55, 18)} growing → ${plantSVG(80, 18)} blooming → ${plantSVG(100, 18)} <b style="color:var(--gold)">mastered!</b>
+  // 3 — Extra sunshine
+  const sunshine = `<div class="sunshine-card">
+    <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('zap', 19)}</span>
+    <span style="flex:1;min-width:0"><b style="font-family:var(--font-head)">Extra sunshine</b>
+      <div class="sun-chips">
+        <button class="btn primary small" id="goMix">Daily Mix</button>
+        ${SPRINT_DRILLS.map(d => `<button class="btn small ghost" data-sprint="${d.id}">${d.name}</button>`).join('')}
+      </div></span>
   </div>`;
 
-  const extras = `<div class="card" style="padding:14px 18px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <span class="eyebrow" style="margin-right:4px">Extra sunshine</span>
-    <button class="btn primary small" id="goMix">${icon('rainbow', 15)} Daily Mix</button>
-    ${SPRINT_DRILLS.map(d => {
-      const rec = sprintBest(d.id);
-      return `<button class="btn small ghost" data-sprint="${d.id}">${icon('zap', 14)} ${d.name}${rec.best ? ` · ${rec.best}` : ''}</button>`;
-    }).join('')}
+  // 4 — strand cards (wide strands span both columns)
+  const cards = STRANDS.filter(x => x.subject === PRACTICE_SUBJ).map(strand => {
+    const skills = SKILLS.filter(s => s.strand === strand.id);
+    const attempted = skills.filter(s => (st[s.id] || { a: 0 }).a > 0);
+    const avg = attempted.length ? Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length) : 0;
+    const mastered = skills.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
+    const pct = skills.length ? Math.round(mastered / skills.length * 100) : 0;
+    const su = subjUI(strand.subject);
+    const wide = skills.length > 3;
+    const rows = skills.map(s => {
+      const v = st[s.id] || { s: 0, c: 0 };
+      const isHero = heroSkill && s.id === heroSkill.id;
+      return `<button class="skill-line ${isHero ? 'hot' : ''}" data-skill="${s.id}">
+        <span class="sl-stage">${v.s < 25 && !(v.a > 0) ? '<span class="seed-dot"></span>' : plantSVG(v.s, 20)}</span>
+        <span class="sl-name">${esc(s.name)}</span>
+        <span class="sl-label" style="color:${STAGE_COLOR(v.s)}">${STAGE_OF(v.s)}${v.s >= 25 && v.s < 100 ? ` · ${v.c || 0}` : ''}</span>
+        ${icon('right', 14, 'sl-chev')}
+      </button>`;
+    }).join('');
+    return `<div class="strand-card ${wide ? 'wide' : ''}">
+      <div class="strand-top">
+        <span class="subj-ico" style="width:34px;height:34px;background:${su.tint}">${strand.emoji}</span>
+        <h3>${esc(strand.name)}</h3>
+        ${attempted.length ? `<span class="pill" style="font-size:11px;padding:4px 10px;color:var(--green);background:var(--green-tint);border-color:var(--green-tint)">${avg} avg</span>` : ''}
+        <button class="btn small learn-pill" data-learnpath="${strand.id}">${icon('bulb', 13)} Learn</button>
+      </div>
+      <span class="strand-bar"><i style="width:${pct}%"></i></span>
+      <div class="${wide ? 'skill-cols' : ''}">${rows}</div>
+    </div>`;
+  }).join('');
+
+  const legend = `<div class="stage-legend">
+    <span><span class="seed-dot"></span> new</span> ${icon('arrowright', 11)}
+    <span>${plantSVG(30, 16)} sprouting</span> ${icon('arrowright', 11)}
+    <span>${plantSVG(55, 16)} growing</span> ${icon('arrowright', 11)}
+    <span>${plantSVG(80, 16)} blooming</span> ${icon('arrowright', 11)}
+    <span>${plantSVG(100, 16)} <b style="color:var(--gold)">mastered!</b></span>
   </div>`;
 
   app.innerHTML = `<div class="reveal">
-    <div class="subj-tabs">${tabs}</div>
+    <div class="subj-chip-row">${tabs}</div>
+    <div class="practice-hero-row">${heroHTML}${sunshine}</div>
+    <div class="strand-grid">${cards}</div>
     ${legend}
-    ${extras}
-    ${html}</div>`;
+  </div>`;
   $('#goMix').onclick = startMix;
   $$('[data-sprint]').forEach(b => b.onclick = () => startSprint(b.dataset.sprint));
   $$('[data-subj]').forEach(b => b.onclick = () => { PRACTICE_SUBJ = b.dataset.subj; renderPractice(); });
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
-  // Learn = guided lesson (owl teaches → together → on your own), not an info card
-  $$('[data-lesson]').forEach(b => b.onclick = () => show('lesson', b.dataset.lesson));
+  $$('[data-learnpath]').forEach(b => b.onclick = () => show('learnpath', b.dataset.learnpath));
   upgradeSayButtons(app);
 }
 
@@ -1527,7 +1579,7 @@ function renderGrownups() {
       const d = new Date(mon); d.setDate(mon.getDate() + i);
       const e = log[dstr(d)]; if (e && e.t > 0) { wkT += e.t; wkC += e.c; days++; }
     }
-    const lessonsWk = Object.values((DB.lessons || {})[k.id] || {}).filter(ds => ds >= dstr(mon)).length;
+    const lessonsWk = (((DB.learn || {})[k.id] || {}).learnedLessons || []).filter(x => x.date >= dstr(mon)).length;
     const focusIds = (DB.focus[k.id] && DB.focus[k.id].week === wk) ? DB.focus[k.id].skills : [];
     const weak = SKILLS
       .map(s => ({ s, v: st[s.id] || { s: 0, a: 0 } }))
