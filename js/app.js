@@ -58,13 +58,24 @@ function pickVoice(lang) {
 
 function speak(text, lang = 'es-ES') {
   if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
+  // Safari/iPad swallow an utterance queued in the same tick as cancel() —
+  // only cancel when busy, and defer the new speech a beat afterwards.
+  const wasBusy = speechSynthesis.speaking || speechSynthesis.pending;
+  if (wasBusy) speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === 'en' ? 'en-US' : lang;
   const v = pickVoice(u.lang);
   if (v) u.voice = v;
   u.rate = 0.82;
-  speechSynthesis.speak(u);
+  window.__lgUtter = u; // iOS GC guard — collected utterances go silent
+  if (wasBusy) setTimeout(() => speechSynthesis.speak(u), 80);
+  else speechSynthesis.speak(u);
+  return u;
+}
+// voice list loads async on some browsers — warm it so pickVoice works
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  speechSynthesis.addEventListener('voiceschanged', () => speechSynthesis.getVoices());
 }
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-say]');
@@ -280,6 +291,7 @@ function show(view, param) {
   document.body.classList.toggle('easy-font', !!ks.easyFont);
   document.body.classList.toggle('calm-motion', !!ks.calmMotion);
   document.body.classList.toggle('parent-mode', PARENT_VIEWS.includes(view));
+  document.documentElement.classList.toggle('parent-mode', PARENT_VIEWS.includes(view)); // html bg must match — banding fix
   $('#tabbar').style.display = hasKid && view !== 'kids' && view !== 'garden' ? 'flex' : 'none';
   // default app bar: brand left, kid chip right — screens may override with their own bar content
   setAppbar(appbarBrand() + '<span class="ab-spacer"></span>' + appbarKidChip());

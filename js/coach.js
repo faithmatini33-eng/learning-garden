@@ -1047,81 +1047,156 @@ function twSavedPaint() {
   $('#twAdd').onclick = () => $('#whWord').focus();
 }
 
-function wordHelp(w) {
-  // work everything out FIRST, save after — a crash must never brick a chip
-  const chunks = syllabify(w);
-  const parts = [];
+let TW = null;
 
+// guided word lesson: SEE it -> SOUND it -> UNDERSTAND it -> SPELL it
+function wordHelp(w) {
+  const chunks = syllabify(w);
   const saved = kidTrickyWords();
   if (!saved.includes(w)) { saved.unshift(w); if (saved.length > 12) saved.length = 12; save(); }
-
-  // beat count comes from the same chunks the big card shows — never let them disagree
-  const syl = chunks.length;
-  parts.push(`<div class="hw-step"><div class="n">${icon('hand', 15)}</div><div class="t"><b>Clap it out:</b> "${esc(w)}" has about <b>${syl}</b> beat${syl > 1 ? 's' : ''}. Say it slowly, one chunk at a time.</div></div>`);
-
-  const pre = WH_PREFIXES.find(([p]) => w.startsWith(p) && w.length > p.length + 2);
-  const suf = WH_SUFFIXES.find(([s]) => w.endsWith(s) && w.length > s.length + 2);
-  if (pre) parts.push(`<div class="hw-step"><div class="n">${icon('puzzle', 15)}</div><div class="t"><b>Word part spotted!</b> It starts with <b>${pre[0]}-</b>, which means <b>${pre[1]}</b>. Cover it up and read the rest: <b>${esc(w.slice(pre[0].length))}</b>.</div></div>`);
-  if (suf) parts.push(`<div class="hw-step"><div class="n">${icon('puzzle', 15)}</div><div class="t"><b>Word part spotted!</b> It ends with <b>-${suf[0]}</b>, which means <b>${suf[1]}</b>. The base word is <b>${esc(w.slice(0, w.length - suf[0].length))}</b>.</div></div>`);
-
-  const comp = (typeof COMPOUND_BANK !== 'undefined') && COMPOUND_BANK.find(c => c[2] === w);
-  if (comp) parts.push(`<div class="hw-step"><div class="n">${icon('link', 15)}</div><div class="t"><b>It's a compound word!</b> <b>${comp[0]}</b> + <b>${comp[1]}</b> = ${esc(w)} ${comp[3]}</div></div>`);
-
-  const syn = (typeof SYNONYM_BANK !== 'undefined') && SYNONYM_BANK.find(s => s[0] === w || s[1] === w);
-  if (syn) parts.push(`<div class="hw-step"><div class="n">${icon('users', 15)}</div><div class="t"><b>Word twin:</b> ${esc(w)} means about the same as <b>${esc(syn[0] === w ? syn[1] : syn[0])}</b>.</div></div>`);
-  const ant = (typeof ANTONYM_BANK !== 'undefined') && ANTONYM_BANK.find(s => s[0] === w || s[1] === w);
-  if (ant) parts.push(`<div class="hw-step"><div class="n">${icon('swap', 15)}</div><div class="t"><b>Opposite:</b> the opposite of ${esc(w)} is <b>${esc(ant[0] === w ? ant[1] : ant[0])}</b>.</div></div>`);
-
-  parts.push(`<div class="hw-step"><div class="n">${icon('search', 15)}</div><div class="t"><b>Reading-detective moves for ANY word:</b><br>
-    1. Read the whole sentence around it — what would make sense there?<br>
-    2. Look at the picture if there is one.<br>
-    3. Break the word into chunks and sound out each chunk.<br>
-    4. Still stuck? Ask a grown-up — good readers ask questions! And a grown-up can look it up with you in a kids' dictionary.</div></div>`);
-
-  // apostrophe words (o'clock): chunks come from the stripped letters, so
-  // show the real spelling whole rather than a wrong-looking split
-  const showSplit = chunks.length > 1 && /^[a-z]+$/.test(w);
-  $('#whOut').innerHTML = `
-    <div class="tw-card">
-      <div class="tw-word">${showSplit ? chunks.map(esc).join('<span class="dot">·</span>') : esc(w)}</div>
-      <div class="tw-btns">
-        <button class="tw-btn fill" id="twHear">${icon('volume', 14)} hear it</button>
-        <button class="tw-btn" id="twSay">${SR_CTOR ? `${icon('mic', 13)} ` : ''}say it with me</button>
-        <button class="tw-btn plain" id="twKnow">I know it now ${icon('check', 13)}</button>
-      </div>
-      <div id="twEcho"></div>
-    </div>
-    <div class="step-list" style="margin-top:14px">${parts.join('')}</div>`;
-  $('#twHear').onclick = () => speak(w, 'en');
-  $('#twSay').onclick = () => {
-    // slow chunk-by-chunk echo: "be, cause… because" — commas make the voice pause
-    if (!('speechSynthesis' in window)) return;
-    helperStopRec();
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(chunks.join(', ') + '. ' + w);
-    u.lang = 'en-US';
-    const v = pickVoice('en-US'); if (v) u.voice = v;
-    u.rate = 0.55;
-    // then it's the kid's turn — the owl listens for them to say it back
-    if (SR_CTOR) u.onend = () => twEcho(w);
-    speechSynthesis.speak(u);
-  };
-  $('#twKnow').onclick = () => {
-    const list = kidTrickyWords();
-    const i = list.indexOf(w);
-    if (i >= 0) list.splice(i, 1);
-    save();
-    sfx('cheer'); burst(60, true);
-    $('#whOut').innerHTML = `<div class="tw-card">
-      <p style="font-family:var(--font-head);font-weight:800;font-size:22px"><span style="color:var(--gold)">${icon('star', 20)}</span> "${esc(w)}" isn't tricky anymore — you grew right past it!</p>
-      <p class="note" style="margin-top:6px">It left your tricky-word list. Type another word any time.</p>
-    </div>`;
-    twSavedPaint();
-    $('#whWord').value = '';
-  };
+  TW = { w, chunks, step: 1, misses: 0 };
   if ($('#whWord')) $('#whWord').value = w;
   twSavedPaint();
-  upgradeSayButtons($('#whOut'));
+  twPaint();
+}
+
+function twCardHTML(hidden) {
+  const { w, chunks } = TW;
+  const showSplit = chunks.length > 1 && /^[a-z]+$/.test(w);
+  const word = hidden
+    ? `<div class="tw-word" style="letter-spacing:.2em;color:var(--muted)">${w.replace(/[a-z]/gi, '_ ').trim()}</div>`
+    : `<div class="tw-word">${showSplit
+        ? chunks.map((c, i) => `<button class="tw-chunk" data-chunk="${i}">${esc(c)}</button>`).join('<span class="dot">·</span>')
+        : `<button class="tw-chunk" data-chunk="-1">${esc(w)}</button>`}</div>`;
+  return `<div class="tw-card">${word}
+    <div class="tw-btns">
+      <button class="tw-btn fill" id="twHear">${icon('volume', 14)} hear it</button>
+      <button class="tw-btn" id="twSay">${SR_CTOR ? `${icon('mic', 13)} ` : ''}say it with me</button>
+      <button class="tw-btn plain" id="twKnow">I know it now ${icon('check', 13)}</button>
+    </div>
+    <div id="twEcho"></div>
+  </div>`;
+}
+
+function twWire() {
+  const { w, chunks } = TW;
+  $$('#whOut .tw-chunk').forEach(b => b.onclick = () => {
+    const i = +b.dataset.chunk;
+    speak(i < 0 ? w : chunks[i], 'en');
+  });
+  const hear = $('#twHear'); if (hear) hear.onclick = () => speak(w, 'en');
+  const say = $('#twSay'); if (say) say.onclick = twSayFlow;
+  const know = $('#twKnow'); if (know) know.onclick = twGraduate;
+}
+
+function twSayFlow() {
+  if (!('speechSynthesis' in window)) return;
+  helperStopRec();
+  const { w, chunks } = TW;
+  const u = new SpeechSynthesisUtterance(chunks.join(', ') + '. ' + w);
+  u.lang = 'en-US';
+  const v = pickVoice('en-US'); if (v) u.voice = v;
+  u.rate = 0.55;
+  window.__lgUtter = u;
+  if (SR_CTOR) u.onend = () => twEcho(w);
+  const busy = speechSynthesis.speaking || speechSynthesis.pending;
+  if (busy) { speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 80); }
+  else speechSynthesis.speak(u);
+}
+
+function twGraduate() {
+  const { w } = TW;
+  const list = kidTrickyWords();
+  const i = list.indexOf(w);
+  if (i >= 0) list.splice(i, 1);
+  save();
+  sfx('cheer'); burst(60, true);
+  $('#whOut').innerHTML = `<div class="tw-card">
+    <p style="font-family:var(--font-head);font-weight:800;font-size:22px"><span style="color:var(--gold)">${icon('star', 20)}</span> "${esc(w)}" isn't tricky anymore — you grew right past it!</p>
+    <p class="note" style="margin-top:6px">It left your tricky-word list. Type another word any time.</p>
+  </div>`;
+  twSavedPaint();
+  $('#whWord').value = '';
+}
+
+function twPaint(owlText) {
+  const { w, chunks, step } = TW;
+  const dots = [1, 2, 3, 4].map(n =>
+    `<span class="beat-pill ${n < step ? 'on' : ''} ${n === step ? 'cur' : ''}">${n < step ? icon('check', 11) : n}</span>`).join('');
+  const OWL = {
+    1: `Here\'s your word! Tap each chunk to hear it — chunks are how readers crack big words.`,
+    2: `Now clap it out: <b>${chunks.length}</b> beat${chunks.length > 1 ? 's' : ''}. Tap "say it with me" and say it back to me — I\'m listening!`,
+    3: `Every word has secrets. Here\'s what I found inside this one…`,
+    4: `Last step, detective: spell it from memory. You\'ve got this!`,
+  };
+  let body = '';
+  if (step <= 2) body = twCardHTML(false);
+  if (step === 3) {
+    const parts = [];
+    const pre = WH_PREFIXES.find(([p]) => w.startsWith(p) && w.length > p.length + 2);
+    const suf = WH_SUFFIXES.find(([s]) => w.endsWith(s) && w.length > s.length + 2);
+    if (pre) parts.push(`<div class="hw-step"><div class="n">${icon('puzzle', 15)}</div><div class="t"><b>Word part spotted!</b> It starts with <b>${pre[0]}-</b>, which means <b>${pre[1]}</b>. Cover it up and read the rest: <b>${esc(w.slice(pre[0].length))}</b>.</div></div>`);
+    if (suf) parts.push(`<div class="hw-step"><div class="n">${icon('puzzle', 15)}</div><div class="t"><b>Word part spotted!</b> It ends with <b>-${suf[0]}</b>, which means <b>${suf[1]}</b>. The base word is <b>${esc(w.slice(0, w.length - suf[0].length))}</b>.</div></div>`);
+    const comp = (typeof COMPOUND_BANK !== 'undefined') && COMPOUND_BANK.find(c => c[2] === w);
+    if (comp) parts.push(`<div class="hw-step"><div class="n">${icon('link', 15)}</div><div class="t"><b>It\'s a compound word!</b> <b>${comp[0]}</b> + <b>${comp[1]}</b> = ${esc(w)} ${comp[3]}</div></div>`);
+    const syn = (typeof SYNONYM_BANK !== 'undefined') && SYNONYM_BANK.find(x => x[0] === w || x[1] === w);
+    if (syn) parts.push(`<div class="hw-step"><div class="n">${icon('users', 15)}</div><div class="t"><b>Word twin:</b> ${esc(w)} means about the same as <b>${esc(syn[0] === w ? syn[1] : syn[0])}</b>.</div></div>`);
+    const ant = (typeof ANTONYM_BANK !== 'undefined') && ANTONYM_BANK.find(x => x[0] === w || x[1] === w);
+    if (ant) parts.push(`<div class="hw-step"><div class="n">${icon('swap', 15)}</div><div class="t"><b>Opposite:</b> the opposite of ${esc(w)} is <b>${esc(ant[0] === w ? ant[1] : ant[0])}</b>.</div></div>`);
+    if (!parts.length) parts.push(`<div class="hw-step"><div class="n">${icon('search', 15)}</div><div class="t"><b>Reading-detective moves:</b><br>
+      1. Read the whole sentence around it — what would make sense?<br>
+      2. Look at the picture if there is one.<br>
+      3. Break it into chunks: <b>${chunks.map(esc).join(' · ')}</b> — sound out each one.<br>
+      4. Still stuck? Ask a grown-up — good readers ask questions!</div></div>`);
+    body = `${twCardHTML(false)}<div class="step-list" style="margin-top:14px">${parts.join('')}</div>`;
+  }
+  if (step === 4) {
+    body = `${twCardHTML(true)}
+      <div class="answer-row" style="margin-top:14px">
+        <input class="num-input" id="twSpell" style="width:260px;font-size:22px;text-align:center" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="type it from memory">
+        <button class="btn primary big" id="twSpellGo">Check</button>
+      </div>
+      <div id="twSpellFb" style="text-align:center;margin-top:8px"></div>`;
+  }
+  $('#whOut').innerHTML = `
+    <div style="display:flex;justify-content:center;gap:8px;margin:4px 0 12px">${dots}</div>
+    <div class="owl-note" style="margin:0 auto 14px;max-width:560px">${owlSVG(36)}<span class="say">${owlText || OWL[step]}</span></div>
+    ${body}
+    <div class="answer-row" style="margin-top:14px">
+      ${step > 1 ? `<button class="btn ghost" id="twBack">${icon('left', 14)} Back</button>` : ''}
+      ${step < 4 ? `<button class="btn primary caps-btn" id="twNext">${step === 1 ? 'Sound it out' : step === 2 ? 'What\'s inside it?' : 'Spell it!'} ${icon('arrowright', 14)}</button>` : ''}
+    </div>`;
+  twWire();
+  const nx = $('#twNext'); if (nx) nx.onclick = () => { TW.step++; twPaint(); };
+  const bk = $('#twBack'); if (bk) bk.onclick = () => { TW.step--; twPaint(); };
+  if (step === 1) speak(w, 'en');
+  if (step === 2) twSayFlow();
+  if (step === 4) {
+    const inp = $('#twSpell');
+    const check = () => {
+      const typed = inp.value.trim().toLowerCase();
+      if (!typed) return;
+      if (typed === w.toLowerCase()) {
+        sfx('cheer'); burst(60, true);
+        inp.disabled = true; $('#twSpellGo').disabled = true;
+        inp.style.background = 'var(--ok-bg)';
+        $('#twSpellFb').innerHTML = `<span class="pill" style="color:var(--green);background:var(--green-tint);border-color:var(--green-tint)">${icon('check', 14)} Perfect spelling! Tap "I know it now" when it feels easy.</span>
+          <div style="margin-top:12px">${twCardHTML(false).replace('id="twHear"', 'id="twHear2"')}</div>`;
+        twWire();
+        const h2 = $('#twHear2'); if (h2) h2.onclick = () => speak(w, 'en');
+      } else {
+        TW.misses++;
+        sfx('wrong');
+        inp.select();
+        $('#twSpellFb').innerHTML = TW.misses === 1
+          ? `<span class="pill" style="color:var(--gold)">${icon('bulb', 14)} Almost! Peek: <b style="margin-left:4px">${esc(w)}</b> — now try again.</span>`
+          : `<span class="pill">It\'s spelled <b style="margin:0 4px">${esc(w)}</b> — copy it once, that still counts as learning!</span>`;
+      }
+    };
+    $('#twSpellGo').onclick = check;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+    inp.focus();
+  }
 }
 
 // after "say it with me", the owl listens for the kid to say the word back

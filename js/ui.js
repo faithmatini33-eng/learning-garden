@@ -169,10 +169,24 @@ function plantSVG(score, size = 26, variant = 0) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${art}</svg>`;
 }
 
+// The mark: an open book with a flower growing out of its pages —
+// learning that grows. Unique to us; every petal is ours.
 function logoSVG(size = 40) {
   let petals = '';
-  for (let i = 0; i < 6; i++) petals += `<ellipse cx="16" cy="8.6" rx="4.2" ry="6.8" fill="#F2B035" transform="rotate(${i * 60} 16 16)"/>`;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${petals}<circle cx="16" cy="16" r="5.4" fill="#8C5A2B"/></svg>`;
+  for (let i = 0; i < 7; i++) {
+    petals += `<ellipse cx="32" cy="14.2" rx="5.6" ry="9.4" fill="${i % 2 ? '#F2B035' : '#E8A63C'}" transform="rotate(${i * (360 / 7)} 32 22)"/>`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    ${petals}
+    <circle cx="32" cy="22" r="7.6" fill="#8C5A2B"/>
+    <circle cx="29.6" cy="19.8" r="2" fill="#A97B4F"/>
+    <path d="M32 29.5 V44" stroke="#4E9B6B" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M32 38 Q25.5 36.5 23.5 31.5 Q30 31.5 32 38 Z" fill="#4E9B6B"/>
+    <path d="M32 41 Q38.5 39.5 40.5 34.5 Q34 34.5 32 41 Z" fill="#7FB86F"/>
+    <path d="M10 44 Q21 39.5 32 44 Q43 39.5 54 44 L54 56.5 Q43 52 32 56.5 Q21 52 10 56.5 Z" fill="#FBF0DE" stroke="#D05C38" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M32 44 V56.5" stroke="#D05C38" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M15 46.5 Q23 43.8 28 45.8 M15 50 Q23 47.3 28 49.3 M36 45.8 Q41 43.8 49 46.5 M36 49.3 Q41 47.3 49 50" stroke="#E8C9A8" stroke-width="1.7" stroke-linecap="round"/>
+  </svg>`;
 }
 
 // ---------------- stars & levels ----------------

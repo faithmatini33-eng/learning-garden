@@ -62,7 +62,7 @@ body {
   padding-bottom: 76px; /* just enough to clear the fixed nav */
   line-height: 1.5;
 }
-body.parent-mode { background: var(--bg-parent); }
+body.parent-mode, html.parent-mode { background: var(--bg-parent); }
 
 button { font-family: inherit; color: inherit; cursor: pointer; background: none; border: none; }
 button:focus { outline: none; }
@@ -1531,3 +1531,8 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 }
 @keyframes toastIn { from { transform: translateX(30px); } to { transform: none; } }
 .tour-card { text-align: center; max-width: 420px; position: relative; }
+
+/* guided tricky words */
+.tw-chunk { font: inherit; color: inherit; padding: 0 2px; border-radius: 10px; transition: background .15s ease, transform .15s var(--spring); }
+.tw-chunk:hover { background: var(--purple-tint); transform: translateY(-2px); }
+.beat-pill.cur { background: var(--terra); border-color: var(--terra); color: #fff; }
