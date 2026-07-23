@@ -791,8 +791,9 @@ function wordHelp(w) {
     4. Still stuck? Ask a grown-up — good readers ask questions! And a grown-up can look it up with you in a kids' dictionary.</div></div>`);
 
   $('#whOut').innerHTML = `<div class="step-list" style="margin-top:14px">${parts.join('')}</div>
-    <div class="answer-row"><button class="btn sunny" id="whAgain">Another word 🔤</button></div>`;
+    <div class="answer-row"><button class="btn sunny" id="whAgain">${icon('pencil', 14)} Another word</button></div>`;
   $('#whAgain').onclick = renderWordHelperTab;
+  upgradeSayButtons($('#whOut'));
 }
 
 // ------------------------------------------------------------

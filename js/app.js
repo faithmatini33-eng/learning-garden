@@ -876,6 +876,7 @@ function renderPractice() {
     const strand = STRANDS.find(x => x.id === b.dataset.readlesson);
     speak(speakableText(strand.lesson), 'en');
   });
+  upgradeSayButtons(app);
 }
 
 // ============================================================
@@ -884,6 +885,7 @@ function renderPractice() {
 let SESSION = null;
 function sessionShell(title, backView) {
   $('#tabbar').style.display = 'none'; // focused mode — no bottom nav
+  document.body.classList.add('no-brand'); // no brand header either (design 3b)
   app.innerHTML = `
     <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
       <button class="back" id="backBtn" aria-label="Done">${icon('left', 19)}</button>
@@ -892,7 +894,7 @@ function sessionShell(title, backView) {
       <span id="sessCount" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
       <div class="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
     </div>
-    <div class="card qcard" id="qcard"></div>
+    <div class="session-stage"><div class="card qcard" id="qcard"></div></div>
     <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>
     <span class="g-chip water-chip" id="waterChip"></span>`;
   $('#backBtn').onclick = () => show(backView);
@@ -999,8 +1001,10 @@ function nextQuestion() {
     : '';
   let answerUI = '';
   if (q.type === 'mc') {
-    const two = q.choices.length === 2;
-    answerUI = `<div class="choices ${two ? 'two' : ''}">${q.choices.map(c =>
+    // long answers get wider cards (2-up or full-width) so text never crams
+    const maxLen = Math.max(...q.choices.map(c => String(c).length));
+    const cls = maxLen > 42 ? 'one-col' : maxLen > 11 ? 'two-col' : q.choices.length === 2 ? 'two' : '';
+    answerUI = `<div class="choices ${cls}">${q.choices.map(c =>
       `<button class="choice" data-c="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`;
   } else if (q.type === 'num') {
     answerUI = `<div class="answer-row">
@@ -1018,7 +1022,7 @@ function nextQuestion() {
   card.innerHTML = `
     ${levelPill}
     <div style="text-align:${SESSION.diag ? 'center' : 'right'};margin-bottom:4px">
-      <button class="btn small sunny" id="readBtn" title="Read it out loud">🔊 Read it to me</button>
+      <button class="btn small sunny" id="readBtn" title="Read it out loud">${icon('volume', 14)} Read it to me</button>
     </div>
     <div class="qprompt">${q.prompt}</div>
     ${q.body ? `<div class="qbody">${q.body}</div>` : ''}
@@ -1035,6 +1039,7 @@ function nextQuestion() {
     speak(text, 'en');
   };
 
+  upgradeSayButtons(card);
   if (q.type === 'mc') {
     $$('.choice', card).forEach(b => b.onclick = () => grade(b.dataset.c, b));
   } else if (q.type === 'num' || q.type === 'text') {

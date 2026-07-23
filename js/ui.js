@@ -132,6 +132,15 @@ function soundsOn() {
 function sfx(name) {
   try { if (soundsOn() && window.GardenSounds && GardenSounds[name]) GardenSounds[name](); } catch (e) { /* audio blocked */ }
 }
+// swap any emoji-speaker say-buttons (from content strings) to the Lucide icon
+function upgradeSayButtons(root = document) {
+  root.querySelectorAll('[data-say]').forEach(b => {
+    if (b.querySelector('svg')) return;
+    const label = b.textContent.replace(/🔊|🔤/g, '').trim();
+    b.innerHTML = icon('volume', 14) + (label ? ' ' + label : '');
+  });
+}
+
 // every button tap: press motion only — no sound on plain clicks.
 // (Sounds are saved for moments that MEAN something: correct, water, grow, cheer.)
 document.addEventListener('pointerdown', (e) => {
