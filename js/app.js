@@ -118,7 +118,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 6; // bump when the skill catalog or plan logic changes
+const PLAN_VERSION = 7; // bump when the skill catalog or plan logic changes (7 = content2 expansion, 161 skills)
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};

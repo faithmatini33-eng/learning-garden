@@ -1215,3 +1215,6 @@ function renderTutorSolo() {
   $('#soloCheck').onclick = check;
   $('#soloIn').addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
 }
+
+// content2.js expansion skills join the school-focus keyword map
+if (typeof CONTENT2_KEYWORDS !== 'undefined') Object.assign(SKILL_KEYWORDS, CONTENT2_KEYWORDS);
