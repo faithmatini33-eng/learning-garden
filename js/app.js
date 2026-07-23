@@ -567,9 +567,12 @@ function renderToday() {
   app.innerHTML = `<div class="reveal">
     <div class="today-grid">
       <div class="today-left">
-        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${lessonCard}${planCard}${checkupCard}${owlCard}`}
+        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${lessonCard}${planCard}`}
       </div>
-      ${theme === 'stars' ? trophyPanel : gardenPanel}
+      <div class="today-right">
+        ${theme === 'stars' ? trophyPanel : gardenPanel}
+        ${firstDay ? '' : `${checkupCard}${owlCard}`}
+      </div>
     </div>
   </div>`;
 

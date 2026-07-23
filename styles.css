@@ -287,6 +287,19 @@ nav.tabbar button.active { background: var(--terra-tint); color: var(--terra-dar
   box-shadow: var(--shadow-card); background: #fff;
   display: flex; height: 470px;
 }
+/* balanced Today (2026-07-23): garden slims down, checkup + owl live below it */
+.today-right { min-width: 0; }
+.today-right .garden-panel { height: 318px; margin-bottom: 14px; }
+.today-right .garden-scene .sun-circ { top: 26px; right: 28px; width: 42px; height: 42px; }
+.today-right .card h2 { font-size: 15px; }
+.today-right .card { padding: 16px 18px; }
+.today-right .card .note { font-size: 12px; }
+.today-right .owl-card { margin-bottom: 0; }
+.today-left .plan-task { padding: 9px 8px; }
+.today-right .card .answer-row { margin-top: 6px !important; }
+.today-right .card .btn.small { font-size: 12px; padding: 6px 11px; min-height: 30px; }
+.today-right .card { margin-bottom: 14px; }
+.today-left .card.plan-card { padding: 16px 18px; }
 .garden-scene {
   position: relative; flex: 1;
   background: linear-gradient(#C9E7F5 0%, #E2F1E9 52%, #B7D8A8 54%, #9EC987 100%);
