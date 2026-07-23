@@ -435,7 +435,9 @@ function renderPractice() {
     const lessonBtn = strand.lesson
       ? `<button class="btn small sky" data-lesson="${strand.id}">📖 Learn</button>` : '';
     const lessonCard = strand.lesson
-      ? `<div class="card lesson-card" id="lesson-${strand.id}" style="display:none">${strand.lesson}</div>` : '';
+      ? `<div class="card lesson-card" id="lesson-${strand.id}" style="display:none">
+          <button class="btn small sunny" data-readlesson="${strand.id}" style="float:right" title="Read it out loud">🔊 Read it to me</button>
+          ${strand.lesson}</div>` : '';
     return `<div class="strand-head">
         <span class="bubble" style="background:${strand.color}">${strand.emoji}</span>
         <h3>${strand.name}</h3>${lessonBtn}<span class="meter">${avg} avg</span>
@@ -453,6 +455,11 @@ function renderPractice() {
   $$('[data-lesson]').forEach(b => b.onclick = () => {
     const el = $('#lesson-' + b.dataset.lesson);
     el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  });
+  $$('[data-readlesson]').forEach(b => b.onclick = () => {
+    if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    const strand = STRANDS.find(x => x.id === b.dataset.readlesson);
+    speak(speakableText(strand.lesson), 'en');
   });
 }
 
@@ -502,8 +509,18 @@ function updateScorebox() {
   $('#scoreNum').textContent = sc;
 }
 
+// strip HTML to speakable text (drops buttons, svgs, inputs)
+function speakableText(html) {
+  if (!html) return '';
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  d.querySelectorAll('button, input, svg, select').forEach(el => el.remove());
+  return d.textContent.replace(/\s+/g, ' ').trim();
+}
+
 function nextQuestion() {
   clearTimeout(SESSION.autoT);
+  if ('speechSynthesis' in window) speechSynthesis.cancel(); // stop any leftover reading
   if (SESSION.queue) {
     if (SESSION.qi >= SESSION.queue.length) {
       return SESSION.diag ? renderDiagResults() : renderMixRecap();
@@ -541,10 +558,22 @@ function nextQuestion() {
   card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
   card.innerHTML = `
     ${levelPill}
+    <div style="text-align:${SESSION.diag ? 'center' : 'right'};margin-bottom:4px">
+      <button class="btn small sunny" id="readBtn" title="Read it out loud">🔊 Read it to me</button>
+    </div>
     <div class="qprompt">${q.prompt}</div>
     ${q.body ? `<div class="qbody">${q.body}</div>` : ''}
     ${answerUI}
     <div id="fb"></div>`;
+
+  $('#readBtn').onclick = () => {
+    if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    let text = speakableText(q.prompt);
+    const bodyText = q.body && !q.body.includes('<svg') ? speakableText(q.body) : '';
+    if (bodyText) text += '. ' + bodyText;
+    if (q.type === 'mc') text += '. Your choices are: ' + q.choices.map(c => speakableText(String(c))).join(', ... ');
+    speak(text, 'en');
+  };
 
   if (q.type === 'mc') {
     $$('.choice', card).forEach(b => b.onclick = () => grade(b.dataset.c, b));
@@ -632,10 +661,16 @@ function grade(given, btn) {
   const answerShown = q.type === 'num' || q.type === 'line'
     ? `${q.answer}${q.suffix || ''}` : q.answer;
   fb.innerHTML = `<div class="feedback ${correct ? 'good' : 'bad'} pop">
-      <div class="headline">${correct ? '🌟 ' + praise : '🌧️ ' + oops + ` The answer is <u>${answerShown}</u>.`}</div>
+      <div class="headline">${correct ? '🌟 ' + praise : '🌧️ ' + oops + ` The answer is <u>${answerShown}</u>.`}
+        <button class="btn small sunny" id="readFb" style="float:right" title="Read it out loud">🔊</button></div>
       <div class="why">${q.explain || ''}</div>
     </div>
     <div class="answer-row"><button class="btn ${correct ? 'primary' : 'sunny'} big" id="nextBtn">Next ▸</button></div>`;
+  $('#readFb').onclick = () => {
+    if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    const head = correct ? praise : `Almost! The answer is ${speakableText(String(answerShown))}.`;
+    speak(head + ' ' + speakableText(q.explain || ''), 'en');
+  };
   $('#nextBtn').onclick = nextQuestion;
   $('#nextBtn').focus();
 
@@ -919,6 +954,17 @@ function renderGrownups() {
       <p class="note">Add your own content — spelling lists, vocabulary, or quizzes. It becomes a skill your kids practice, with its own garden score, and can be added to their weekly focus.</p>
       ${lessons}
       <div class="field-row"><button class="btn berry" id="newLesson" style="background:var(--berry);color:#fff">➕ Create a lesson</button></div>
+    </div>
+    <div class="card">
+      <h2><span class="bubble" style="background:var(--sky)">📚</span>Real-books library corner</h2>
+      <p class="note">Our reading passages are <b>original stories written for this app</b> (so they're free forever and match 2nd-grade reading levels). For real books, these are free and legit:</p>
+      <ul style="font-weight:700;line-height:1.9;padding-left:22px;font-size:14.5px">
+        <li><a href="https://www.storylineonline.net" target="_blank" rel="noopener">Storyline Online</a> — famous actors read real picture books aloud on video. Free, no account.</li>
+        <li><a href="https://www.uniteforliteracy.com" target="_blank" rel="noopener">Unite for Literacy</a> — free digital picture books with narration.</li>
+        <li><b>The Libby app</b> — thousands of free kids' ebooks & audiobooks with your public library card.</li>
+        <li><a href="https://www.readworks.org" target="_blank" rel="noopener">ReadWorks</a> — free leveled reading passages (free parent account; great for printing).</li>
+      </ul>
+      <p class="note" style="margin-top:8px">Tip: found words or facts in a library book worth practicing? Turn them into a <b>My Lesson</b> above — then they're part of the garden too.</p>
     </div>
     <div class="card tilt-r">
       <h2><span class="bubble" style="background:var(--sun)">💡</span>How Learning Garden works</h2>
