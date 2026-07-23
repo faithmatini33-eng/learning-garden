@@ -52,14 +52,14 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 
-html { background: var(--bg); }
+html { background: var(--bg); height: 100%; }
 body {
   font-family: var(--font-body);
   font-size: 14.5px;
   color: var(--ink);
   background: var(--bg);
-  min-height: 100vh;
-  padding-bottom: 80px;
+  min-height: 100%;
+  padding-bottom: 76px; /* just enough to clear the fixed nav */
   line-height: 1.5;
 }
 body.parent-mode { background: var(--bg-parent); }
@@ -70,7 +70,7 @@ button:focus-visible { outline: 3px solid var(--terra-tint); outline-offset: 2px
 input, select, textarea { font-family: inherit; color: inherit; }
 .ic { vertical-align: -3px; flex: none; }
 
-.wrap { max-width: 1080px; margin: 0 auto; padding: 18px 22px 40px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 16px 22px 20px; }
 
 /* ---------------- type helpers ---------------- */
 .eyebrow {
@@ -404,10 +404,12 @@ body.no-brand header.topbar { display: none; }
 .choices.one-col { grid-template-columns: 1fr; max-width: 540px; }
 .choices.one-col .choice { font-size: 15px; line-height: 1.45; padding: 14px 18px; text-align: left; }
 
-/* session content vertically centered — no dead cream below (3b) */
+/* session content centered but CAPPED — tall windows don't strand the
+   card in a sea of cream (Faith review) */
 .session-stage {
   display: flex; align-items: center; justify-content: center;
-  min-height: calc(100vh - 260px); padding: 10px 0 30px;
+  min-height: min(calc(100vh - 280px), 560px);
+  padding: 8px 0 20px;
 }
 .session-stage .qcard { width: 100%; margin: 0 auto; }
 .choice {
