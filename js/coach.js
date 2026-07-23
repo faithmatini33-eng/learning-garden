@@ -90,7 +90,7 @@ function renderSchoolSync(kidId) {
   const k = DB.kids.find(x => x.id === kidId);
   const current = focusSet(kidId);
   const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
-  const catalog = SUBJECTS.map(sub => {
+  const catalog = activeSubjects().map(sub => {
     const rows = SKILLS.filter(s => strandSubject[s.strand] === sub.id).map(s =>
       `<label style="display:flex;gap:8px;align-items:center;font-weight:700;font-size:14.5px;padding:5px 2px">
         <input type="checkbox" class="focus-chk" value="${s.id}" ${current.has(s.id) ? 'checked' : ''} style="width:19px;height:19px;accent-color:var(--leaf)">
@@ -110,6 +110,14 @@ function renderSchoolSync(kidId) {
       </div>
       <div id="matchResult"></div>
     </div>
+    <div class="card tilt-r">
+      <h2><span class="bubble" style="background:var(--sky)">🌤️</span>School-day workload</h2>
+      <p class="note">How many skills should ${esc(k.name)} do on a school day? Keep it light so they aren't overwhelmed after class — weekends stay open for exploring. Extra "bonus" skills are always one tap away.</p>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:10px">
+        <input type="range" id="goalSlider" min="2" max="6" step="1" value="${kidSettings(kidId).schoolGoal}" style="flex:1;accent-color:var(--leaf)">
+        <span id="goalLabel" style="font-family:var(--font-display);font-weight:600;font-size:20px;white-space:nowrap"></span>
+      </div>
+    </div>
     <div class="card">
       <h2><span class="bubble" style="background:var(--leaf)">✅</span>This week's focus skills</h2>
       <p class="note">Checked skills get 🎯 priority in the weekly plan (they fill the first slots each day). The rest of the plan still mixes in review and other subjects.</p>
@@ -120,6 +128,10 @@ function renderSchoolSync(kidId) {
       </div>
     </div>
   </div>`;
+
+  const goalLabel = () => { $('#goalLabel').textContent = `${$('#goalSlider').value} skills (~${$('#goalSlider').value * 3}–${$('#goalSlider').value * 4} min)`; };
+  goalLabel();
+  $('#goalSlider').oninput = () => { kidSettings(kidId).schoolGoal = +$('#goalSlider').value; save(); goalLabel(); };
 
   $('#matchBtn').onclick = () => {
     const text = $('#syncText').value.trim();
@@ -577,7 +589,7 @@ function renderParentReport(kidId) {
   const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
 
   // subject averages
-  const subjBars = SUBJECTS.map(sub => {
+  const subjBars = activeSubjects().map(sub => {
     const skills = SKILLS.filter(s => strandSubject[s.strand] === sub.id);
     const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
     const mastered = skills.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
@@ -661,7 +673,7 @@ function renderParentReport(kidId) {
       <h2><span class="bubble" style="background:var(--leaf)">🩺</span>Checkups</h2>
       ${diags}
       <p class="note" style="margin-top:8px">Run a new checkup (as ${esc(k.name)}):</p>
-      <div class="field-row">${SUBJECTS.map(s => `<button class="btn small ghost" data-rundiag="${s.id}">${s.emoji} ${s.name}</button>`).join('')}</div>
+      <div class="field-row">${activeSubjects().filter(s => s.id !== 'custom').map(s => `<button class="btn small ghost" data-rundiag="${s.id}">${s.emoji} ${s.name}</button>`).join('')}</div>
     </div>
     <div class="answer-row"><button class="btn ghost" id="backGrown">← Back to Grown-ups</button></div>
   </div>`;

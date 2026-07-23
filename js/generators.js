@@ -28,6 +28,10 @@ function mcSet(correct, makeDistractor, n = 4) {
   return { choices: shuffle([...set]), answer: String(correct) };
 }
 
+// Adaptive difficulty: gen(lvl) receives 1 (easier) · 2 (on-level) · 3 (stretch).
+// clamp keeps a range valid even when a level squeezes lo past hi.
+const rlvl = (lo, hi) => ri(Math.min(lo, hi), Math.max(lo, hi));
+
 const NAMES = ['Mia', 'Leo', 'Zoe', 'Sam', 'Ava', 'Max', 'Lily', 'Noah', 'Ruby', 'Eli', 'Nora', 'Jack'];
 const THINGS = [
   ['stickers', '⭐'], ['marbles', '🔵'], ['crayons', '🖍️'], ['apples', '🍎'],
@@ -251,7 +255,15 @@ const SUBJECTS = [
   { id: 'ela', name: 'Language', emoji: '📚', color: 'var(--coral)' },
   { id: 'science', name: 'Science', emoji: '🔬', color: 'var(--leaf)' },
   { id: 'spanish', name: 'Spanish', emoji: '🌎', color: 'var(--sun)' },
+  { id: 'custom', name: 'My Lessons', emoji: '📌', color: 'var(--berry)' },
 ];
+
+// subjects that actually have at least one skill right now (custom starts empty)
+const activeSubjects = () => {
+  const has = {};
+  STRANDS.forEach(st => { if (SKILLS.some(s => s.strand === st.id)) has[st.subject] = true; });
+  return SUBJECTS.filter(s => has[s.id]);
+};
 
 const STRANDS = [
   { id: 'count', name: 'Counting & Patterns', emoji: '🔢', color: 'var(--sun)' },
@@ -514,9 +526,11 @@ const SKILLS = [
 
   // ---------------- ADDITION ----------------
   {
-    id: 'add_facts', strand: 'add', name: 'Addition facts to 20',
-    gen: () => {
-      const a = ri(3, 12), b = ri(3, Math.min(9, 20 - a));
+    id: 'add_facts', strand: 'add', name: 'Addition facts to 20', adaptive: true,
+    gen: (lvl = 2) => {
+      const cap = lvl === 1 ? 10 : 20;
+      const a = rlvl(lvl === 3 ? 6 : 2, lvl === 1 ? 6 : 13);
+      const b = rlvl(lvl === 3 ? 5 : 2, Math.min(9, cap - a));
       return {
         prompt: `Solve it!`,
         body: `<div class="bignum">${a} + ${b} = ___</div>`,
@@ -538,10 +552,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'add_2d', strand: 'add', name: 'Add 2-digit (no carrying)',
-    gen: () => {
+    id: 'add_2d', strand: 'add', name: 'Add 2-digit (no carrying)', adaptive: true,
+    gen: (lvl = 2) => {
       const ao = ri(0, 8), bo = ri(0, 9 - ao);
-      const at = ri(1, 7), bt = ri(1, 9 - at);
+      const at = rlvl(1, lvl === 1 ? 4 : lvl === 3 ? 8 : 7), bt = rlvl(1, 9 - at);
       const a = at * 10 + ao, b = bt * 10 + bo;
       return {
         prompt: `Add the ones, then the tens.`,
@@ -552,10 +566,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'add_2d_re', strand: 'add', name: 'Add 2-digit (carrying)',
-    gen: () => {
+    id: 'add_2d_re', strand: 'add', name: 'Add 2-digit (carrying)', adaptive: true,
+    gen: (lvl = 2) => {
       const ao = ri(4, 9), bo = ri(10 - ao, 9);
-      const at = ri(1, 6), bt = ri(1, 8 - at);
+      const at = rlvl(lvl === 3 ? 3 : 1, lvl === 1 ? 3 : 6), bt = rlvl(1, 8 - at);
       const a = at * 10 + ao, b = bt * 10 + bo;
       return {
         prompt: `Careful — the ones make a new ten!`,
@@ -578,9 +592,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'add_3d', strand: 'add', name: 'Add 3-digit numbers',
-    gen: () => {
-      const a = ri(110, 480), b = ri(110, 999 - a);
+    id: 'add_3d', strand: 'add', name: 'Add 3-digit numbers', adaptive: true,
+    gen: (lvl = 2) => {
+      const a = rlvl(lvl === 3 ? 300 : 110, lvl === 1 ? 300 : lvl === 3 ? 700 : 480);
+      const b = rlvl(110, Math.min(lvl === 1 ? 300 : 999, 999 - a));
       return {
         prompt: `Add the ones, tens, then hundreds.`,
         body: verticalMath(a, b, '+'),
@@ -605,9 +620,10 @@ const SKILLS = [
 
   // ---------------- SUBTRACTION ----------------
   {
-    id: 'sub_facts', strand: 'sub', name: 'Subtraction facts to 20',
-    gen: () => {
-      const a = ri(8, 20), b = ri(2, a - 2);
+    id: 'sub_facts', strand: 'sub', name: 'Subtraction facts to 20', adaptive: true,
+    gen: (lvl = 2) => {
+      const a = rlvl(lvl === 3 ? 14 : lvl === 1 ? 5 : 8, lvl === 1 ? 12 : 20);
+      const b = ri(2, a - 2);
       return {
         prompt: `Solve it!`,
         body: `<div class="bignum">${a} − ${b} = ___</div>`,
@@ -629,10 +645,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'sub_2d', strand: 'sub', name: 'Subtract 2-digit (no borrowing)',
-    gen: () => {
+    id: 'sub_2d', strand: 'sub', name: 'Subtract 2-digit (no borrowing)', adaptive: true,
+    gen: (lvl = 2) => {
       const bo = ri(0, 8), ao = ri(bo, 9);
-      const bt = ri(1, 7), at = ri(bt + 1, 9);
+      const bt = rlvl(1, lvl === 1 ? 3 : 7), at = rlvl(bt + 1, lvl === 1 ? Math.min(bt + 4, 9) : 9);
       const a = at * 10 + ao, b = bt * 10 + bo;
       return {
         prompt: `Subtract the ones, then the tens.`,
@@ -643,10 +659,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'sub_2d_re', strand: 'sub', name: 'Subtract 2-digit (borrowing)',
-    gen: () => {
+    id: 'sub_2d_re', strand: 'sub', name: 'Subtract 2-digit (borrowing)', adaptive: true,
+    gen: (lvl = 2) => {
       const ao = ri(0, 5), bo = ri(ao + 1, 9);
-      const at = ri(3, 9), bt = ri(1, at - 2);
+      const at = rlvl(lvl === 3 ? 5 : 3, lvl === 1 ? 5 : 9), bt = ri(1, at - 2);
       const a = at * 10 + ao, b = bt * 10 + bo;
       return {
         prompt: `Careful — you'll need to borrow a ten!`,
@@ -657,9 +673,10 @@ const SKILLS = [
     },
   },
   {
-    id: 'sub_3d', strand: 'sub', name: 'Subtract 3-digit numbers',
-    gen: () => {
-      const b = ri(110, 500), a = b + ri(100, 480);
+    id: 'sub_3d', strand: 'sub', name: 'Subtract 3-digit numbers', adaptive: true,
+    gen: (lvl = 2) => {
+      const b = rlvl(110, lvl === 1 ? 300 : lvl === 3 ? 600 : 500);
+      const a = Math.min(999, b + rlvl(lvl === 1 ? 50 : lvl === 3 ? 200 : 100, lvl === 1 ? 200 : 480));
       return {
         prompt: `Work right to left. Borrow if you need to!`,
         body: verticalMath(a, b, '−'),
@@ -704,10 +721,11 @@ const SKILLS = [
 
   // ---------------- WORD PROBLEMS ----------------
   {
-    id: 'word_add', strand: 'word', name: 'Addition stories',
-    gen: () => {
+    id: 'word_add', strand: 'word', name: 'Addition stories', adaptive: true,
+    gen: (lvl = 2) => {
       const name = pick(NAMES), [thing, emoji] = pick(THINGS);
-      const a = ri(12, 60), b = ri(5, 35);
+      const a = rlvl(lvl === 1 ? 8 : lvl === 3 ? 30 : 12, lvl === 1 ? 25 : lvl === 3 ? 90 : 60);
+      const b = rlvl(lvl === 1 ? 3 : lvl === 3 ? 15 : 5, lvl === 1 ? 15 : lvl === 3 ? 60 : 35);
       return {
         prompt: `${name} has <b>${a} ${thing}</b> ${emoji}. A friend gives ${name} <b>${b} more</b>. How many ${thing} does ${name} have now?`,
         type: 'num', answer: a + b,
@@ -716,10 +734,11 @@ const SKILLS = [
     },
   },
   {
-    id: 'word_sub', strand: 'word', name: 'Subtraction stories',
-    gen: () => {
+    id: 'word_sub', strand: 'word', name: 'Subtraction stories', adaptive: true,
+    gen: (lvl = 2) => {
       const name = pick(NAMES), [thing, emoji] = pick(THINGS);
-      const a = ri(25, 90), b = ri(6, a - 10);
+      const a = rlvl(lvl === 1 ? 15 : lvl === 3 ? 50 : 25, lvl === 1 ? 40 : lvl === 3 ? 120 : 90);
+      const b = rlvl(lvl === 1 ? 3 : lvl === 3 ? 10 : 6, a - (lvl === 1 ? 8 : 10));
       const verb = pick(['gives away', 'loses', 'uses up']);
       return {
         prompt: `${name} has <b>${a} ${thing}</b> ${emoji} and ${verb} <b>${b}</b>. How many are left?`,
