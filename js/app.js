@@ -550,10 +550,11 @@ function renderToday() {
       <button class="btn primary caps-btn" id="goArcade">Play</button>
     </div>` : '';
 
-  const owlCard = `<div class="owl-card">
-      <span class="owl-tile">${owlSVG(36)}</span>
+  // full-width helper band — spreads under both columns (Faith, 2026-07-23)
+  const owlCard = `<div class="owl-card owl-band">
+      <span class="owl-tile">${owlSVG(44)}</span>
       <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>Snap a photo and the Helper Owl walks you through it, step by step.</p></span>
-      <button class="btn sky caps-btn" id="goHelper">${icon('camera', 16)} Open Helper</button>
+      <button class="btn sky caps-btn big" id="goHelper">${icon('camera', 17)} Open Helper</button>
     </div>`;
 
   // ---- right column: garden or trophy shelf ----
@@ -616,9 +617,10 @@ function renderToday() {
       </div>
       <div class="today-right">
         ${theme === 'stars' ? trophyPanel : gardenPanel}
-        ${firstDay ? '' : `${checkupCard}${owlCard}`}
+        ${firstDay ? '' : checkupCard}
       </div>
     </div>
+    ${firstDay ? '' : owlCard}
   </div>`;
 
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
