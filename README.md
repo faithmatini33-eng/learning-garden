@@ -1,6 +1,6 @@
 # Learning Garden 🌻
 
-A **free, offline, no-accounts** learning app for elementary kids (currently 2nd grade), built by Faith for her children. IXL-style practice across **Math, Language, Science, Social Studies, Spanish, Computer/typing**, plus parent-made lessons — 161 skills, all questions procedurally generated or bank-driven. No servers, no fees, ever: everything lives in `localStorage` on this device.
+A **free, offline, no-accounts** learning app for elementary kids (currently 2nd grade), built by Faith for her children. IXL-style practice across **Math, Language, Science, Social Studies, Spanish, Computer/typing**, plus parent-made lessons — 171 skills, all questions procedurally generated or bank-driven. No servers, no fees, ever: everything lives in `localStorage` on this device.
 
 ## Run it
 Double-click `index.html`. That's it. (Progress saves per browser — have kids always use the same one.)

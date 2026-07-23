@@ -96,7 +96,7 @@ const FINGER_FOR = {
   o: 'right ring', l: 'right ring',
   p: 'right pinky', ';': 'right pinky', '.': 'right ring', ' ': 'a thumb',
 };
-const KB_ROWS = ['qwertyuiop', 'asdfghjkl;', 'zxcvbnm.'];
+const KB_ROWS = ['qwertyuiop', 'asdfghjkl;', 'zxcvbnm.?!'];
 const HOME_KEYS = 'asdfjkl;';
 
 let TYPING = null;

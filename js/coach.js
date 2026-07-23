@@ -1219,3 +1219,4 @@ function renderTutorSolo() {
 
 // content2.js expansion skills join the school-focus keyword map
 if (typeof CONTENT2_KEYWORDS !== 'undefined') Object.assign(SKILL_KEYWORDS, CONTENT2_KEYWORDS);
+if (typeof CONTENT3_KEYWORDS !== 'undefined') Object.assign(SKILL_KEYWORDS, CONTENT3_KEYWORDS);
