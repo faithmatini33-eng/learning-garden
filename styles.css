@@ -1463,3 +1463,46 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
   display: flex; gap: 10px; align-items: flex-start; background: var(--teal-tint);
   border-radius: 14px; padding: 13px 15px; font-weight: 600; font-size: 13px; color: var(--teal);
 }
+
+/* ---- colorful worksheets (screen + print) ---- */
+.wsp-card { border-radius: 18px; }
+.wsp-head {
+  display: flex; align-items: center; gap: 14px; padding-bottom: 12px; margin-bottom: 16px;
+  border-bottom: 3px solid var(--terra);
+}
+.wsp-logo { flex: none; display: inline-flex; }
+.wsp-title { display: block; font-family: var(--font-head); font-weight: 800; font-size: 20px; }
+.wsp-sub { display: block; font-weight: 600; font-size: 12px; color: var(--soft); }
+.wsp-lines { display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.ws-q .wsn {
+  width: 30px; height: 30px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 14px;
+}
+.ws-work { position: relative; }
+.ws-work span {
+  position: absolute; top: 4px; left: 8px; font-size: 9px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: #CDBFA8;
+}
+.wsp-foot {
+  display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px;
+  padding-top: 12px; border-top: 1px solid var(--divider);
+  font-weight: 700; font-size: 12px; color: var(--soft); letter-spacing: .06em;
+}
+.wsp-keycols { column-count: 2; column-gap: 30px; }
+/* handwriting sheet rows */
+.hwp-row {
+  position: relative; height: 74px; margin: 14px 0;
+  border-top: 2px solid #C9BCA6; border-bottom: 2.5px solid #A99A86;
+}
+.hwp-row .mid { position: absolute; left: 0; right: 0; top: 50%; border-top: 1.5px dashed #D8CCB6; }
+.hwp-text {
+  position: absolute; left: 10px; right: 10px; top: 50%; transform: translateY(-54%);
+  font-family: 'Andika', var(--font-body); font-weight: 400; font-size: 52px; line-height: 1;
+  color: #D9CDBD; letter-spacing: .35em; white-space: nowrap; overflow: hidden;
+}
+.hwp-pagebreak { break-before: page; height: 8px; }
+@media print {
+  .ws-page .card { box-shadow: none; border: none; padding: 0; }
+  .ws-page * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .wsp-head { border-bottom-color: var(--terra) !important; }
+}
