@@ -139,6 +139,20 @@ function todayLessonPick() {
   return null;
 }
 
+// is there an unlearned lesson TEACHING this skill that is next on its
+// path? (strict order rule) — Today's plan uses this to put Learn first
+function lessonForSkill(sid) {
+  const sk = SKILL_MAP[sid];
+  if (!sk || !STRANDS.find(x => x.id === sk.strand && x.lesson)) return null;
+  const lessons = lessonsForStrand(sk.strand);
+  const mine = lessons.find(l => l.skillId === sid);
+  if (!mine) return null;
+  const learned = new Set(kidLearn().learnedLessons.map(e => e.lessonId));
+  if (learned.has(mine.id)) return null;
+  const next = lessons.find(l => !learned.has(l.id));
+  return next && next.id === mine.id ? mine : null;
+}
+
 function subjOfStrand(strandId) { return (STRANDS.find(x => x.id === strandId) || {}).subject || 'custom'; }
 
 // auto-lesson step builder: strand lesson chunks + generated try-its

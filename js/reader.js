@@ -25,7 +25,8 @@ function renderStoryReader(sk) {
   const pages = [];
   for (let i = 0; i < sentences.length; i += 2) pages.push(sentences.slice(i, i + 2).join(' ').trim());
   readerStop();
-  READER = { sk, p, pages, pi: 0, mode: 'read', slow: false, qi: 0, right: 0 };
+  const savedMode = kidSettings().readerMode; // remembered per kid
+  READER = { sk, p, pages, pi: 0, mode: savedMode || 'read', slow: false, qi: 0, right: 0, needsChoice: !savedMode };
 
   VIEW = 'session';
   $('#tabbar').style.display = 'none';
@@ -39,7 +40,7 @@ function renderStoryReader(sk) {
     <button class="btn small ghost" id="rdMode" style="white-space:nowrap"></button>`);
   app.innerHTML = `
     <div class="reader-grid">
-      <div class="rd-art">${icon('camera', 26)}<p>Story art for "${esc(p.title)}" —<br>real illustrations coming soon</p></div>
+      <div class="rd-art has-art">${typeof storyArtSVG === "function" ? storyArtSVG(p) : ""}</div>
       <div class="rd-panel">
         <div class="rd-text" id="rdText"></div>
         <div class="rd-controls">
@@ -60,12 +61,34 @@ function renderStoryReader(sk) {
   $('#rdSlow').onclick = (e) => { READER.slow = !READER.slow; e.target.classList.toggle('sky', READER.slow); if (READER.playing) readerPlay(); };
   $('#rdMode').onclick = () => {
     READER.mode = READER.mode === 'read' ? 'self' : 'read';
+    kidSettings().readerMode = READER.mode; save(); // remember the choice
     if (READER.mode === 'self') readerStop(true); else readerPlay();
     readerChrome();
   };
   $('#rdPrev').onclick = () => readerGo(-1);
   $('#rdNext').onclick = () => readerGo(1);
-  readerPage();
+  if (READER.needsChoice) readerWhoReads(); else readerPage();
+}
+
+// first story ever: the kid picks who reads (remembered; swap any time
+// with the top-bar button)
+function readerWhoReads() {
+  $('#rdText').innerHTML = `
+    <div style="text-align:center;padding:16px 0">
+      <p style="font-family:var(--font-head);font-weight:800;font-size:22px">Who's reading today?</p>
+      <p class="note" style="margin:4px 0 18px">You can switch any time with the button up top.</p>
+      <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+        <button class="btn sky big" id="whoFox">${icon('volume', 17)} Read to me</button>
+        <button class="btn big" id="whoMe">${icon('book', 17)} I'll read it myself</button>
+      </div>
+    </div>`;
+  const pickMode = (m) => {
+    READER.mode = m; READER.needsChoice = false;
+    kidSettings().readerMode = m; save();
+    readerPage();
+  };
+  $('#whoFox').onclick = () => pickMode('read');
+  $('#whoMe').onclick = () => pickMode('self');
 }
 
 function readerChrome() {

@@ -175,6 +175,22 @@ function renderSchoolSync(kidId) {
 // ------------------------------------------------------------
 // DIAGNOSTIC — "Garden Checkup" per subject
 // ------------------------------------------------------------
+// first-day checkup: SHORT and mixed — one question per key strand
+// across every subject (~14 Qs), so no kid faces a wall of 24 math
+// questions. Per-subject deep checkups still exist below.
+function startMixedDiagnostic() {
+  const quota = { math: 5, ela: 4, science: 2, social: 2, spanish: 1 };
+  const picks = [];
+  for (const [subj, n] of Object.entries(quota)) {
+    const strands = shuffle(STRANDS.filter(x => x.subject === subj && !x.custom && x.id !== 'handwriting' && x.id !== 'reading'));
+    strands.slice(0, n).forEach(st => {
+      const sk = pick(SKILLS.filter(k => k.strand === st.id));
+      if (sk) picks.push(sk.id);
+    });
+  }
+  startQueueSession({ queue: shuffle(picks), diag: true, subject: 'mixed', title: 'Garden checkup' });
+}
+
 function startDiagnostic(subjectId) {
   const strands = STRANDS.filter(s => s.subject === subjectId);
   const queue = [];
@@ -188,7 +204,7 @@ function startDiagnostic(subjectId) {
 }
 
 function renderDiagResults() {
-  const subj = SUBJECTS.find(s => s.id === SESSION.subject);
+  const subj = SUBJECTS.find(s => s.id === SESSION.subject) || { id: 'mixed', name: 'Garden', emoji: '' };
   const results = SESSION.diagResults; // {strandId: [correct, total]}
   const st = kidStats();
   const rows = Object.entries(results).map(([strandId, [c, t]]) => {

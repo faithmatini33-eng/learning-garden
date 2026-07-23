@@ -177,6 +177,18 @@ function getWeekPlan(kidId = DB.activeKid) {
   save();
   return days;
 }
+// weekend garden (only when a grown-up turns on split days): six of the
+// weakest skills, fresh each day, deterministic so re-renders agree
+function weekendTasks(kidId = DB.activeKid) {
+  const rnd = mulberry32(hashStr(kidId + dstr()));
+  const st = kidStats(kidId);
+  return SKILLS
+    .filter(s => s.strand !== 'handwriting')
+    .map(s => ({ id: s.id, sc: (st[s.id] || { s: 0 }).s, r: rnd() }))
+    .sort((a, b) => (a.sc - b.sc) || (a.r - b.r))
+    .slice(0, 6).map(x => x.id);
+}
+
 const SKILL_DONE_Q = 5; // questions to count a skill as "practiced" for the day
 function taskDoneToday(sid, dayStr = dstr()) {
   const day = kidLog()[dayStr];
@@ -406,8 +418,12 @@ function renderToday() {
   }
   const showWelcomeBack = gapDays >= 3;
 
-  const fullDay = isWeekend ? [] : (plan[dow] || []).filter(sid => SKILL_MAP[sid]);
-  const coreTasks = fullDay.slice(0, goal);
+  const daySplit = !!kidSettings().daySplit;
+  const fullDay = isWeekend ? (daySplit ? weekendTasks() : []) : (plan[dow] || []).filter(sid => SKILL_MAP[sid]);
+  let coreTasks = fullDay.slice(0, goal);
+  if (typeof lessonForSkill === 'function') {
+    coreTasks = coreTasks.slice().sort((a, b) => (lessonForSkill(b) ? 1 : 0) - (lessonForSkill(a) ? 1 : 0));
+  }
   const bonusTasks = fullDay.slice(goal);
   const doneCount = coreTasks.filter(t => taskDoneToday(t)).length;
   const allDone = coreTasks.length > 0 && doneCount === coreTasks.length;
@@ -427,14 +443,16 @@ function renderToday() {
     const subName = (SUBJECTS.find(s => s.id === subjId) || { name: 'Lesson' }).name;
     const mins = sk.strand === 'reading' ? 10 : 5;
     const done = taskDoneToday(sid);
-    return `<button class="plan-task ${done ? 'done' : ''}" data-skill="${sid}">
+    // learn before practice: an unlearned lesson turns the row into a Learn task
+    const les = (!done && typeof lessonForSkill === 'function') ? lessonForSkill(sid) : null;
+    return `<button class="plan-task ${done ? 'done' : ''}" ${les ? `data-learnles="${les.id}:${sk.strand}"` : `data-skill="${sid}"`}>
       <span class="chk">${icon('check', 16)}</span>
       ${subjTile(subjId)}
       <span style="flex:1;min-width:0;text-align:left">
         <span class="t-name">${focus.has(sid) ? '🎯 ' : ''}${sk.name}</span>
-        <span class="eyebrow t-sub" style="color:${u.color}">${subName} · ${mins} min</span>
+        <span class="eyebrow t-sub" style="color:${u.color}">${les ? `Lesson first · ${subName}` : `${subName} · ${mins} min`}</span>
       </span>
-      <span class="go" style="background:${u.tint};color:${u.dark}">Start ${icon('arrowright', 13)}</span>
+      <span class="go" style="background:${les ? 'var(--terra)' : u.tint};color:${les ? '#fff' : u.dark}">${les ? `Let's learn ${icon('bulb', 13)}` : `Start ${icon('arrowright', 13)}`}</span>
     </button>`;
   };
 
@@ -454,7 +472,7 @@ function renderToday() {
       <div style="display:flex;justify-content:center;gap:8px;align-items:flex-end;margin-bottom:10px">${plantSVG(0, 40)}${plantSVG(30, 46)}</div>
       <h2 style="justify-content:center;font-size:21px">Let's plant your first seed!</h2>
       <p class="note" style="max-width:400px;margin:4px auto 16px">A 5-minute Garden Checkup finds what you already know — then your garden plans itself.</p>
-      <button class="btn primary caps-btn big" data-diag="math">Start the checkup</button>
+      <button class="btn primary caps-btn big" id="firstCheckup">Start the checkup</button>
     </div>`;
 
   // 9f: welcome-back — plants never wilt here
@@ -476,7 +494,7 @@ function renderToday() {
   const moodNote = moodActive ? `<p class="note" style="margin:0 0 8px 4px">${icon('moon', 13)} Quick-day mode: just 1 skill tonight — it still waters the garden.</p>` : '';
 
   // ---- left column ----
-  const planCard = isWeekend
+  const planCard = (isWeekend && !daySplit)
     ? `<div class="card plan-card">
         <div class="plan-title-row">
           <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('calendar', 19)}</span>
@@ -491,11 +509,16 @@ function renderToday() {
     : `<div class="card plan-card">
         <div class="plan-title-row">
           <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('calendar', 19)}</span>
-          <h2 style="margin:0">Today's plan</h2>
+          <h2 style="margin:0">${isWeekend ? 'Weekend garden' : "Today's plan"}</h2>
           <span class="done-chip">${doneCount} of ${coreTasks.length} done</span>
         </div>
         ${allDone ? `<div style="background:var(--green-tint);border-radius:12px;padding:12px 14px;font-weight:700;color:#2E5C3F;margin:10px 0 2px"><span style="color:var(--gold)">${icon('star', 15)}</span> Plan complete! Anything more today is pure bonus. Amazing work!</div>` : ''}
-        ${coreTasks.map(rowFor).join('')}
+        ${daySplit && coreTasks.length > 1 ? `
+          <p class="bed-label"><span style="color:var(--gold)">${icon('sunrise', 15)}</span> Morning bed</p>
+          ${coreTasks.slice(0, Math.ceil(coreTasks.length / 2)).map(rowFor).join('')}
+          <p class="bed-label" style="margin-top:14px"><span style="color:var(--purple)">${icon('moon', 15)}</span> Afternoon bed</p>
+          ${coreTasks.slice(Math.ceil(coreTasks.length / 2)).map(rowFor).join('')}`
+        : coreTasks.map(rowFor).join('')}
         ${bonusTasks.length ? `<button class="btn small ghost" id="bonusToggle" style="margin-top:12px">＋ Feeling great? ${bonusTasks.length} bonus skill${bonusTasks.length > 1 ? 's' : ''}</button>
         <div id="bonusWrap" style="display:none;margin-top:6px">${bonusTasks.map(rowFor).join('')}</div>` : ''}
       </div>`;
@@ -590,6 +613,11 @@ function renderToday() {
 
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
   $$('[data-diag]').forEach(b => b.onclick = () => startDiagnostic(b.dataset.diag));
+  const fc = $('#firstCheckup'); if (fc) fc.onclick = startMixedDiagnostic;
+  $$('[data-learnles]').forEach(b => b.onclick = () => {
+    const [lid, strandId] = b.dataset.learnles.split(':');
+    startLesson(lid, strandId);
+  });
   const fp = $('#freePlay'); if (fp) fp.onclick = () => show('practice');
   const bt = $('#bonusToggle'); if (bt) bt.onclick = () => {
     const w = $('#bonusWrap'); w.style.display = w.style.display === 'none' ? 'block' : 'none';
@@ -822,6 +850,11 @@ function renderSettingsPage() {
       <div class="toggle-row">${icon('rainbow', 17)} Calm motion (fewer animations)
         <button class="tog ${s.calmMotion ? 'on' : ''}" id="togMotion" aria-label="Toggle calm motion"></button></div>
     </div>
+    <div class="card">
+      <h2><span class="bubble" style="background:var(--terra-tint);color:var(--terra)">${icon('calendar', 16)}</span>The day's shape</h2>
+      <div class="toggle-row">${icon('sprout', 17)} Split the day — morning & afternoon beds <span class="note" style="font-weight:600">(great for summer + weekends)</span>
+        <button class="tog ${s.daySplit ? 'on' : ''}" id="togSplit" aria-label="Toggle split day"></button></div>
+    </div>
     <div class="card" style="display:flex;align-items:center;gap:14px">
       <span class="subj-ico" style="width:44px;height:44px;background:var(--teal-tint);color:var(--teal)">${icon('lock', 20)}</span>
       <span style="flex:1;min-width:0"><b style="font-family:var(--font-head)">Grown-ups corner</b>
@@ -857,6 +890,10 @@ function renderSettingsPage() {
     s.calmMotion = !s.calmMotion; save();
     e.currentTarget.classList.toggle('on', !!s.calmMotion);
     document.body.classList.toggle('calm-motion', !!s.calmMotion);
+  };
+  $('#togSplit').onclick = (e) => {
+    s.daySplit = !s.daySplit; save();
+    e.currentTarget.classList.toggle('on', !!s.daySplit);
   };
   $('#setGrown').onclick = () => show('grownups');
   $('#setTour').onclick = () => { kidSettings().toured = false; save(); show('today'); };
@@ -1231,13 +1268,20 @@ function speakableText(html) {
 function nextQuestion() {
   clearTimeout(SESSION.autoT);
   if ('speechSynthesis' in window) speechSynthesis.cancel(); // stop any leftover reading
+  let diagCheer = '';
   if (SESSION.queue) {
     if (SESSION.qi >= SESSION.queue.length) {
       return SESSION.diag ? renderDiagResults() : renderMixRecap();
     }
+    if (SESSION.diag) {
+      const L = SESSION.queue.length;
+      if (SESSION.qi === Math.ceil(L / 3)) diagCheer = "You're doing great — keep going!";
+      else if (SESSION.qi === Math.ceil(2 * L / 3)) diagCheer = 'Almost there — home stretch!';
+      if (diagCheer) speak(diagCheer, 'en');
+    }
     SESSION.skill = SKILL_MAP[SESSION.queue[SESSION.qi++]];
     const t = $('#sessTitle');
-    if (t) t.textContent = (SESSION.diag ? '🩺 ' : '🌈 ') + SESSION.skill.name;
+    if (t) t.textContent = (SESSION.diag ? 'Checkup · ' : 'Mix · ') + SESSION.skill.name;
   }
   const lvl = SESSION.diag ? 2 : SESSION.guidedIntro > 0 ? 1 : difficultyFor(SESSION.skill.id);
   const q = SESSION.skill.gen(lvl);
@@ -1283,6 +1327,7 @@ function nextQuestion() {
   }
   card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
   card.innerHTML = `
+    ${diagCheer ? `<div class="cheer-strip pop">${owlSVG(30)}<b>${diagCheer}</b></div>` : ''}
     ${levelPill}
     <div style="text-align:${SESSION.diag ? 'center' : 'right'};margin-bottom:4px">
       <button class="btn small sunny" id="readBtn" title="Read it out loud">${icon('volume', 14)} Read it to me</button>

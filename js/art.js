@@ -600,7 +600,60 @@ const GardenArt = {
   foxSVG, avatarSVG,
   starSVG, flameSVG, dropSVG, sunSVG, giftSVG, trophySVG, heartSVG,
   eggSVG, caterpillarSVG, chrysalisSVG, butterflySVG,
-  flowerSVG, critterSVG, gardenSceneSVG,
+  flowerSVG, critterSVG, gardenSceneSVG, storyArtSVG,
   GARDEN_PALETTE,
 };
+
+
+// ---------------- story covers — every passage gets real art ----------------
+// A seeded storybook scene: sky by mood, hills, sun/moon, seeded flowers,
+// and a motif matched from the title (butterfly, critters, drops, eggs…).
+// Unknown titles get a warm drop-cap monogram — never a blank slot.
+function storyArtSVG(p, size = 300) {
+  const title = String(p.title || 'Story');
+  const seed = [...title].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const R = mulberry32(seed);
+  const night = /night|moon|star|light(s)? went out/i.test(title);
+  const skyTop = night ? '#3D4A6B' : (p.kind === 'facts' ? '#CDE8F5' : '#BFE0EF');
+  const skyBot = night ? '#5E6C8F' : '#E8F3EA';
+  const hill1 = night ? '#5E7D5A' : '#A9CB8F';
+  const hill2 = night ? '#4C6A49' : '#8FBB78';
+  const gid = 'sc' + (seed % 100000);
+  const motifs = [
+    [/butterfl/i, () => butterflySVG(110)],
+    [/ladybug|bug/i, () => critterSVG({ seed, size: 104 })],
+    [/bird|humming/i, () => critterSVG({ seed: seed + 4, size: 104 })],
+    [/worm/i, () => critterSVG({ seed: seed + 3, size: 104 })],
+    [/snail/i, () => critterSVG({ seed: seed + 2, size: 104 })],
+    [/turtle/i, () => (typeof avatarSVG === 'function' ? avatarSVG('turtle', 104) : null)],
+    [/dog|puppy/i, () => (typeof avatarSVG === 'function' ? avatarSVG('fox', 104) : null)],
+    [/rain|water|puddle/i, () => dropSVG(96)],
+    [/egg/i, () => eggSVG(100)],
+    [/seed|plant|flower|garden|root|stem|leaf|sunflower|swap/i, () => flowerSVG({ seed, size: 116 })],
+    [/sun\b|light/i, () => sunSVG(100)],
+    [/drum|music|quiet/i, () => trophySVG(0) && null], // no fit — falls to monogram
+  ];
+  let motif = null;
+  for (const [re, fn] of motifs) { if (re.test(title)) { motif = fn(); if (motif) break; } }
+  const monogram = !motif ? `
+    <circle cx="150" cy="128" r="52" fill="#fff" stroke="#EDE4D6" stroke-width="3"/>
+    <text x="150" y="150" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="64"
+      fill="${night ? '#5E6C8F' : '#D05C38'}">${title[0].toUpperCase()}</text>` : '';
+  const flowers = [0, 1, 2].map(i =>
+    `<g transform="translate(${34 + i * 104 + Math.floor(R() * 20)}, 236)">${flowerSVG({ seed: seed + i * 97, size: 42 })}</g>`).join('');
+  const stars = night ? [0, 1, 2, 3, 4].map(() =>
+    `<circle cx="${20 + Math.floor(R() * 260)}" cy="${16 + Math.floor(R() * 70)}" r="${1.5 + R() * 1.5}" fill="#F2E8C9"/>`).join('') : '';
+  return `<svg class="story-art-svg" viewBox="0 0 300 300" width="${size}" height="${size}" fill="none" aria-hidden="true" role="img">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${skyTop}"/><stop offset="1" stop-color="${skyBot}"/></linearGradient></defs>
+    <rect width="300" height="300" rx="18" fill="url(#${gid})"/>
+    ${stars}
+    ${night ? `<circle cx="248" cy="52" r="26" fill="#F2E8C9"/><circle cx="238" cy="46" r="22" fill="${skyTop}"/>` : `<circle cx="250" cy="52" r="28" fill="#F2B035" opacity=".9"/>`}
+    <path d="M0 218 Q75 186 150 212 T300 208 V300 H0 Z" fill="${hill1}"/>
+    <path d="M0 252 Q90 226 180 248 T300 244 V300 H0 Z" fill="${hill2}"/>
+    ${flowers}
+    ${motif ? `<g transform="translate(98, 76)">${motif}</g>` : monogram}
+  </svg>`;
+}
+
 if (typeof module !== 'undefined' && module.exports) module.exports = GardenArt;

@@ -1569,3 +1569,17 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 }
 .wsq-blank { border-bottom: 2px solid var(--ink-faint); min-height: 30px; margin-top: 12px; display: flex; align-items: flex-end; justify-content: flex-end; font-weight: 700; }
 .wsq-cell .ws-work { width: 130px; flex: none; }
+
+/* checkup encouragement + morning/afternoon beds + story art */
+.cheer-strip {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--green-tint); border-radius: 12px; padding: 9px 14px; margin-bottom: 12px;
+  font-size: 14.5px;
+}
+.bed-label {
+  display: flex; align-items: center; gap: 7px; margin: 10px 0 2px;
+  font-family: var(--font-head); font-weight: 800; font-size: 12.5px;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--soft);
+}
+.rd-art.has-art { border: none; padding: 0; background: none; }
+.rd-art.has-art svg.story-art-svg { width: 100%; height: auto; display: block; border-radius: 18px; box-shadow: var(--shadow-card); }
