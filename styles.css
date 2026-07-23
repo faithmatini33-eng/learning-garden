@@ -570,7 +570,7 @@ body.no-brand header.topbar { display: none; }
   background: var(--teal); color: #fff; border-radius: var(--r-card);
   padding: 18px 20px; display: flex; align-items: center; gap: 14px; margin-bottom: 14px;
 }
-.tutor-hero .owl { font-size: 34px; }
+.tutor-hero .owl-svg { flex: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
 .tutor-hero b { font-family: var(--font-head); font-weight: 800; font-size: 17px; display: block; }
 .tutor-hero p { font-size: 12.5px; opacity: .9; margin-top: 2px; }
 .helper-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -671,13 +671,102 @@ body.no-brand header.topbar { display: none; }
   font-family: var(--font-head); font-weight: 800; font-size: 13px;
 }
 .hw-step .t { font-weight: 500; line-height: 1.5; font-size: 13.5px; }
-.hw-step .t .mini-math { font-family: var(--font-head); font-weight: 800; background: var(--bg);
+.mini-math { font-family: var(--font-head); font-weight: 800; background: var(--bg);
   border: 1px solid var(--border); border-radius: 8px; padding: 1px 8px; white-space: nowrap; }
 
 .cheat-table { width: 100%; border-collapse: collapse; font-weight: 500; font-size: 13px; }
 .cheat-table th, .cheat-table td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; }
 .cheat-table th { background: var(--teal-tint); font-family: var(--font-head); font-weight: 800; color: var(--teal); border-color: var(--teal-tint); }
 .cheat-table td.c { text-align: center; font-size: 18px; }
+
+/* 9d wizard chip-trail (reuses .tstep step states from the 4a tutor) */
+.wiz-trail { max-width: 640px; margin: 14px auto 0; text-align: left; }
+.chipbtn {
+  border: 1.5px solid var(--border); border-radius: 100px; background: #fff;
+  font-family: var(--font-head); font-weight: 800; font-size: 13.5px; color: var(--ink);
+  padding: 8px 16px; margin: 4px 6px 2px 0;
+  transition: transform .15s var(--spring), border-color .15s ease, background .15s ease;
+}
+.chipbtn:hover { border-color: var(--dashed); transform: translateY(-1px); }
+.chipbtn.sel { background: var(--teal); border-color: var(--teal); color: #fff; }
+.chipbtn.no { border-color: var(--terra); color: var(--terra-dark); animation: nudge .32s ease; }
+.chipbtn:disabled { cursor: default; }
+.chipbtn:disabled:not(.sel):not(.no) { opacity: .5; }
+.owl-note {
+  display: flex; gap: 10px; align-items: flex-start; max-width: 640px; margin: 14px auto 0;
+}
+.owl-note .owl-svg { flex: none; }
+.owl-note .say {
+  background: var(--bg-parent); border-radius: 4px 14px 14px 14px; padding: 9px 13px;
+  font-weight: 600; font-size: 13px; color: var(--soft); line-height: 1.5;
+}
+
+/* listening ears — mic states (transform-only animation, per the webview rule) */
+@keyframes listenPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.chipbtn.listening {
+  background: var(--terra); border-color: var(--terra); color: #fff;
+  animation: listenPulse 1.1s ease-in-out infinite;
+}
+.heard-strip {
+  margin-top: 10px; background: var(--teal-tint2); border-radius: 10px; padding: 7px 11px;
+  font-weight: 600; font-size: 12.5px; display: inline-flex; gap: 7px; align-items: center;
+  text-align: left;
+}
+.heard-strip.ok { background: var(--green-tint); }
+.heard-strip.listening { animation: listenPulse 1.1s ease-in-out infinite; }
+
+/* 9d tricky words */
+.tw-card {
+  background: #FDF9F2; border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 26px 20px 20px; text-align: center; max-width: 560px; margin: 14px auto 0;
+}
+.tw-word {
+  font-family: var(--font-head); font-weight: 800; font-size: 52px; line-height: 1.15;
+  color: var(--ink); overflow-wrap: break-word;
+}
+.tw-word .dot { color: var(--purple); padding: 0 2px; }
+.tw-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+.tw-btn {
+  border-radius: 100px; padding: 9px 16px; font-family: var(--font-head); font-weight: 800;
+  font-size: 13.5px; border: 1.5px solid var(--purple); background: #fff; color: var(--purple);
+  transition: transform .15s var(--spring);
+}
+.tw-btn:hover { transform: translateY(-1px); }
+.tw-btn.fill { background: var(--purple); color: #fff; }
+.tw-btn.plain { border-color: var(--border); color: var(--ink); }
+.tw-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.tw-chip {
+  background: var(--purple-tint); color: var(--purple); border: 1.5px solid var(--purple-tint);
+  border-radius: 100px; padding: 7px 15px; font-family: var(--font-head); font-weight: 800; font-size: 13px;
+  transition: transform .15s var(--spring);
+}
+.tw-chip:hover { transform: translateY(-1px); }
+.tw-chip.add { background: #fff; border: 1.5px dashed var(--dashed); color: var(--muted); }
+
+/* 9d cheat sheets — icon rows */
+.cheat-head { display: flex; align-items: center; gap: 10px; margin: 22px 0 2px; }
+.cheat-head:first-child { margin-top: 0; }
+.cheat-head .eyebrow { font-size: 11.5px; }
+.cheat-rows { margin-top: 6px; }
+.cheat-row {
+  display: flex; align-items: center; gap: 13px; padding: 11px 2px;
+  border-bottom: 1px solid var(--divider); font-weight: 600; font-size: 13.5px;
+}
+.cheat-row:last-child { border-bottom: none; }
+.cheat-ico {
+  width: 32px; height: 32px; border-radius: 10px; flex: none;
+  display: grid; place-items: center;
+}
+.cheat-tag { margin-left: auto; font-family: var(--font-head); font-weight: 800; font-size: 13px; flex: none; padding-left: 10px; }
+.coin-badge {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  font-family: var(--font-head); font-weight: 800; font-size: 11.5px; border: 2.5px solid;
+}
+.fact-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.fact-pill {
+  border: 2px solid var(--line); border-radius: 100px; padding: 5px 13px;
+  font-family: var(--font-head); font-weight: 800; font-size: 13.5px; background: #fff;
+}
 
 /* ---------------- grown-ups (parent chrome = teal) ---------------- */
 .parent-band {
@@ -938,7 +1027,8 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 /* ---------------- print ---------------- */
 @media print {
   body { background: #fff; padding-bottom: 0; }
-  header.topbar, nav.tabbar, .btn, .answer-row, .no-print, #confetti, .mascot { display: none !important; }
+  header.topbar, nav.tabbar, .btn, .answer-row, .no-print, #confetti, .mascot,
+  .tutor-hero, .helper-tabs { display: none !important; }
   .print-only { display: block !important; }
   .card { box-shadow: none; break-inside: avoid; margin-bottom: 12px; transform: none !important; }
   .wrap { max-width: 100%; padding: 0; }

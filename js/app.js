@@ -1378,7 +1378,7 @@ let HELPER_TAB = 'home';
 function renderHelper() {
   app.innerHTML = `<div class="reveal">
     <div class="tutor-hero">
-      <span class="owl">🦉</span>
+      ${owlSVG(46)}
       <span><b>Tutor Owl</b>
       <p>A real tutor doesn't hand you answers — it asks you the right questions. Wrong answers get a hint first, so you always get a second try.</p></span>
     </div>
@@ -1394,47 +1394,62 @@ function renderHelper() {
   </div>`;
   $$('.helper-tabs button').forEach(b => {
     b.classList.toggle('active', b.dataset.t === HELPER_TAB);
-    b.onclick = () => { HELPER_TAB = b.dataset.t; renderHelper(); };
+    b.onclick = () => { helperStopRec(); HELPER_TAB = b.dataset.t; renderHelper(); };
   });
   ({ home: renderTutorHome, tutor: renderTutorTab, wizard: renderWizardTab, words: renderWordHelperTab, homework: renderHomeworkHelper, cheats: renderCheats })[HELPER_TAB]();
 }
 
 function renderCheats() {
+  // 9d: icon rows instead of tables — tinted icon square, clue words, colored tag
+  const row = (ic, color, tint, text, tag, tagColor) => `
+    <div class="cheat-row">
+      <span class="cheat-ico" style="background:${tint};color:${color}">${ic}</span>
+      <span>${text}</span>
+      <span class="cheat-tag" style="color:${tagColor || color}">${tag}</span>
+    </div>`;
+  const coin = (val, color, tint, text, tag) => `
+    <div class="cheat-row">
+      <span class="coin-badge" style="border-color:${color};color:${color};background:${tint}">${val}</span>
+      <span>${text}</span>
+      <span class="cheat-tag" style="color:${color}">${tag}</span>
+    </div>`;
+  const doubles = ['1+1=2', '2+2=4', '3+3=6', '4+4=8', '5+5=10', '6+6=12', '7+7=14', '8+8=16', '9+9=18', '10+10=20'];
   $('#helperBody').innerHTML = `
-    <h2><span class="bubble" style="background:var(--coral)">🔍</span>Word-problem clue words</h2>
-    <table class="cheat-table">
-      <tr><th>If the story says…</th><th>Then you…</th></tr>
-      <tr><td>in all · altogether · total · both · sum · joined</td><td><b>ADD ➕</b></td></tr>
-      <tr><td>left · gave away · lost · ate · fewer · take away</td><td><b>SUBTRACT ➖</b></td></tr>
-      <tr><td>how many more · how many fewer · difference</td><td><b>SUBTRACT ➖</b> (compare!)</td></tr>
-      <tr><td>each group has · rows of · bags of</td><td><b>ADD the same number again and again</b></td></tr>
-    </table>
-    <h2 style="margin-top:22px"><span class="bubble" style="background:var(--sun)">🪙</span>Money</h2>
-    <table class="cheat-table">
-      <tr><th>Coin</th><th>Worth</th><th>Remember it</th></tr>
-      <tr><td>Penny</td><td class="c">1¢</td><td>Copper color, smallest value</td></tr>
-      <tr><td>Nickel</td><td class="c">5¢</td><td>The chunky one</td></tr>
-      <tr><td>Dime</td><td class="c">10¢</td><td>Tiniest coin, worth MORE than a nickel!</td></tr>
-      <tr><td>Quarter</td><td class="c">25¢</td><td>4 quarters = $1</td></tr>
-    </table>
-    <h2 style="margin-top:22px"><span class="bubble" style="background:var(--sky)">⏰</span>Clock</h2>
-    <table class="cheat-table">
-      <tr><th>Hand</th><th>Tells you</th></tr>
-      <tr><td><b>Short</b> hand</td><td>The HOUR</td></tr>
-      <tr><td><b>Long</b> hand</td><td>The MINUTES — skip count by 5s around the clock!</td></tr>
-      <tr><td>Long hand on 12</td><td>o'clock (:00)</td></tr>
-      <tr><td>Long hand on 6</td><td>half past (:30)</td></tr>
-    </table>
-    <h2 style="margin-top:22px"><span class="bubble" style="background:var(--coral)">🧱</span>Place value</h2>
-    <table class="cheat-table">
-      <tr><th>Number</th><th>Hundreds</th><th>Tens</th><th>Ones</th></tr>
-      <tr><td class="c"><b>347</b></td><td class="c">3 (=300)</td><td class="c">4 (=40)</td><td class="c">7 (=7)</td></tr>
-    </table>
-    <h2 style="margin-top:22px"><span class="bubble" style="background:var(--leaf)">✋</span>Doubles facts (super powers!)</h2>
-    <table class="cheat-table">
-      <tr><td>1+1=2 · 2+2=4 · 3+3=6 · 4+4=8 · 5+5=10</td></tr>
-      <tr><td>6+6=12 · 7+7=14 · 8+8=16 · 9+9=18 · 10+10=20</td></tr>
-    </table>`;
+    <div class="cheat-head">
+      <p class="eyebrow" style="color:var(--gold)">Cheat sheets — clue words</p>
+      <button class="btn small ghost" id="cheatPrint" style="margin-left:auto">${icon('printer', 14)} print</button>
+    </div>
+    <div class="cheat-rows">
+      ${row(icon('plus', 16), 'var(--green)', 'var(--green-tint)', `"in all" · "altogether" · "total" · "both"`, 'add')}
+      ${row(icon('minus', 16), 'var(--terra)', 'var(--terra-tint)', `"left" · "fewer" · "gave away" · "take away"`, 'subtract')}
+      ${row(icon('minus', 16), 'var(--terra)', 'var(--terra-tint)', `"how many more" · "difference" — compare two amounts`, 'subtract')}
+      ${row(icon('equal', 16), 'var(--blue)', 'var(--blue-tint)', `"is the same as" · "equals" · "makes"`, 'equals')}
+      ${row(icon('clock', 16), 'var(--gold)', 'var(--gold-tint)', `"how much later" · "elapsed" — count up on the clock`, 'time')}
+      ${row(icon('grid', 16), 'var(--purple)', 'var(--purple-tint)', `"each" · "rows of" · "bags of" — equal groups`, 'add again & again')}
+    </div>
+    <div class="cheat-head"><p class="eyebrow" style="color:var(--gold)">Money</p></div>
+    <div class="cheat-rows">
+      ${coin('1¢', 'var(--terra)', 'var(--terra-tint)', `<b>Penny</b> — copper color, smallest value`, '1¢')}
+      ${coin('5¢', 'var(--muted)', 'var(--divider)', `<b>Nickel</b> — the chunky one`, '5¢')}
+      ${coin('10¢', 'var(--blue)', 'var(--blue-tint)', `<b>Dime</b> — tiniest coin, worth MORE than a nickel!`, '10¢')}
+      ${coin('25¢', 'var(--gold)', 'var(--gold-tint)', `<b>Quarter</b> — 4 quarters = $1`, '25¢')}
+    </div>
+    <div class="cheat-head"><p class="eyebrow" style="color:var(--gold)">Clock</p></div>
+    <div class="cheat-rows">
+      ${row(icon('clock', 16), 'var(--blue)', 'var(--blue-tint)', `The <b>SHORT</b> hand tells the hour`, 'hour')}
+      ${row(icon('clock', 16), 'var(--blue)', 'var(--blue-tint)', `The <b>LONG</b> hand tells minutes — skip count by 5s!`, 'minutes')}
+      ${row(icon('clock', 16), 'var(--blue)', 'var(--blue-tint)', `Long hand on the <b>12</b> → o'clock`, ':00')}
+      ${row(icon('clock', 16), 'var(--blue)', 'var(--blue-tint)', `Long hand on the <b>6</b> → half past`, ':30')}
+    </div>
+    <div class="cheat-head"><p class="eyebrow" style="color:var(--gold)">Place value — take 347</p></div>
+    <div class="cheat-rows">
+      ${row('<b style="font-size:15px">3</b>', 'var(--terra)', 'var(--terra-tint)', `3 hundreds`, '= 300')}
+      ${row('<b style="font-size:15px">4</b>', 'var(--gold)', 'var(--gold-tint)', `4 tens`, '= 40')}
+      ${row('<b style="font-size:15px">7</b>', 'var(--teal)', 'var(--teal-tint)', `7 ones`, '= 7')}
+    </div>
+    <div class="cheat-head"><p class="eyebrow" style="color:var(--gold)">Doubles facts — super powers!</p></div>
+    <div class="fact-pills">${doubles.map(d => `<span class="fact-pill">${d}</span>`).join('')}</div>`;
+  $('#cheatPrint').onclick = () => window.print();
 }
 
 // ============================================================

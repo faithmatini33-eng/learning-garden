@@ -40,9 +40,48 @@ const ICON_PATHS = {
   clipboard: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus: '<path d="M5 12h14"/>',
+  equal: '<line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+  hand: '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+  puzzle: '<path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  swap: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
 };
 function icon(name, size = 18, cls = '') {
   return `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.star}</svg>`;
+}
+
+// ---------------- Tutor Owl mascot (replaces the 🦉 emoji) ----------------
+// Flat, warm, design-token palette; the grad cap says "tutor".
+function owlSVG(size = 64, cls = '') {
+  return `<svg class="owl-svg ${cls}" width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    <path d="M16 16 L20 7.5 L24.5 15" fill="#A06B1B"/>
+    <path d="M48 16 L44 7.5 L39.5 15" fill="#A06B1B"/>
+    <ellipse cx="32" cy="38" rx="20" ry="22" fill="#C98A2B"/>
+    <path d="M13.5 32 Q10.5 50 20.5 57 Q14.5 47 16.8 33 Z" fill="#A06B1B"/>
+    <path d="M50.5 32 Q53.5 50 43.5 57 Q49.5 47 47.2 33 Z" fill="#A06B1B"/>
+    <ellipse cx="32" cy="46.5" rx="12.5" ry="10.5" fill="#FBF0DE"/>
+    <path d="M25 43.5 q3.5 3 7 0 M32 43.5 q3.5 3 7 0 M28.5 49 q3.5 3 7 0" stroke="#EBD9B8" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="24" cy="30" r="10" fill="#FBF6EF"/>
+    <circle cx="40" cy="30" r="10" fill="#FBF6EF"/>
+    <circle cx="24.5" cy="30.5" r="4.5" fill="#2A2320"/>
+    <circle cx="39.5" cy="30.5" r="4.5" fill="#2A2320"/>
+    <circle cx="26" cy="29" r="1.5" fill="#fff"/>
+    <circle cx="41" cy="29" r="1.5" fill="#fff"/>
+    <path d="M32 38.5 L28.4 33.8 Q32 31.8 35.6 33.8 Z" fill="#D05C38"/>
+    <ellipse cx="26.5" cy="59.2" rx="3.2" ry="1.8" fill="#A06B1B"/>
+    <ellipse cx="37.5" cy="59.2" rx="3.2" ry="1.8" fill="#A06B1B"/>
+    <path d="M24.5 13.2 q7.5 3.8 15 0 l0 5.2 q-7.5 3.8 -15 0 Z" fill="#443A33"/>
+    <path d="M32 3.5 L50.5 10.3 L32 17.2 L13.5 10.3 Z" fill="#2A2320"/>
+    <path d="M50.5 10.5 v7.5" stroke="#C98A2B" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="50.5" cy="20" r="2.2" fill="#C98A2B"/>
+  </svg>`;
 }
 
 // ---------------- subject visual identity ----------------

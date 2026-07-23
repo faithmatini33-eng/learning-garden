@@ -174,10 +174,10 @@ let HOMEWORK_URL = null;
 function renderHomeworkHelper() {
   const body = $('#helperBody');
   body.innerHTML = `
-    <p style="font-weight:800;font-size:17px;text-align:center">Snap or attach a photo of the homework sheet, then work it together with the Tutor. 📄</p>
+    <p style="font-weight:800;font-size:17px;text-align:center">Snap or attach a photo of the homework sheet, then work it together with the Tutor.</p>
     <div class="answer-row" style="flex-wrap:wrap">
       <label class="btn sky big" style="cursor:pointer">
-        📸 Choose / take a photo
+        ${icon('camera', 16)} Choose / take a photo
         <input type="file" id="hwPhoto" accept="image/*" capture="environment" style="display:none">
       </label>
       ${HOMEWORK_URL ? '<button class="btn ghost" id="hwClear">Remove photo</button>' : ''}
@@ -186,13 +186,13 @@ function renderHomeworkHelper() {
       ? `<img src="${HOMEWORK_URL}" alt="homework" style="max-width:100%;border:var(--outline);border-radius:16px;margin-top:14px;box-shadow:var(--shadow)">`
       : `<p class="note" style="text-align:center;margin-top:14px">The photo stays on this device — it is never uploaded anywhere.</p>`}</div>
     <div class="card" style="margin-top:16px;background:#FFFDF4">
-      <h2 style="font-size:19px"><span class="bubble" style="background:var(--sky)">🦉</span>Work a problem with the Tutor</h2>
+      <h2 style="font-size:19px"><span class="bubble" style="background:var(--sky)">${icon('gradcap', 17)}</span>Work a problem with the Tutor</h2>
       <p class="note">Look at the sheet, then type a math problem from it — I'll walk you through it step by step (I won't just give the answer).</p>
       <div class="hw-setup">
         <input class="num-input" id="hwA" inputmode="numeric" placeholder="52">
         <select id="hwOp"><option value="+">+</option><option value="−">−</option></select>
         <input class="num-input" id="hwB" inputmode="numeric" placeholder="27">
-        <button class="btn sky big" id="hwGo">Let's go! 🦉</button>
+        <button class="btn sky big" id="hwGo">Let's go!</button>
       </div>
       <div id="tutorBox"></div>
     </div>`;
@@ -212,7 +212,7 @@ function renderHomeworkHelper() {
     let b = parseInt($('#hwB').value.replace(/[,\s]/g, ''), 10);
     const op = $('#hwOp').value;
     if (isNaN(a) || isNaN(b) || a < 0 || b < 0 || a > 999 || b > 999) {
-      $('#tutorBox').innerHTML = `<div class="hw-step"><div class="n">!</div><div class="t">Please type two numbers from 0 to 999. 🦉</div></div>`;
+      $('#tutorBox').innerHTML = `<div class="hw-step"><div class="n">!</div><div class="t">Please type two numbers from 0 to 999.</div></div>`;
       return;
     }
     if (op === '−' && b > a) [a, b] = [b, a];
