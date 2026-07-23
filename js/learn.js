@@ -230,7 +230,8 @@ function renderLearnPath(strandId) {
     if (i === currentIdx) {
       const cur = (L.paths[strandId] || {}).current;
       const stepInfo = cur && cur.lessonId === ls.id ? cur.step : 0;
-      const total = (ls.def ? ls.def.steps.length : autoSteps(ls).length);
+      const l2total = typeof l2StepTotal === 'function' ? l2StepTotal(ls.skillId) : null;
+      const total = l2total || (ls.def ? ls.def.steps.length : autoSteps(ls).length);
       const dots = Array.from({ length: total }, (_, d) =>
         `<span class="sdot ${d < stepInfo ? 'done' : d === stepInfo ? 'cur' : ''}"></span>`).join('');
       return `<div class="path-row ${side}"><div class="path-card now">
@@ -267,6 +268,11 @@ function startLesson(lessonId, strandId, opts = {}) {
   const lessons = lessonsForStrand(strandId);
   const ls = lessons.find(x => x.id === lessonId);
   if (!ls) return show('learnpath', strandId);
+  // Turn 22 teaching engine — skills with an authored L2 lesson use it
+  // (pilot: the Spelling path); everything else keeps the classic flow.
+  if (typeof L2_DEFS !== 'undefined' && L2_DEFS[ls.skillId] && typeof l2Start === 'function') {
+    return l2Start(ls, strandId, opts);
+  }
   const steps = ls.def ? ls.def.steps.map(s => ({ ...s })) : autoSteps(ls);
   const L = kidLearn();
   const saved = (L.paths[strandId] || {}).current;
@@ -830,7 +836,8 @@ function renderMyLearning() {
     const ls = lessons.find(x => x.id === now.lessonId);
     const strand = STRANDS.find(x => x.id === now.strandId) || {};
     if (ls) {
-      const total = ls.def ? ls.def.steps.length : autoSteps(ls).length;
+      const l2total = typeof l2StepTotal === 'function' ? l2StepTotal(ls.skillId) : null;
+      const total = l2total || (ls.def ? ls.def.steps.length : autoSteps(ls).length);
       const n = lessons.findIndex(x => x.id === ls.id) + 1;
       const dots = Array.from({ length: total }, (_, d) => `<span class="sdot ${d < now.step ? 'done' : d === now.step ? 'cur' : ''}"></span>`).join('');
       nowCard = `<div class="learn-hero">
