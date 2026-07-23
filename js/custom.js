@@ -78,92 +78,158 @@ function renderCreateLesson(editId) {
   const editing = editId ? (DB.custom || []).find(c => c.id === editId) : null;
   LESSON_DRAFT = editing
     ? JSON.parse(JSON.stringify(editing))
-    : { id: 't' + Date.now(), name: '', subject: 'custom', kind: 'flash', items: [{ q: '', a: '', wrongs: ['', '', ''] }] };
+    : { id: 't' + Date.now(), name: '', subject: 'custom', kind: 'flash', items: [{ q: '', a: '', wrongs: [] }] };
+  LESSON_DRAFT.items.forEach(it => { it.wrongs = (it.wrongs || []).filter(Boolean); });
+  CREATOR_ACTIVE = 0;
+  renderCreatorShell();
+}
 
-  const subjOpts = SUBJECTS.map(s =>
-    `<option value="${s.id}" ${LESSON_DRAFT.subject === s.id ? 'selected' : ''}>${s.emoji} ${s.name}</option>`).join('');
+let CREATOR_ACTIVE = 0;
 
-  app.innerHTML = `<div class="reveal">
-    <div class="card tilt-l">
-      <h2><span class="bubble" style="background:var(--berry)">📌</span>${editing ? 'Edit' : 'Create'} a lesson</h2>
-      <p class="note">Make your own practice — this week's spelling words, vocabulary, sight words, or any quiz. It becomes a skill your kids practice, with its own garden score.</p>
-      <div class="field-row" style="flex-direction:column;align-items:stretch;gap:10px">
-        <input class="text-input" id="lesName" maxlength="40" placeholder="Lesson name (e.g. Week 12 spelling words)" value="${escAttr(LESSON_DRAFT.name)}">
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <label style="font-weight:800;font-size:14px">Subject:
-            <select id="lesSubj" style="font-weight:700;padding:6px 10px;border:var(--outline);border-radius:10px;margin-left:6px">${subjOpts}</select>
-          </label>
-          <label style="font-weight:800;font-size:14px">Type:
-            <select id="lesKind" style="font-weight:700;padding:6px 10px;border:var(--outline);border-radius:10px;margin-left:6px">
-              <option value="flash" ${LESSON_DRAFT.kind === 'flash' ? 'selected' : ''}>Flashcards (question → answer)</option>
-              <option value="mc" ${LESSON_DRAFT.kind === 'mc' ? 'selected' : ''}>Multiple choice</option>
-            </select>
-          </label>
-        </div>
+function renderCreatorShell() {
+  // teal parent band lives in the app bar (rule #8)
+  setAppbar(`
+    <span class="subj-ico" style="width:38px;height:38px;background:rgba(255,255,255,.16);color:#fff">${icon('pencil', 18)}</span>
+    <span><b>My Lessons — make one</b>Teach exactly what the class is learning — spelling lists, facts, anything.</span>
+    <span class="ab-spacer"></span>
+    <button class="btn caps-btn" id="saveLesson" style="background:#fff;border-color:#fff;color:var(--teal)">Save lesson</button>
+    <button class="btn caps-btn" id="cancelLesson" style="background:rgba(255,255,255,.15);border-color:transparent;color:#fff">${icon('left', 14)} Back</button>`);
+  app.innerHTML = `<div class="reveal creator-grid">
+    <div>
+      <div class="card">
+        <p class="eyebrow">Lesson name</p>
+        <input class="text-input" id="lesName" maxlength="40" placeholder="e.g. Week 14 spelling list" value="${escAttr(LESSON_DRAFT.name)}" style="width:100%;margin-top:6px">
+        <p class="eyebrow" style="margin-top:16px">Shows under</p>
+        <div class="subj-chip-row" id="lesSubjRow" style="margin:8px 0 0"></div>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Questions (<span id="qCount">${LESSON_DRAFT.items.length}</span>)</p>
+        <div id="qList" style="margin-top:10px"></div>
+        <button class="btn small" id="addItem" style="background:var(--teal-tint);border-color:var(--teal-tint);color:var(--teal)">${icon('plus', 14)} Add a question</button>
       </div>
     </div>
-    <div class="card" id="itemsCard"></div>
-    <div class="answer-row" style="flex-wrap:wrap">
-      <button class="btn primary" id="saveLesson">Save lesson 🌱</button>
-      <button class="btn ghost" id="cancelLesson">Cancel</button>
+    <div>
+      <div class="card">
+        <p class="eyebrow">How ${esc(DB.kids[0] ? DB.kids[0].name : 'your kid')} will see it</p>
+        <div id="lesPreview"></div>
+      </div>
+      <div class="tip-box">${icon('bulb', 15)}
+        <span>Tips: 5–10 questions is plenty. Wrong answers you type become the multiple-choice choices — with none, kids type the answer. Questions read themselves aloud to early readers automatically.</span>
+      </div>
     </div>
   </div>`;
-
-  const renderItems = () => {
-    const isMc = LESSON_DRAFT.kind === 'mc';
-    const rows = LESSON_DRAFT.items.map((it, i) => `
-      <div class="lesson-item" style="border:var(--outline);border-radius:14px;padding:12px;margin-bottom:10px;background:#FFFDF4">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <b style="font-family:var(--font-display)">Card ${i + 1}</b>
-          ${LESSON_DRAFT.items.length > 1 ? `<button class="btn small ghost" data-del-item="${i}">✕ remove</button>` : ''}
-        </div>
-        <input class="text-input les-q" data-i="${i}" style="width:100%;margin-bottom:6px" placeholder="Question / word / prompt" value="${escAttr(it.q)}">
-        <input class="text-input les-a" data-i="${i}" style="width:100%${isMc ? ';margin-bottom:6px' : ''}" placeholder="Correct answer" value="${escAttr(it.a)}">
-        ${isMc ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${[0, 1, 2].map(w => `<input class="text-input les-w" data-i="${i}" data-w="${w}" style="flex:1;min-width:120px" placeholder="Wrong choice ${w + 1}" value="${escAttr((it.wrongs || [])[w] || '')}">`).join('')}
-        </div>` : ''}
-      </div>`).join('');
-    $('#itemsCard').innerHTML = `<h2><span class="bubble" style="background:var(--sun)">✏️</span>Cards</h2>
-      ${isMc ? '<p class="note">Give the correct answer plus a few wrong choices for each question.</p>'
-             : '<p class="note">Type a question and its answer. With 4+ cards, kids pick from choices; with fewer, they type the answer.</p>'}
-      ${rows}
-      <button class="btn sunny small" id="addItem">➕ Add another card</button>`;
-
-    // wire inputs → draft
-    $$('.les-q').forEach(el => el.oninput = () => { LESSON_DRAFT.items[+el.dataset.i].q = el.value; });
-    $$('.les-a').forEach(el => el.oninput = () => { LESSON_DRAFT.items[+el.dataset.i].a = el.value; });
-    $$('.les-w').forEach(el => el.oninput = () => {
-      const it = LESSON_DRAFT.items[+el.dataset.i];
-      it.wrongs = it.wrongs || ['', '', ''];
-      it.wrongs[+el.dataset.w] = el.value;
-    });
-    $('#addItem').onclick = () => { LESSON_DRAFT.items.push({ q: '', a: '', wrongs: ['', '', ''] }); renderItems(); };
-    $$('[data-del-item]').forEach(b => b.onclick = () => { LESSON_DRAFT.items.splice(+b.dataset.delItem, 1); renderItems(); });
+  creatorSubjRow();
+  creatorQuestions();
+  creatorPreview();
+  $('#lesName').oninput = e => { LESSON_DRAFT.name = e.target.value; creatorPreview(); };
+  $('#addItem').onclick = () => {
+    LESSON_DRAFT.items.push({ q: '', a: '', wrongs: [] });
+    CREATOR_ACTIVE = LESSON_DRAFT.items.length - 1;
+    creatorQuestions(); creatorPreview();
+    $('#qCount').textContent = LESSON_DRAFT.items.length;
+    const inputs = $$('#qList .q-text'); const last = inputs[inputs.length - 1]; if (last) last.focus();
   };
-  renderItems();
-
-  $('#lesName').oninput = e => { LESSON_DRAFT.name = e.target.value; };
-  $('#lesSubj').onchange = e => { LESSON_DRAFT.subject = e.target.value; };
-  $('#lesKind').onchange = e => { LESSON_DRAFT.kind = e.target.value; renderItems(); };
   $('#cancelLesson').onclick = () => show('grownups');
-  $('#saveLesson').onclick = () => {
-    const d = LESSON_DRAFT;
-    d.name = d.name.trim();
-    d.items = d.items
-      .map(it => ({ q: it.q.trim(), a: it.a.trim(), wrongs: (it.wrongs || []).map(w => w.trim()).filter(Boolean), why: it.why }))
-      .filter(it => it.q && it.a);
-    if (!d.name) { alert('Please give your lesson a name.'); return; }
-    if (d.items.length < 1) { alert('Add at least one card with a question and answer.'); return; }
-    if (d.kind === 'mc' && d.items.some(it => it.wrongs.length < 1)) {
-      alert('Each multiple-choice card needs at least one wrong choice.'); return;
-    }
-    DB.custom = DB.custom || [];
-    const idx = DB.custom.findIndex(c => c.id === d.id);
-    if (idx >= 0) DB.custom[idx] = d; else DB.custom.push(d);
-    save();
-    loadCustomSkills();
-    show('grownups');
-  };
+  $('#saveLesson').onclick = saveCreatorLesson;
+}
+
+function creatorSubjRow() {
+  const subs = [{ id: 'custom', name: 'My Lessons' }].concat(SUBJECTS.filter(s => s.id !== 'custom'));
+  $('#lesSubjRow').innerHTML = subs.map(sub => {
+    const u = subjUI(sub.id);
+    const active = LESSON_DRAFT.subject === sub.id;
+    return `<button class="subj-chip ${active ? 'active' : ''} ${sub.id === 'custom' ? 'dashed' : ''}" data-lsubj="${sub.id}"
+      style="${active ? `background:${u.tint};border-color:${u.color};color:${u.dark}` : ''}">${esc(sub.name)}</button>`;
+  }).join('');
+  $$('[data-lsubj]').forEach(b => b.onclick = () => { LESSON_DRAFT.subject = b.dataset.lsubj; creatorSubjRow(); creatorPreview(); });
+}
+
+function creatorQuestions() {
+  const rows = LESSON_DRAFT.items.map((it, i) => {
+    const wrongChips = (it.wrongs || []).map((w, wi) =>
+      `<span class="wrong-chip">wrong: <input class="chip-in les-w" data-i="${i}" data-w="${wi}" value="${escAttr(w)}" size="${Math.max(4, w.length || 6)}">
+        <button class="chip-x" data-delw="${i}:${wi}" aria-label="Remove wrong answer">${icon('x', 10)}</button></span>`).join('');
+    return `<div class="q-card ${i === CREATOR_ACTIVE ? 'active' : ''}" data-qcard="${i}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="q-num">${i + 1}</span>
+        <input class="q-text les-q" data-i="${i}" placeholder="Type the question — e.g. Spell the word for a person you play with" value="${escAttr(it.q)}">
+        ${LESSON_DRAFT.items.length > 1 ? `<button class="icon-btn" data-del-item="${i}" aria-label="Remove question" style="width:30px;height:30px;flex:none">${icon('x', 13)}</button>` : ''}
+      </div>
+      <div class="chip-line">
+        <span class="ans-chip">${icon('check', 12)} answer: <input class="chip-in les-a" data-i="${i}" value="${escAttr(it.a)}" size="${Math.max(4, it.a.length || 6)}" placeholder="type it"></span>
+        ${wrongChips}
+        <button class="add-wrong" data-addw="${i}">＋ wrong answer</button>
+      </div>
+    </div>`;
+  }).join('');
+  $('#qList').innerHTML = rows;
+  $$('#qList .q-card').forEach(card => card.addEventListener('focusin', () => {
+    CREATOR_ACTIVE = +card.dataset.qcard;
+    $$('#qList .q-card').forEach(c => c.classList.toggle('active', c === card));
+    creatorPreview();
+  }));
+  $$('.les-q').forEach(el => el.oninput = () => { LESSON_DRAFT.items[+el.dataset.i].q = el.value; creatorPreview(); });
+  $$('.les-a').forEach(el => el.oninput = () => { const it = LESSON_DRAFT.items[+el.dataset.i]; it.a = el.value; el.size = Math.max(4, el.value.length || 6); creatorPreview(); });
+  $$('.les-w').forEach(el => el.oninput = () => { const it = LESSON_DRAFT.items[+el.dataset.i]; it.wrongs[+el.dataset.w] = el.value; el.size = Math.max(4, el.value.length || 6); creatorPreview(); });
+  $$('[data-addw]').forEach(b => b.onclick = () => {
+    const it = LESSON_DRAFT.items[+b.dataset.addw];
+    it.wrongs = it.wrongs || [];
+    if (it.wrongs.length >= 3) return;
+    it.wrongs.push('');
+    creatorQuestions(); creatorPreview();
+    const ins = $$(`.les-w[data-i="${b.dataset.addw}"]`); const last = ins[ins.length - 1]; if (last) last.focus();
+  });
+  $$('[data-delw]').forEach(b => b.onclick = () => {
+    const [i, wi] = b.dataset.delw.split(':').map(Number);
+    LESSON_DRAFT.items[i].wrongs.splice(wi, 1);
+    creatorQuestions(); creatorPreview();
+  });
+  $$('[data-del-item]').forEach(b => b.onclick = () => {
+    LESSON_DRAFT.items.splice(+b.dataset.delItem, 1);
+    CREATOR_ACTIVE = Math.min(CREATOR_ACTIVE, LESSON_DRAFT.items.length - 1);
+    creatorQuestions(); creatorPreview();
+    $('#qCount').textContent = LESSON_DRAFT.items.length;
+  });
+}
+
+function creatorPreview() {
+  const d = LESSON_DRAFT;
+  const it = d.items[CREATOR_ACTIVE] || d.items[0] || { q: '', a: '', wrongs: [] };
+  const subName = d.subject === 'custom' ? 'My Lessons' : (SUBJECTS.find(s => s.id === d.subject) || {}).name || '';
+  const choices = it.a ? shuffle([it.a].concat((it.wrongs || []).filter(Boolean))) : [];
+  const qPrev = it.q ? `
+    <div class="prev-q">
+      <p style="font-weight:800;font-size:15px">${esc(it.q)}</p>
+      ${choices.length > 1
+        ? `<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">${choices.map(c => `<span class="btn small ghost" style="pointer-events:none">${esc(c)}</span>`).join('')}</div>`
+        : `<div style="display:flex;gap:7px;margin-top:8px"><span class="num-input" style="width:130px;display:inline-block;color:var(--muted);font-size:14px;padding:8px 12px">they type it…</span></div>`}
+    </div>` : '<p class="note" style="margin-top:8px">Type a question on the left and watch it appear here.</p>';
+  $('#lesPreview').innerHTML = `
+    <div class="prev-row">
+      <span class="seed-dot" style="width:11px;height:11px"></span>
+      <b style="flex:1;min-width:0">${esc(d.name || 'Your lesson')}</b>
+      <span class="pill" style="font-size:10.5px;background:var(--purple-tint);border-color:var(--purple-tint);color:var(--purple)">${esc(subName).toUpperCase()}</span>
+    </div>
+    <p class="note" style="margin:6px 0 10px">Appears in Practice${d.subject !== 'custom' ? ` under ${esc(subName)}` : ''} and can be picked as this week's school focus.</p>
+    ${qPrev}`;
+}
+
+function saveCreatorLesson() {
+  const d = LESSON_DRAFT;
+  d.name = d.name.trim();
+  d.items = d.items
+    .map(it => ({ q: it.q.trim(), a: it.a.trim(), wrongs: (it.wrongs || []).map(w => w.trim()).filter(Boolean), why: it.why }))
+    .filter(it => it.q && it.a);
+  if (!d.name) { alert('Please give your lesson a name.'); return; }
+  if (d.items.length < 1) { alert('Add at least one question with an answer.'); return; }
+  d.kind = d.items.some(it => it.wrongs.length) ? 'mc' : 'flash';
+  DB.custom = DB.custom || [];
+  const idx = DB.custom.findIndex(c => c.id === d.id);
+  if (idx >= 0) DB.custom[idx] = d; else DB.custom.push(d);
+  save();
+  loadCustomSkills();
+  sfx('water');
+  show('grownups');
 }
 
 // ------------------------------------------------------------

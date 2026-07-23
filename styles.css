@@ -1425,3 +1425,41 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
   user-select: none; line-height: 1; letter-spacing: .04em;
 }
 #traceInk { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+/* ---- 9e My Lessons creator (two-pane, live preview) ---- */
+.creator-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .creator-grid { grid-template-columns: 1fr; } }
+.q-card {
+  border: 1.5px solid var(--border); border-radius: 14px; background: #fff;
+  padding: 13px 14px; margin-bottom: 10px; transition: border-color .15s ease;
+}
+.q-card.active { border: 2px solid var(--teal); }
+.q-num {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--bg); flex: none;
+  display: inline-grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 13px;
+}
+.q-card.active .q-num { background: var(--teal); color: #fff; }
+.q-text { flex: 1; min-width: 0; border: none; border-bottom: 1.5px solid var(--divider); padding: 6px 2px; font-weight: 700; font-size: 14.5px; background: none; }
+.q-text:focus { outline: none; border-bottom-color: var(--teal); }
+.chip-line { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 0 36px; }
+.ans-chip, .wrong-chip {
+  display: inline-flex; align-items: center; gap: 5px; border-radius: 100px;
+  padding: 5px 12px; font-weight: 700; font-size: 12.5px;
+}
+.ans-chip { background: var(--green-tint); color: var(--green); }
+.wrong-chip { background: var(--bg); color: var(--soft); border: 1px solid var(--border); }
+.chip-in { border: none; background: none; font: inherit; color: inherit; width: auto; min-width: 40px; }
+.chip-in:focus { outline: none; }
+.chip-x { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: inherit; opacity: .6; }
+.chip-x:hover { opacity: 1; }
+.add-wrong {
+  border: 1.5px dashed var(--dashed); border-radius: 100px; padding: 5px 12px;
+  font-weight: 700; font-size: 12.5px; color: var(--muted); background: #fff;
+}
+.add-wrong:hover { color: var(--ink); border-color: var(--muted); }
+.prev-row { display: flex; align-items: center; gap: 9px; background: #FDF9F2; border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; margin-top: 8px; }
+.prev-q { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: #fff; }
+.tip-box {
+  display: flex; gap: 10px; align-items: flex-start; background: var(--teal-tint);
+  border-radius: 14px; padding: 13px 15px; font-weight: 600; font-size: 13px; color: var(--teal);
+}
