@@ -867,13 +867,13 @@ function renderParentReport(kidId) {
   const sprints = (typeof SPRINT_DRILLS !== 'undefined')
     ? SPRINT_DRILLS.map(d => {
         const rec = (DB.sprint && DB.sprint[kidId] && DB.sprint[kidId][d.id]) || { best: 0, plays: 0 };
-        return rec.plays ? `<span style="display:inline-block;border:2.5px solid var(--line);border-radius:99px;padding:4px 12px;font-weight:800;font-size:13.5px;margin:3px">${d.emoji} ${d.name}: 🏆 ${rec.best} in 60s</span>` : '';
+        return rec.plays ? `<span style="display:inline-block;border:2.5px solid var(--line);border-radius:99px;padding:4px 12px;font-weight:800;font-size:13.5px;margin:3px">${d.emoji} ${d.name}: ${trophySVG(14)} ${rec.best} in 60s</span>` : '';
       }).filter(Boolean).join('') || '<p class="note">No Lightning Rounds played yet.</p>'
     : '';
 
   app.innerHTML = `<div class="reveal" id="reportPage">
     <div class="card tilt-l">
-      <h2><span class="bubble" style="background:var(--sky)">📊</span>${k.avatar} ${esc(k.name)}'s report
+      <h2><span class="bubble" style="background:var(--sky)">📊</span>${avatarFace(k.avatar, 28)} ${esc(k.name)}'s report
         <button class="btn small ghost no-print" id="printReport" style="margin-left:auto">🖨️ Print</button></h2>
       <p class="note print-only" style="display:none">Learning Garden report · printed ${dstr()}</p>
       <div class="stat-row">

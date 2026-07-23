@@ -60,7 +60,7 @@ function startSprint(drillId) {
         </div>
       </div>
     </div>
-    <div class="mascot"><span class="fox">🦊</span><span class="say" id="sprintSay">Ready? Answer as many as you can!</span></div>`;
+    <div class="mascot"><span class="fox">${foxSVG(42, "cheer")}</span><span class="say" id="sprintSay">Ready? Answer as many as you can!</span></div>`;
   window.scrollTo(0, 0);
 
   $('#sprintQuit').onclick = () => {

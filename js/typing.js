@@ -134,7 +134,7 @@ function renderTypingSession(sk) {
         </div>
       </div>
     </div>
-    <div class="mascot"><span class="fox">🦊</span><span class="say">Eyes on the screen, not your hands!</span></div>
+    <div class="mascot"><span class="fox">${foxSVG(42, "talk")}</span><span class="say">Eyes on the screen, not your hands!</span></div>
     <span class="g-chip" style="position:fixed;right:22px;bottom:22px;z-index:30">Words planted <b style="color:var(--blue)">&nbsp;<span id="plantedChip">0</span> of ${SKILL_DONE_Q}</b></span>`;
 
   $('#typeQuit').onclick = () => typingExit('practice');

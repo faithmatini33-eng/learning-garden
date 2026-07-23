@@ -306,7 +306,7 @@ function renderKids() {
     const st = kidStats(k.id);
     const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
     return `<button class="kid-card" data-kid="${k.id}">
-      <span class="face">${k.avatar}</span>
+      <span class="face">${avatarFace(k.avatar, 52)}</span>
       <span class="nm">${esc(k.name)}</span>
       <span class="sub">🌻 ${flowers} mastered</span>
     </button>`;
@@ -335,7 +335,7 @@ function renderAddKid() {
     <h2><span class="bubble" style="background:var(--leaf)">🌱</span>Plant a new garden</h2>
     <div class="field-row"><input class="text-input" id="kidName" maxlength="20" placeholder="First name"></div>
     <p style="font-weight:800;margin:14px 0 8px">Pick your animal friend:</p>
-    <div class="avatar-pick" id="avPick">${AVATARS.map((a, i) => `<button data-a="${a}" class="${i === 0 ? 'sel' : ''}">${a}</button>`).join('')}</div>
+    <div class="avatar-pick" id="avPick">${AVATARS.map((a, i) => `<button data-a="${a}" class="${i === 0 ? 'sel' : ''}">${avatarFace(a, 34)}</button>`).join('')}</div>
     <p style="font-weight:800;margin:14px 0 8px">What grade?</p>
     <div class="avatar-pick" id="gradePick">${[1, 2, 3].map(g => `<button data-g="${g}" class="${g === 2 ? 'sel' : ''}" style="font-family:var(--font-head);font-weight:800;font-size:15px;padding:8px 16px">Grade ${g}</button>`).join('')}</div>
     <p class="note" style="margin-top:6px">Practice content is 2nd grade today — more grades are coming as your kids grow.</p>
@@ -445,7 +445,7 @@ function renderToday() {
 
   // 9f: welcome-back — plants never wilt here
   const welcomeCard = `<div class="welcome-card">
-      <span style="font-size:38px">🦊</span>
+      ${foxSVG(46, "cheer")}
       <h2 style="justify-content:center;font-size:20px;margin:6px 0 2px">We missed you, ${esc(k.name)}!</h2>
       <p class="note" style="max-width:380px;margin:0 auto 14px">Your garden waited for you — nothing wilted. Water it today and a brand-new streak begins.</p>
       <button class="btn primary caps-btn" id="startPlanBtn">Start today's plan</button>
@@ -530,7 +530,7 @@ function renderToday() {
     </div>`;
 
   setAppbar(`
-    <span class="hero-avatar">${k.avatar}</span>
+    <span class="hero-avatar">${avatarFace(k.avatar, 32)}</span>
     <div class="hero-meta">
       <div class="hi">${greet}, ${esc(k.name)}</div>
       <div class="level-row">
@@ -541,8 +541,8 @@ function renderToday() {
     </div>
     <span class="ab-spacer"></span>
     <span class="pill ghost-pill">Grade ${k.grade || 2} ${icon('right', 13, 'chev-down')}</span>
-    <span class="pill">${icon('flame', 15)} ${streak}</span>
-    <span class="pill gold">${icon('star', 15)} ${lv.stars}</span>
+    <span class="pill">${flameSVG(15)} ${streak}</span>
+    <span class="pill gold">${starSVG(15)} ${lv.stars}</span>
     <button class="icon-btn" id="gearBtn" aria-label="Settings">${icon('settings', 19)}</button>
     <button class="btn sky caps-btn" id="grownBtnT">Grown-ups</button>`);
   app.innerHTML = `<div class="reveal">
@@ -608,7 +608,7 @@ function renderProfile() {
     <div class="today-grid" style="grid-template-columns:.85fr 1.15fr">
       <div>
         <div class="card" style="text-align:center;padding:26px 20px">
-          <div class="pf-avatar"><span>${k.avatar}</span><button class="pf-edit" id="pfEdit" aria-label="Change animal">${icon('pencil', 14)}</button></div>
+          <div class="pf-avatar"><span>${avatarFace(k.avatar, 56)}</span><button class="pf-edit" id="pfEdit" aria-label="Change animal">${icon('pencil', 14)}</button></div>
           <h2 style="justify-content:center;font-size:24px;margin:10px 0 0">${esc(k.name)}</h2>
           <p class="note">Grade ${k.grade || 2} · ${ANIMAL_NAMES[k.avatar] || 'Animal'} friend</p>
           <div style="display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;margin:14px 4px 6px">
@@ -618,7 +618,7 @@ function renderProfile() {
         </div>
         <div class="card" id="animalCard">
           <div class="eyebrow" style="margin-bottom:10px">Change my animal friend</div>
-          <div class="avatar-pick">${AVATARS.map(a => `<button data-av="${a}" class="${k.avatar === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
+          <div class="avatar-pick">${AVATARS.map(a => `<button data-av="${a}" class="${k.avatar === a ? 'sel' : ''}">${avatarFace(a, 34)}</button>`).join('')}</div>
         </div>
         <div class="card">
           <div class="eyebrow" style="margin-bottom:10px">My theme</div>
@@ -697,7 +697,7 @@ function renderMyGarden() {
     <div class="mg-grass">
       <div class="mg-plots">${plotHTML}${lockedHTML}</div>
       <div class="mascot" style="position:absolute;left:18px;bottom:18px">
-        <span class="fox">🦊</span>
+        ${foxSVG(40)}
         <span class="say">Every flower here is a skill you mastered. Tap one to remember it!</span>
       </div>
       <div class="mg-actions">
@@ -812,8 +812,8 @@ function renderPractice() {
     <div class="hero-meta"><div class="hi">Practice</div>
       <p class="note" style="margin-top:0">Pick a garden bed and grow a skill</p></div>
     <span class="ab-spacer"></span>
-    <span class="pill">${icon('flame', 15)} ${streakDays()}</span>
-    <span class="pill gold">${icon('star', 15)} ${levelInfo().stars}</span>`);
+    <span class="pill">${flameSVG(15)} ${streakDays()}</span>
+    <span class="pill gold">${starSVG(15)} ${levelInfo().stars}</span>`);
 
   // 1 — subject chip row (counts inline; My Lessons dashed)
   const tabs = subs.map(sub => {
@@ -932,7 +932,7 @@ function sessionShell(title, backView, tileHTML = '') {
     <div class="scorebox" id="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>`);
   app.innerHTML = `
     <div class="session-stage"><div class="card qcard" id="qcard"></div></div>
-    <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>
+    <div class="mascot" id="mascot"><span class="fox">${foxSVG(42, "talk")}</span><span class="say" id="mascotSay" style="display:none"></span></div>
     <span class="g-chip water-chip" id="waterChip"></span>`;
   $('#backBtn').onclick = () => show(backView);
   window.scrollTo(0, 0);
@@ -949,7 +949,7 @@ function updateWaterChip() {
   const core = (plan[dow] || []).filter(sid => SKILL_MAP[sid]).slice(0, goal);
   const done = core.filter(t => taskDoneToday(t)).length;
   el.innerHTML = `Today's water&nbsp; ${core.map((_, i) =>
-    `<span style="color:${i < done ? 'var(--water)' : '#D8CFC0'}">${icon('droplet', 15)}</span>`).join('')}`;
+    `<span style="opacity:${i < done ? 1 : .3}">${dropSVG(15)}</span>`).join('')}`;
 }
 
 function mascotSay(msg) {
@@ -1558,7 +1558,7 @@ function renderGrownups() {
     const acc = wkT ? Math.round(wkC / wkT * 100) : 0;
     const mastered = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
     return `<div class="kid-stat-row">
-      <span class="kid-face">${k.avatar}</span>
+      <span class="kid-face">${avatarFace(k.avatar, 36)}</span>
       <span class="kid-id"><b>${esc(k.name)}</b><small>Grade ${k.grade || 2}</small></span>
       <span class="kstat"><b>${streakDays(k.id)}</b><small>streak</small></span>
       <span class="kstat"><b>${wkT}</b><small>this week</small></span>

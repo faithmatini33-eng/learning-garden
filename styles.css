@@ -1401,3 +1401,9 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
   .cert-page h1 { font-size: 34px; margin-bottom: 20px; }
   .cert-page .c-name { font-size: 42px; font-weight: 800; font-family: var(--font-head); color: var(--terra); }
 }
+
+/* crafted art (art.js) sizing inside legacy emoji slots */
+.mascot .fox svg, .fox-face svg, .p-fox svg, .kid-chip .face svg, .kid-card .face svg,
+.hero-avatar svg, .pf-avatar span svg, .kid-face svg, .stone.gift svg, .gift-node svg, .gift-big svg { display: block; }
+.kid-chip .face, .p-fox, .kid-face { display: inline-flex; }
+.avatar-pick button svg { display: block; margin: 0 auto; }

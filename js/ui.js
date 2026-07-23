@@ -66,7 +66,7 @@ function appbarBrand() {
 }
 function appbarKidChip() {
   const k = typeof kid === 'function' ? kid() : null;
-  return k ? `<button class="kid-chip" id="kidChip"><span class="face">${k.avatar}</span> ${esc(k.name)}</button>` : '';
+  return k ? `<button class="kid-chip" id="kidChip"><span class="face">${avatarFace(k.avatar, 26)}</span> ${esc(k.name)}</button>` : '';
 }
 function setAppbar(html) {
   const el = document.getElementById('appbarInner');
@@ -74,6 +74,12 @@ function setAppbar(html) {
   el.innerHTML = html;
   const kc = document.getElementById('kidChip');
   if (kc) kc.onclick = () => show(kid() ? 'profile' : 'kids'); // name chip opens the profile (7c)
+}
+
+// ---------------- crafted avatars (art.js) — emoji stays the stored key ----------------
+const EMOJI_KIND = { '🦊': 'fox', '🐼': 'panda', '🦄': 'unicorn', '🐸': 'frog', '🦁': 'lion', '🐙': 'octopus', '🦋': 'butterfly', '🐢': 'turtle', '🐰': 'bunny', '🐯': 'tiger', '🦖': 'dino', '🐬': 'dolphin' };
+function avatarFace(emoji, size = 32) {
+  return typeof avatarSVG === 'function' ? avatarSVG(EMOJI_KIND[emoji] || 'fox', size) : `<span style="font-size:${Math.round(size * .8)}px">${emoji}</span>`;
 }
 
 // ---------------- Tutor Owl mascot (replaces the 🦉 emoji) ----------------

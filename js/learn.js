@@ -28,15 +28,15 @@ function kidLearn(kidId = DB.activeKid) {
 const LESSON_DEFS = {
   life_cycle: {
     name: 'Life cycles', term: 'life cycles',
-    intro: { cards: [['🥚', 'how a butterfly begins'], ['🔄', 'the 4 stages, in order'], ['⭐', '2 try-its · 5 stars to earn']], minutes: 8 },
+    intro: { cards: [['EGG', 'how a butterfly begins'], ['🔄', 'the 4 stages, in order'], ['⭐', '2 try-its · 5 stars to earn']], minutes: 8 },
     steps: [
       { kind: 'teach', variant: 'diagram', stage: 0, say: 'Every butterfly starts as a tiny <b>egg</b> on a leaf!', term: 'egg' },
       { kind: 'teach', variant: 'diagram', stage: 1, say: 'The egg hatches into a <b>hungry caterpillar</b>. It eats and eats and grows!', term: 'hungry caterpillar' },
-      { kind: 'tryit', q: 'What comes after the caterpillar?', cards: [['🥚', 'an egg'], ['CHRYSALIS', 'a chrysalis'], ['🦋', 'a butterfly']], answer: 'a chrysalis',
+      { kind: 'tryit', q: 'What comes after the caterpillar?', cards: [['EGG', 'an egg'], ['CHRYSALIS', 'a chrysalis'], ['FLY', 'a butterfly']], answer: 'a chrysalis',
         explain: 'The caterpillar spins a <b>chrysalis</b> and rests inside while it changes.', reteachStage: 1 },
       { kind: 'teach', variant: 'diagram', stage: 2, say: 'Inside the <b>chrysalis</b>, the caterpillar changes its whole body. Shhh — it\'s busy!', term: 'chrysalis' },
       { kind: 'teach', variant: 'diagram', stage: 3, say: 'Out comes a beautiful <b>butterfly</b> — and it lays new eggs. The circle starts again!', term: 'butterfly' },
-      { kind: 'tryit', q: 'Put your finger on where the circle STARTS. What is it?', cards: [['🦋', 'a butterfly'], ['🥚', 'an egg'], ['🐛', 'a caterpillar']], answer: 'an egg',
+      { kind: 'tryit', q: 'Put your finger on where the circle STARTS. What is it?', cards: [['FLY', 'a butterfly'], ['EGG', 'an egg'], ['CAT', 'a caterpillar']], answer: 'an egg',
         explain: 'The <b>egg</b> is the very first stage — every life cycle loops back to it.', reteachStage: 0 },
     ],
   },
@@ -181,7 +181,7 @@ function renderLearnPath(strandId) {
       const dots = Array.from({ length: total }, (_, d) =>
         `<span class="sdot ${d < stepInfo ? 'done' : d === stepInfo ? 'cur' : ''}"></span>`).join('');
       return `<div class="path-row ${side}"><div class="path-card now">
-          <span class="p-fox">🦊</span>
+          <span class="p-fox">${foxSVG(36)}</span>
           <span style="flex:1"><span class="eyebrow" style="color:var(--terra)">Learning now</span>
             <b class="p-name">${i + 1} · ${esc(ls.name)}</b>
             <span class="sdot-row">${dots}<small>step ${Math.min(stepInfo + 1, total)} of ${total}</small></span></span>
@@ -198,7 +198,7 @@ function renderLearnPath(strandId) {
   app.innerHTML = `<div class="reveal path-wrap">
     <div class="path-spine"></div>
     ${rows}
-    <div class="path-end"><span class="gift-node">🎁</span><b>Finish the path — this garden bed blooms!</b></div>
+    <div class="path-end"><span class="gift-node">${giftSVG(26)}</span><b>Finish the path — this garden bed blooms!</b></div>
   </div>`;
   $('#lpBack').onclick = () => show('practice');
   $$('[data-start]').forEach(b => b.onclick = () => startLesson(b.dataset.start, strandId));
@@ -244,7 +244,7 @@ function lpStones() {
   });
   const parts = [];
   stones.forEach((s, i) => { parts.push(s); parts.push(`<span class="stone-link ${i < LP.step ? 'done' : ''}"></span>`); });
-  parts.push(`<span class="stone gift">🎁</span>`);
+  parts.push(`<span class="stone gift">${giftSVG(16)}</span>`);
   return `<span class="stones">${parts.join('')}</span>`;
 }
 
@@ -265,7 +265,7 @@ function lpSpeechStop() { if ('speechSynthesis' in window) speechSynthesis.cance
 // fox speech: auto-plays, "Playing…" ↔ "Again", optional Slower
 function foxPanel(sayHTML, opts = {}) {
   return `<div class="fox-col">
-    <span class="fox-face pop">🦊</span>
+    <span class="fox-face pop">${foxSVG(110, "talk")}</span>
     <div class="fox-card">
       <p class="fox-say">${sayHTML}</p>
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -318,7 +318,7 @@ function lpIntro() {
   const u = subjUI(subjOfStrand(LP.strandId));
   const mins = def ? def.intro.minutes : Math.max(4, LP.steps.length * 2);
   app.innerHTML = `<div class="reveal lp-center">
-    <span class="fox-face big pop">🦊</span>
+    <span class="fox-face big pop">${foxSVG(96, "cheer")}</span>
     <p class="eyebrow" style="color:${u.color};margin-top:18px">Lesson ${n} · ${esc(strand.name)} path</p>
     <h1 class="lp-goal">Today you'll learn <span style="color:${u.color}">${esc(term)}</span>!</h1>
     <div class="goal-cards">${cards.map(([e, t]) => `<div class="goal-card"><span class="g-emoji">${e}</span><span>${t}</span></div>`).join('')}</div>
@@ -339,7 +339,7 @@ function lpResume() {
   const prevLabel = prev && prev.term ? prev.term : 'where we stopped';
   const u = subjUI(subjOfStrand(LP.strandId));
   app.innerHTML = `<div class="reveal lp-center">
-    <span class="fox-face big pop">🦊</span>
+    <span class="fox-face big pop">${foxSVG(96, "cheer")}</span>
     <h1 class="lp-goal" style="font-size:34px;margin-top:16px">Welcome back, ${esc(k.name)}!</h1>
     <p style="font-size:20px;font-weight:600;color:var(--soft);max-width:560px">Last time we learned about <span style="color:${u.color};font-weight:800">${esc(prevLabel)}</span>. Let's find out what happens next…</p>
     <div style="display:flex;gap:12px;margin-top:24px">
@@ -376,13 +376,11 @@ function lpTeach(step) {
   };
 }
 
-const LIFE_STAGES = [['🥚', 'egg'], ['🐛', 'caterpillar'], ['CHRYSALIS', 'chrysalis'], ['🦋', 'butterfly']];
-function chrysalisSVG(size = 44) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 44 44" fill="none" aria-hidden="true">
-    <path d="M22 5 C29 9 33 17 33 25 C33 34 28 40 22 40 C16 40 11 34 11 25 C11 17 15 9 22 5 Z" fill="#C9E4D0" stroke="#7FB86F" stroke-width="2"/>
-    <path d="M22 8 v29" stroke="#7FB86F" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const LIFE_STAGES = [['EGG', 'egg'], ['CAT', 'caterpillar'], ['CHRYSALIS', 'chrysalis'], ['FLY', 'butterfly']];
+function stagePic(s, size = 40) {
+  const art = { EGG: eggSVG, CAT: caterpillarSVG, CHRYSALIS: chrysalisSVG, FLY: butterflySVG };
+  return art[s] ? art[s](size) : `<span style="font-size:${size}px;line-height:1">${s}</span>`;
 }
-function stagePic(s, size = 40) { return s === 'CHRYSALIS' ? chrysalisSVG(size) : `<span style="font-size:${size}px;line-height:1">${s}</span>`; }
 
 function teachVisual(step, u) {
   // 10b — life-cycle diagram
@@ -542,7 +540,7 @@ function lpTryit(step) {
     if (btn) btn.classList.add('right-pick');
     $$('.tryit-card, .choice').forEach(b => b.disabled = true);
     $('#tryFb').innerHTML = `<div class="try-strip pop">
-        <span class="fox-face" style="font-size:26px;width:auto;height:auto">🦊</span>
+        <span class="fox-face" style="width:auto;height:auto">${foxSVG(30, "cheer")}</span>
         <span class="fb-text"><b>${firstMiss ? 'You found it!' : 'Yes!'}</b> ${explain}</span>
         <button class="btn primary caps-btn" id="tryGo" style="flex:none">Keep going ${icon('arrowright', 14)}</button>
       </div>`;
@@ -563,7 +561,7 @@ function lpTryit(step) {
           `<div class="lc-stage ${i === step.reteachStage ? 'cur' : 'future'}" style="margin:0 2px">${i === step.reteachStage ? '<span class="here-tag">WE WERE HERE</span>' : ''}<span class="lc-circle">${stagePic(pic, i === step.reteachStage ? 40 : 26)}</span><span class="lc-label">${label}</span></div>`).join('')}</div>`
       : '';
     $('#tryFb').innerHTML = `<div class="try-strip hint pop">
-        <span class="fox-face" style="font-size:26px;width:auto;height:auto">🦊</span>
+        <span class="fox-face" style="width:auto;height:auto">${foxSVG(30, "talk")}</span>
         <span class="fb-text"><b>Let's look together.</b> ${isGeneric ? 'Read it one more time — you\'ve got this!' : 'Where were we on the circle? Try again!'}</span>
       </div>${re}`;
   };
@@ -632,7 +630,7 @@ function lpComplete() {
   lpBar(true);
   app.innerHTML = `<div class="reveal lp-center">
     <div class="complete-card pop">
-      <span class="gift-big">🎁</span>
+      <span class="gift-big">${giftSVG(46)}</span>
       <h1 style="font-size:34px;font-weight:800;margin-top:10px">You learned ${esc(LP.ls.def ? LP.ls.def.term : LP.ls.name.toLowerCase())}!</h1>
       <div style="display:flex;gap:10px;justify-content:center;margin:14px 0">
         <span class="pill gold">${icon('star', 14)} ${LP.stars} stars earned</span>
@@ -648,7 +646,7 @@ function lpComplete() {
         <button class="btn big" id="lpPath">Back to my path</button>
       </div>
     </div>
-    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">🦊</span><span class="say">You're a ${esc((LP.ls.def ? LP.ls.def.term : LP.ls.name).replace(/!$/, ''))} expert now!</span></div>
+    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">${foxSVG(42, "cheer")}</span><span class="say">You're a ${esc((LP.ls.def ? LP.ls.def.term : LP.ls.name).replace(/!$/, ''))} expert now!</span></div>
   </div>`;
   $('#lpNext').onclick = () => startLesson(next.id, LP.strandId);
   $('#lpPath').onclick = () => show('learnpath', LP.strandId);
@@ -659,8 +657,9 @@ function lpPathDone() {
   const strand = STRANDS.find(x => x.id === LP.strandId) || {};
   sfx('cheer'); burst(120, true);
   lpBar(true);
+  const seedOf = (str) => [...str].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   const flowers = [0, 1, 2, 3, 4].map(i =>
-    `<span class="bloom-flower" style="animation-delay:${i * .35}s">${plantSVG(100, 64, i)}</span>`).join('');
+    `<span class="bloom-flower" style="animation-delay:${i * .35}s">${flowerSVG({ seed: seedOf(LP.strandId) + i * 97, size: 64 })}</span>`).join('');
   app.innerHTML = `<div class="path-done-scene">
     <div class="pd-sky">
       <span class="pd-sun"></span>
@@ -676,12 +675,12 @@ function lpPathDone() {
         <button class="btn big" id="pdNew" style="background:#fff">Pick a new path</button>
       </div>
     </div>
-    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">🦊</span><span class="say">The whole bed bloomed — because of YOU!</span></div>
+    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">${foxSVG(42, "cheer")}</span><span class="say">The whole bed bloomed — because of YOU!</span></div>
     <div class="print-only cert-page">
       <h1>Certificate of Growing</h1>
       <p class="c-name">${esc(kid().name)}</p>
       <p>learned every lesson on the <b>${esc(strand.name)}</b> path</p>
-      <div>${[0, 1, 2, 3, 4].map(i => plantSVG(100, 54, i)).join('')}</div>
+      <div>${[0, 1, 2, 3, 4].map(i => flowerSVG({ seed: ([...LP.strandId].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + i * 97, size: 54 })).join('')}</div>
       <p class="note">Learning Garden · ${dstr()}</p>
     </div>
   </div>`;
@@ -721,7 +720,7 @@ function renderMyLearning() {
       const n = lessons.findIndex(x => x.id === ls.id) + 1;
       const dots = Array.from({ length: total }, (_, d) => `<span class="sdot ${d < now.step ? 'done' : d === now.step ? 'cur' : ''}"></span>`).join('');
       nowCard = `<div class="learn-hero">
-        <span class="fox-face" style="font-size:52px">🦊</span>
+        <span class="fox-face" style="display:inline-flex">${foxSVG(52, "talk")}</span>
         <span style="flex:1;min-width:0">
           <span class="eyebrow" style="color:var(--terra)">Learning now</span>
           <b style="display:block;font-size:24px;font-family:var(--font-head)">${esc(ls.name)}</b>
@@ -733,7 +732,7 @@ function renderMyLearning() {
     }
   }
   if (!nowCard) nowCard = `<div class="learn-hero" style="border-color:var(--border)">
-      <span class="fox-face" style="font-size:52px">🦊</span>
+      <span class="fox-face" style="display:inline-flex">${foxSVG(52, "talk")}</span>
       <span style="flex:1"><span class="eyebrow" style="color:var(--terra)">Ready to learn</span>
         <b style="display:block;font-size:22px;font-family:var(--font-head)">Pick a path and I'll teach you!</b>
         <p class="note">Every garden bed has a Learn path — lessons open one at a time.</p></span>
