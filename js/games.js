@@ -74,13 +74,35 @@ function factSkills(kidId = DB.activeKid) {
   const grown = pool.filter(s => (st[s.id] || {}).a > 0 && (st[s.id] || {}).s < 100);
   return (grown.length ? grown : pool.slice(0, 5));
 }
-// a numeric question for fact games; falls back through gens until numeric
+// the question TEXT a game can show: many gens keep a generic prompt
+// ("Solve it!") and put the real math in q.body — pull it out.
+function gameQText(q) {
+  const strip = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+  let text = strip(q.prompt);
+  const body = strip(q.body);
+  if (!/\d/.test(text) && /\d/.test(body)) text = body; // "Solve it!" + "7 + 5 = ___"
+  return text.replace(/=\s*_+\s*\??$/, '').replace(/\s*=\s*$/, '').trim();
+}
+// spoken form: math symbols read out loud, hyphens inside words untouched
+function gameQSay(text) {
+  return String(text)
+    .replace(/(\d)\s*\+\s*(\d)/g, '$1 plus $2')
+    .replace(/(\d)\s*[−–-]\s*(\d)/g, '$1 minus $2')
+    .replace(/(\d)\s*[×x*]\s*(\d)/g, '$1 times $2')
+    .replace(/(\d)\s*÷\s*(\d)/g, '$1 divided by $2')
+    .replace(/=/g, ' equals ')
+    .replace(/\s+/g, ' ').trim();
+}
+// a numeric question for fact games; keeps trying until it finds one the
+// game can actually SHOW (no picture-dependent questions, math visible)
 function factQuestion(sk) {
   for (let i = 0; i < 8; i++) {
     const q = sk.gen(difficultyFor(sk.id));
-    if ((q.type === 'num' || q.type === 'line') && isFinite(Number(q.answer)) && Number(q.answer) >= 0 && Number(q.answer) <= 999) {
-      return { prompt: q.prompt.replace(/<[^>]+>/g, ' ').trim(), answer: Number(q.answer), say: speakableText(q.prompt) };
-    }
+    if (!((q.type === 'num' || q.type === 'line') && isFinite(Number(q.answer)) && Number(q.answer) >= 0 && Number(q.answer) <= 999)) continue;
+    if ((q.body || '').includes('<svg')) continue; // needs its picture — not playable as text
+    const text = gameQText(q);
+    if (!/\d/.test(text)) continue;               // still no visible math → next try
+    return { prompt: text, answer: Number(q.answer), say: gameQSay(text) };
   }
   const a = ri(3, 9), b = ri(2, 9);
   return { prompt: `${a} + ${b}`, answer: a + b, say: `${a} plus ${b}` };
@@ -318,8 +340,8 @@ function bloomQuestion() {
   app.innerHTML = `<div class="bloom-stage">
     <div class="bloom-sky">
       <div class="gq-card pop">
-        <p class="eyebrow" style="text-align:center">Which flower shows…</p>
-        <p class="gq-fact">${esc(q.prompt)}</p>
+        <p class="eyebrow" style="text-align:center">${q.prompt.includes('?') ? 'Pick the flower with the answer!' : 'Which flower shows…'}</p>
+        <p class="gq-fact ${q.prompt.length > 12 ? 'long' : ''}">${esc(q.prompt)}</p>
       </div>
       <button class="btn small ghost" id="bbRead" style="margin:10px auto 0;display:flex">${icon('volume', 13)} Read it to me</button>
     </div>
@@ -442,7 +464,7 @@ function raceQuestion() {
   app.innerHTML = `<div class="race-stage">
     <div class="race-sky">
       <div class="gq-card pop" style="display:flex;align-items:center;gap:18px;justify-content:center">
-        <p class="gq-fact" style="font-size:44px;margin:0">${esc(q.prompt)}</p>
+        <p class="gq-fact ${q.prompt.length > 12 ? 'long' : ''}" style="margin:0">${esc(q.prompt)}</p>
         <span style="display:flex;gap:8px">${factChoices(q.answer).map(c => `<button class="btn big race-a" data-a="${c}" style="font-size:22px;font-weight:800">${c}</button>`).join('')}</span>
       </div>
       <button class="btn small ghost" id="frRead" style="margin:8px auto 0;display:flex">${icon('volume', 13)} Read it to me</button>
@@ -488,7 +510,13 @@ function raceEnd(pipWon) {
     sub: pipWon ? `${GAME.rival.emoji} "Great race! Your facts got quicker every lap."` : `${GAME.rival.emoji} "Great race!" — same tickets for finishing. Effort pays either way.`,
     tiles: [[`${icon('award', 18)} +${t}`, 'tickets'], [`${starSVG(18)} +${GAME.right}`, 'stars']].concat(GAME.speedGain ? [[`${icon('zap', 18)}`, `${esc(GAME.speedGain)} is fast now!`]] : []),
     againLabel: 'Rematch',
-    onAgain: () => { const r = GAME.rival, s = GAME.skill; GAME = { id: 'race', rival: r, skill: s }; $('#frGo') ? null : raceStart(); const go = $('#frGo'); if (go) go.click(); else { raceStart(); } },
+    onAgain: () => {
+      // rematch keeps the SAME rival and skill (raceStart resets them)
+      const r = GAME.rival, s = GAME.skill;
+      raceStart();
+      GAME.rival = r; GAME.skill = s;
+      const go = $('#frGo'); if (go) go.click();
+    },
   });
 }
 
@@ -496,8 +524,7 @@ function raceEnd(pipWon) {
 // MEMORY MATCH (18e/20b)
 // ============================================================
 function memoryPairs() {
-  // rotate pair type by available skills: fact↔answer, es↔en, word↔emoji
-  const spanishBank = (typeof PIC_BANKS !== 'undefined' && PIC_BANKS.animals) ? null : null;
+  // rotate pair type: fact↔answer or es↔en
   const type = pick(['fact', 'es', 'fact']);
   const pairs = [];
   if (type === 'es' && SUBJECTS.find(s => s.id === 'spanish')) {
@@ -511,6 +538,7 @@ function memoryPairs() {
   while (pairs.length < 4 && guard++ < 40) {
     const q = factQuestion(sk);
     if (seen.has(q.answer)) continue;
+    if (q.prompt.length > 12 && guard < 30) continue; // card faces need SHORT facts ("7 + 5")
     seen.add(q.answer);
     pairs.push({ k: pairs.length, a: q.prompt, b: String(q.answer) });
   }
@@ -638,7 +666,7 @@ function wgCoachLine(w) {
   return pick([
     `Hmm — what makes the "${first}" sound at the start?`,
     `Sound it out slowly — one seed at a time.`,
-    `Listen for each beat: ${syllableGuess ? '' : ''}you've got this.`,
+    `Clap the beats: ${w.length > 5 ? 'big words are just small chunks in a row' : 'short and sweet — you\'ve got this'}!`,
   ]);
 }
 function wgBloomed(w) {
@@ -732,7 +760,17 @@ function qsQuestion(key) {
   let q, guard = 0;
   do { q = sk.gen(Math.min(3, lvl)); } while (q.type === 'picture' && guard++ < 6);
   const silly = (typeof QUIZ_SILLY !== 'undefined') ? pick(QUIZ_SILLY) : pick(['🧦 Warm socks', '🍕 A sleepy pizza', '🎩 A fancy hat']);
-  let choices = q.type === 'mc' ? q.choices.map(String).slice(0, 3) : factChoices(Number(q.answer) || 0).map(String);
+  // choices must match the ANSWER's kind: numbers get near-misses, word
+  // answers get other real words from the same skill (never 0/1/2!)
+  let choices;
+  if (q.type === 'mc') choices = q.choices.map(String).slice(0, 3);
+  else if (isFinite(Number(q.answer))) choices = factChoices(Number(q.answer)).map(String);
+  else {
+    const alts = new Set([String(q.answer)]);
+    let g2 = 0;
+    while (alts.size < 3 && g2++ < 12) alts.add(String(sk.gen(Math.min(3, lvl)).answer));
+    choices = [...alts];
+  }
   if (!choices.includes(String(q.answer))) choices[0] = String(q.answer);
   choices = shuffle([...new Set(choices)].slice(0, 3).concat([silly]));
   GAME.q = { q, sk, key, lvl, silly };
@@ -829,11 +867,23 @@ function digQuestionHTML() {
   let q, guard = 0;
   do { q = sk.gen(difficultyFor(sk.id)); } while ((q.type === 'picture' || (q.body || '').includes('<svg')) && guard++ < 6);
   GAME.q = q; GAME.qsk = sk; GAME.t0 = Date.now(); GAME.qTries = 0;
-  const choices = q.type === 'mc' ? shuffle(q.choices.map(String)).slice(0, 3).concat(String(q.answer)).filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 3) : factChoices(Number(q.answer) || 0).map(String);
+  // the math often lives in q.body ("Solve it!" + "7 + 5 = ___") — show it,
+  // and read the whole thing aloud, not just the generic prompt
+  const shown = gameQText(q);
+  GAME.qSay = gameQSay(shown);
+  let choices;
+  if (q.type === 'mc') choices = q.choices.map(String).slice(0, 3);
+  else if (isFinite(Number(q.answer))) choices = factChoices(Number(q.answer)).map(String);
+  else {
+    const alts = new Set([String(q.answer)]);
+    let g2 = 0;
+    while (alts.size < 3 && g2++ < 12) alts.add(String(sk.gen(difficultyFor(sk.id)).answer));
+    choices = [...alts];
+  }
   if (!choices.includes(String(q.answer))) choices[ri(0, choices.length - 1)] = String(q.answer);
   return `<div class="card dig-q">
       <p class="eyebrow" style="color:#E8A63C">Earn a shovel</p>
-      <p style="font-family:var(--font-head);font-weight:800;font-size:22px;margin:6px 0 10px">${q.prompt}</p>
+      <p style="font-family:var(--font-head);font-weight:800;font-size:22px;margin:6px 0 10px">${esc(shown)}</p>
       <div style="display:flex;flex-direction:column;gap:8px">${shuffle([...new Set(choices)]).map(c => `<button class="btn dig-a" data-a="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>
     </div>`;
 }
@@ -852,7 +902,7 @@ function digPaint() {
       <div class="game-pip" style="position:static;margin-top:12px">${foxSVG(36)}<span class="say">${GAME.foundTiles ? `Something BIG is under there… I can see ${GAME.foundTiles} bone${GAME.foundTiles > 1 ? 's' : ''} already!` : 'Something BIG is under there… start digging!'}</span></div>
     </div>
   </div>`;
-  gameSpeakQ(GAME.q.prompt);
+  gameSpeakQ(GAME.qSay || GAME.q.prompt);
   digWire();
 }
 function digWire() {
@@ -877,7 +927,7 @@ function digWire() {
       sfx('correct');
       const sh = $('#digShovels'); if (sh) sh.textContent = GAME.shovels;
       $('#digQWrap').innerHTML = digQuestionHTML();
-      gameSpeakQ(GAME.q.prompt);
+      gameSpeakQ(GAME.qSay || GAME.q.prompt);
       digWire();
     } else {
       GAME.qTries++;

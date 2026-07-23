@@ -1923,3 +1923,7 @@ body.calm-motion .wg-slot.next { animation: none; }
 .l2-solved-a { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 24px; font-family: var(--font-head); font-weight: 800; color: var(--teal); }
 .l2-worked-line { display: block; font-size: 17px; font-weight: 700; }
 .l2-worked-line .l2-solved-a { display: flex; justify-content: center; }
+
+/* long question text in game cards scales down instead of overflowing */
+.gq-fact { font-size: 40px; }
+.gq-fact.long { font-size: 24px; line-height: 1.35; max-width: 520px; }
