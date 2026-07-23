@@ -81,3 +81,185 @@ SKILLS.push(
     },
   },
 );
+
+// ============================================================
+// 7a — the typing session: on-screen keyboard, finger hints,
+// per-letter coloring, kid-sized wpm & accuracy.
+// ============================================================
+const FINGER_FOR = {
+  q: 'left pinky', a: 'left pinky', z: 'left pinky',
+  w: 'left ring', s: 'left ring', x: 'left ring',
+  e: 'left middle', d: 'left middle', c: 'left middle',
+  r: 'left pointer', f: 'left pointer', v: 'left pointer', t: 'left pointer', g: 'left pointer', b: 'left pointer',
+  y: 'right pointer', h: 'right pointer', n: 'right pointer', u: 'right pointer', j: 'right pointer', m: 'right pointer',
+  i: 'right middle', k: 'right middle',
+  o: 'right ring', l: 'right ring',
+  p: 'right pinky', ';': 'right pinky', '.': 'right ring', ' ': 'a thumb',
+};
+const KB_ROWS = ['qwertyuiop', 'asdfghjkl;', 'zxcvbnm.'];
+const HOME_KEYS = 'asdfjkl;';
+
+let TYPING = null;
+
+function renderTypingSession(sk) {
+  // 5 fresh targets = one "day's worth" of this skill
+  const targets = [];
+  let guard = 0;
+  while (targets.length < SKILL_DONE_Q && guard++ < 40) {
+    const t = sk.gen().answer;
+    if (!targets.includes(t) || guard > 25) targets.push(t);
+  }
+  if (TYPING && TYPING.keyHandler) document.removeEventListener('keydown', TYPING.keyHandler);
+  TYPING = { sk, targets, ti: 0, pos: 0, errors: 0, wordErrors: 0, keys: 0, good: 0, start: Date.now() };
+  VIEW = 'session';
+  $('#tabbar').style.display = 'none';
+  document.body.classList.add('no-brand');
+
+  app.innerHTML = `
+    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
+      <button class="back" id="typeQuit" aria-label="Done">${icon('left', 18)}</button>
+      <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('laptop', 17)}</span>
+      <div class="title">Computer · ${sk.name}</div>
+      <span class="type-progress"><i id="typeBar"></i></span>
+      <span style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"><span id="typeCount">1</span> of ${SKILL_DONE_Q}</span>
+      <span class="pill" style="white-space:nowrap">${icon('zap', 14)} <span id="wpmChip">0</span> wpm</span>
+      <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="accChip">100</span>%</span>
+    </div>
+    <div class="type-stage">
+      <div class="card type-line" id="typeLine"></div>
+      <div class="card kb-card">
+        <div id="kbRows"></div>
+        <div class="kb-space-row"><button class="kb-key kb-space" data-key=" "></button></div>
+        <div class="kb-legend">
+          <span><i class="lg-sq home"></i> home row — fingers rest here</span>
+          <span><i class="lg-sq next"></i> <span id="fingerHint">press this one next</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="mascot"><span class="fox">🦊</span><span class="say">Eyes on the screen, not your hands!</span></div>
+    <span class="g-chip" style="position:fixed;right:22px;bottom:22px;z-index:30">Words planted <b style="color:var(--blue)">&nbsp;<span id="plantedChip">0</span> of ${SKILL_DONE_Q}</b></span>`;
+
+  $('#typeQuit').onclick = () => typingExit('practice');
+  buildKeyboard();
+  paintTarget();
+
+  TYPING.keyHandler = (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Escape') return typingExit('practice');
+    if (e.key.length === 1) { e.preventDefault(); typingPress(e.key); }
+  };
+  document.addEventListener('keydown', TYPING.keyHandler);
+  window.scrollTo(0, 0);
+}
+
+function typingExit(view) {
+  if (TYPING && TYPING.keyHandler) document.removeEventListener('keydown', TYPING.keyHandler);
+  TYPING = null;
+  show(view);
+}
+
+function buildKeyboard() {
+  $('#kbRows').innerHTML = KB_ROWS.map((row, i) => `
+    <div class="kb-row" style="padding-left:${i * 18}px">${[...row].map(ch =>
+      `<button class="kb-key ${HOME_KEYS.includes(ch) ? 'home' : ''} ${ch === 'f' || ch === 'j' ? 'bump' : ''}" data-key="${ch}">${ch === ';' ? ';' : ch.toUpperCase()}</button>`
+    ).join('')}</div>`).join('');
+  $$('.kb-key').forEach(k => k.onclick = () => typingPress(k.dataset.key));
+}
+
+function paintTarget() {
+  const target = TYPING.targets[TYPING.ti];
+  $('#typeLine').innerHTML = [...target].map((ch, i) => {
+    const cls = i < TYPING.pos ? 'done' : i === TYPING.pos ? 'cur' : 'todo';
+    return `<span class="tl-ch ${cls}">${ch === ' ' ? '&nbsp;' : esc(ch)}</span>`;
+  }).join('');
+  // highlight next key + finger hint
+  const next = (target[TYPING.pos] || '').toLowerCase();
+  $$('.kb-key').forEach(k => k.classList.toggle('next', k.dataset.key === next));
+  const f = FINGER_FOR[next];
+  $('#fingerHint').textContent = f ? `press this one next (${f})` : 'press this one next';
+  $('#typeCount').textContent = TYPING.ti + 1;
+  $('#typeBar').style.width = `${(TYPING.ti / SKILL_DONE_Q) * 100}%`;
+  $('#plantedChip').textContent = TYPING.ti;
+}
+
+function typingStats() {
+  const mins = Math.max((Date.now() - TYPING.start) / 60000, 0.05);
+  $('#wpmChip').textContent = Math.max(0, Math.round((TYPING.good / 5) / mins));
+  $('#accChip').textContent = TYPING.keys ? Math.round((TYPING.good / TYPING.keys) * 100) : 100;
+}
+
+function typingPress(key) {
+  if (!TYPING) return;
+  const target = TYPING.targets[TYPING.ti];
+  const expected = target[TYPING.pos];
+  if (expected === undefined) return;
+  TYPING.keys++;
+  const match = key === expected || key.toLowerCase() === expected.toLowerCase();
+  if (match) {
+    TYPING.good++; TYPING.pos++;
+    sfx('key');
+    if (TYPING.pos >= target.length) return typingWordDone();
+  } else {
+    TYPING.errors++; TYPING.wordErrors++;
+    sfx('wrong');
+    const cur = $('.tl-ch.cur');
+    if (cur) { cur.classList.remove('shake'); void cur.offsetWidth; cur.classList.add('shake'); }
+  }
+  typingStats();
+  paintTarget();
+}
+
+function typingWordDone() {
+  const clean = TYPING.wordErrors <= 1;
+  recordTypingAnswer(TYPING.sk, clean);
+  TYPING.wordErrors = 0;
+  TYPING.ti++; TYPING.pos = 0;
+  typingStats();
+  if (TYPING.ti >= SKILL_DONE_Q) return typingFinish();
+  sfx('correct');
+  paintTarget();
+}
+
+function recordTypingAnswer(sk, correct) {
+  const st = kidStats();
+  const cur = st[sk.id] || { s: 0, a: 0, c: 0 };
+  const before = cur.s;
+  if (correct) { cur.s = Math.min(100, cur.s + (cur.s < 50 ? 8 : cur.s < 80 ? 6 : 4)); cur.c++; }
+  else cur.s = Math.max(0, cur.s - Math.min(6, 2 + Math.floor(cur.s / 25)));
+  cur.a++; st[sk.id] = cur;
+  const log = kidLog(); const day = log[dstr()] || { t: 0, c: 0, per: {} };
+  day.t++; if (correct) day.c++;
+  day.per[sk.id] = day.per[sk.id] || [0, 0];
+  day.per[sk.id][1]++; if (correct) day.per[sk.id][0]++;
+  log[dstr()] = day; save();
+  const stageOf = (s) => s >= 100 ? 4 : s >= 75 ? 3 : s >= 50 ? 2 : s >= 25 ? 1 : 0;
+  if (correct && stageOf(cur.s) > stageOf(before)) sfx('grow');
+}
+
+function typingFinish() {
+  document.removeEventListener('keydown', TYPING.keyHandler);
+  const mins = Math.max((Date.now() - TYPING.start) / 60000, 0.05);
+  const wpm = Math.max(0, Math.round((TYPING.good / 5) / mins));
+  const acc = TYPING.keys ? Math.round((TYPING.good / TYPING.keys) * 100) : 100;
+  const sk = TYPING.sk;
+  const score = skillStat(sk.id).s;
+  sfx('cheer'); burst(60, true);
+  app.innerHTML = `<div class="reveal"><div class="card mastered-banner" style="max-width:560px;margin:40px auto">
+    <span style="display:inline-block">${plantSVG(score, 76)}</span>
+    <h2 style="justify-content:center">Words planted! 🌱</h2>
+    <div class="stat-row" style="max-width:380px;margin:14px auto 6px">
+      <div class="stat-tile"><div class="v" style="color:var(--blue)">${wpm}</div><div class="l">wpm</div></div>
+      <div class="stat-tile"><div class="v" style="color:var(--green)">${acc}%</div><div class="l">accuracy</div></div>
+      <div class="stat-tile"><div class="v">${score}</div><div class="l">garden score</div></div>
+    </div>
+    <p class="note">Accuracy first — speed grows all by itself. Great hands!</p>
+    <div class="answer-row">
+      <button class="btn primary big" id="typeAgain">Type more ⌨️</button>
+      <button class="btn ghost big" id="typeBack">Back to practice</button>
+    </div>
+  </div></div>`;
+  const again = TYPING.sk;
+  TYPING = null;
+  $('#typeAgain').onclick = () => renderTypingSession(again);
+  $('#typeBack').onclick = () => show('practice');
+}

@@ -291,12 +291,12 @@ function show(view, param) {
     session: () => renderSession(param), plan: renderPlan,
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
-    worksheet: renderWorksheetMaker, garden: renderMyGarden,
+    worksheet: renderWorksheetMaker, garden: renderMyGarden, profile: renderProfile,
   };
   (views[view] || renderKids)();
 }
 $$('#tabbar button').forEach(b => b.onclick = () => show(b.dataset.view));
-$('#kidChip').onclick = () => show('kids');
+$('#kidChip').onclick = () => show(kid() ? 'profile' : 'kids'); // name chip opens the kid's profile (7c)
 
 // ============================================================
 // KID PICKER
@@ -579,6 +579,96 @@ function renderToday() {
 }
 
 // ============================================================
+// 7c — MY PROFILE (opened from the name chip)
+// ============================================================
+const ANIMAL_NAMES = { '🦊': 'Fox', '🐼': 'Panda', '🦄': 'Unicorn', '🐸': 'Frog', '🦁': 'Lion', '🐙': 'Octopus', '🦋': 'Butterfly', '🐢': 'Turtle', '🐰': 'Bunny', '🐯': 'Tiger', '🦖': 'Dino', '🐬': 'Dolphin' };
+function renderProfile() {
+  const k = kid();
+  const lv = levelInfo();
+  const st = kidStats();
+  const log = kidLog();
+  const totalQ = Object.values(log).reduce((s, d) => s + d.t, 0);
+  const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
+  const streak = streakDays();
+  const theme = kidSettings().theme || 'garden';
+  const mon = mondayOf();
+
+  const badgeColors = ['var(--terra)', 'var(--teal)', 'var(--green)', 'var(--gold)', 'var(--purple)', 'var(--blue)'];
+  const badges = getBadges();
+  const earned = badges.filter(b => b.got).length;
+  const shelf = badges.map((b, i) => b.got
+    ? `<div class="pf-badge"><span class="pf-tile" style="background:${badgeColors[i % 6]}">${b.bi}</span><small>${b.bn}</small></div>`
+    : `<div class="pf-badge locked"><span class="pf-tile">${icon('lock', 18)}</span><small>${b.bn}</small></div>`).join('');
+
+  const weekRow = [0, 1, 2, 3, 4].map(i => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const did = log[dstr(d)] && log[dstr(d)].t > 0;
+    return `<span class="wk-chk ${did ? 'on' : ''}">${did ? icon('check', 13) : ''}</span>`;
+  }).join('');
+
+  const toNext = lv.need - lv.into;
+  app.innerHTML = `<div class="reveal">
+    <div class="today-grid" style="grid-template-columns:.85fr 1.15fr">
+      <div>
+        <div class="card" style="text-align:center;padding:26px 20px">
+          <div class="pf-avatar"><span>${k.avatar}</span><button class="pf-edit" id="pfEdit" aria-label="Change animal">${icon('pencil', 14)}</button></div>
+          <h2 style="justify-content:center;font-size:24px;margin:10px 0 0">${esc(k.name)}</h2>
+          <p class="note">Grade ${k.grade || 2} · ${ANIMAL_NAMES[k.avatar] || 'Animal'} friend</p>
+          <div style="display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;margin:14px 4px 6px">
+            <span style="font-family:var(--font-head)">Level ${lv.level}</span><span style="color:var(--soft)">${lv.into}/${lv.need} XP</span>
+          </div>
+          <span class="xp-bar" style="display:block;width:100%;height:9px"><i style="width:${Math.round(lv.into / lv.need * 100)}%"></i></span>
+        </div>
+        <div class="card" id="animalCard">
+          <div class="eyebrow" style="margin-bottom:10px">Change my animal friend</div>
+          <div class="avatar-pick">${AVATARS.map(a => `<button data-av="${a}" class="${k.avatar === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow" style="margin-bottom:10px">My theme</div>
+          <div class="theme-cards">
+            <button class="theme-card ${theme === 'garden' ? 'sel' : ''}" data-ptheme="garden">
+              <div class="prev" style="background:linear-gradient(#CDE8F5, #B7D8A8)"></div>Garden ${theme === 'garden' ? '✓' : ''}</button>
+            <button class="theme-card ${theme === 'stars' ? 'sel' : ''}" data-ptheme="stars">
+              <div class="prev" style="background:var(--gold-tint);display:grid;place-items:center;color:var(--gold)">${icon('award', 26)}</div>Stars & Badges ${theme === 'stars' ? '✓' : ''}</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="stat-row" style="margin-bottom:16px">
+          <div class="stat-tile"><div class="v" style="color:var(--gold)">${lv.stars}</div><div class="l">stars</div></div>
+          <div class="stat-tile"><div class="v" style="color:var(--terra)">${flowers}</div><div class="l">flowers grown</div></div>
+          <div class="stat-tile"><div class="v" style="color:var(--terra)">${streak}</div><div class="l">day streak</div></div>
+          <div class="stat-tile"><div class="v">${totalQ}</div><div class="l">questions ever</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;margin-bottom:12px">
+            <h2 style="margin:0">My badges</h2>
+            <span class="note" style="margin-left:auto">${earned} of ${badges.length} earned</span>
+          </div>
+          <div class="pf-shelf">${shelf}</div>
+          <div class="wk-row">${icon('flame', 15)} <b style="font-family:var(--font-head);font-size:13px">This week</b><span style="margin-left:auto;display:flex;gap:6px">${weekRow}</span></div>
+        </div>
+        <div class="recap-card" style="align-items:center">
+          <span style="flex:none">${plantSVG(100, 30, 0)}${plantSVG(80, 26, 1)}${plantSVG(30, 22)}</span>
+          <span style="flex:1"><b>${flowers} flower${flowers === 1 ? '' : 's'} and counting.</b> ${toNext} more star${toNext === 1 ? '' : 's'} to reach Level ${lv.level + 1}.</span>
+          <button class="btn primary caps-btn" id="pfGarden">Visit my garden</button>
+        </div>
+        <div class="answer-row" style="justify-content:flex-start">
+          <button class="btn small ghost" id="pfSwitch">${icon('users', 14)} Switch kid</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  const scrollToAnimals = () => $('#animalCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#pfEdit').onclick = scrollToAnimals;
+  $$('[data-av]').forEach(b => b.onclick = () => { k.avatar = b.dataset.av; save(); renderProfile(); });
+  $$('[data-ptheme]').forEach(b => b.onclick = () => { kidSettings().theme = b.dataset.ptheme; save(); renderProfile(); });
+  $('#pfGarden').onclick = () => show('garden');
+  $('#pfSwitch').onclick = () => show('kids');
+}
+
+// ============================================================
 // 9a — MY GARDEN: the world that fills up all year
 // ============================================================
 function renderMyGarden() {
@@ -795,15 +885,32 @@ let SESSION = null;
 function sessionShell(title, backView) {
   $('#tabbar').style.display = 'none'; // focused mode — no bottom nav
   app.innerHTML = `
-    <div class="practice-top">
+    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
       <button class="back" id="backBtn" aria-label="Done">${icon('left', 19)}</button>
       <div class="title" id="sessTitle">${title}</div>
+      <span class="type-progress" style="max-width:240px"><i id="sessBar" style="background:var(--green)"></i></span>
+      <span id="sessCount" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
       <div class="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
     </div>
     <div class="card qcard" id="qcard"></div>
-    <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>`;
+    <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>
+    <span class="g-chip water-chip" id="waterChip"></span>`;
   $('#backBtn').onclick = () => show(backView);
   window.scrollTo(0, 0);
+}
+
+// 3b: bottom-right "Today's water" drops = plan tasks done today
+function updateWaterChip() {
+  const el = $('#waterChip');
+  if (!el) return;
+  const goal = kidSettings().schoolGoal;
+  const plan = getWeekPlan();
+  const dow = (new Date().getDay() + 6) % 7;
+  if (dow > 4) { el.style.display = 'none'; return; }
+  const core = (plan[dow] || []).filter(sid => SKILL_MAP[sid]).slice(0, goal);
+  const done = core.filter(t => taskDoneToday(t)).length;
+  el.innerHTML = `Today's water&nbsp; ${core.map((_, i) =>
+    `<span style="color:${i < done ? 'var(--water)' : '#D8CFC0'}">${icon('droplet', 15)}</span>`).join('')}`;
 }
 
 function mascotSay(msg) {
@@ -817,6 +924,9 @@ function mascotSay(msg) {
 function renderSession(skillId) {
   const sk = SKILL_MAP[skillId];
   if (!sk) return show('practice');
+  // Computer skills get the full keyboard experience (design 7a)
+  const subj = (STRANDS.find(x => x.id === sk.strand) || {}).subject;
+  if (subj === 'typing' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
   SESSION = { skill: sk, streak: 0, answered: false };
   sessionShell(sk.name, 'practice');
   nextQuestion();
@@ -846,6 +956,11 @@ function updateScorebox() {
   const day = kidLog()[dstr()];
   const doneQ = day && day.per[SESSION.skill.id] ? day.per[SESSION.skill.id][1] : 0;
   const left = SKILL_DONE_Q - doneQ;
+  // 3b top-bar progress: questions toward today's check for this skill
+  const bar = $('#sessBar'), cnt = $('#sessCount');
+  if (bar) bar.style.width = `${Math.min(100, (doneQ / SKILL_DONE_Q) * 100)}%`;
+  if (cnt) cnt.textContent = `${Math.min(doneQ, SKILL_DONE_Q)} of ${SKILL_DONE_Q}`;
+  updateWaterChip();
   if (sc >= 100) mascotSay('This one is a golden daisy — you own it! 🌼');
   else if (left === 1) mascotSay('One more and this one counts for today!');
   else if (left > 1 && left < SKILL_DONE_Q) mascotSay(`${left} more and this skill gets watered!`);
@@ -1014,12 +1129,12 @@ function grade(given, btn) {
   const oops = pick(['Almost!', 'Good try!', 'So close!', 'Keep growing!']);
   const answerShown = q.type === 'num' || q.type === 'line'
     ? `${q.answer}${q.suffix || ''}` : q.answer;
-  fb.innerHTML = `<div class="feedback ${correct ? 'good' : 'bad'} pop">
-      <div class="headline">${correct ? '🌟 ' + praise : '🌧️ ' + oops + ` The answer is <u>${answerShown}</u>.`}
-        <button class="btn small sunny" id="readFb" style="float:right" title="Read it out loud">🔊</button></div>
-      <div class="why">${q.explain || ''}</div>
-    </div>
-    <div class="answer-row"><button class="btn ${correct ? 'primary' : 'sunny'} big" id="nextBtn">Next ▸</button></div>`;
+  fb.innerHTML = `<div class="fb-row ${correct ? 'good' : 'bad'} pop">
+      <span class="fb-tile" style="background:${correct ? 'var(--green)' : 'var(--gold)'}">${icon(correct ? 'star' : 'bulb', 17)}</span>
+      <span class="fb-text"><b>${correct ? praise : oops + ` The answer is ${answerShown}.`}</b> ${q.explain || ''}</span>
+      <button class="icon-btn" id="readFb" style="width:34px;height:34px;flex:none" title="Read it out loud">${icon('volume', 15)}</button>
+      <button class="btn ${correct ? 'primary' : 'sunny'} caps-btn" id="nextBtn" style="flex:none">Next ${icon('arrowright', 14)}</button>
+    </div>`;
   $('#readFb').onclick = () => {
     if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
     const head = correct ? praise : `Almost! The answer is ${speakableText(String(answerShown))}.`;
@@ -1124,20 +1239,7 @@ function renderProgress() {
   const acc = totalQ ? Math.round((totalC / totalQ) * 100) : 0;
   const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
   const streak = streakDays();
-
-  // strand mastery bars, grouped by subject
-  const bars = activeSubjects().map(sub => {
-    const strandRows = STRANDS.filter(x => x.subject === sub.id).map(strand => {
-      const skills = SKILLS.filter(s => s.strand === strand.id);
-      const avg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
-      return `<div class="row">
-        <span class="lbl">${strand.emoji} ${strand.name}</span>
-        <span class="track"><span class="fill" style="width:${avg}%"></span></span>
-        <span class="val">${avg}</span>
-      </div>`;
-    }).join('');
-    return `<div style="font-family:var(--font-display);font-weight:600;font-size:18px;margin:16px 0 8px">${sub.emoji} ${sub.name}</div>${strandRows}`;
-  }).join('');
+  const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
 
   // this week vs last week
   const mon = mondayOf();
@@ -1152,19 +1254,18 @@ function renderProgress() {
   };
   const thisW = weekTotals(0), lastW = weekTotals(1);
   const accW = (w) => w.t ? Math.round((w.c / w.t) * 100) : 0;
-  let improveMsg = 'Practice a little every day and watch this grow! 🌱';
+  let improveMsg = 'Practice a little every day and watch this grow!';
   if (lastW.t >= 10 && thisW.t >= 10) {
     const d = accW(thisW) - accW(lastW);
     improveMsg = d > 2 ? `📈 Accuracy is UP ${d} points from last week — amazing growth!`
       : d < -2 ? `💪 Accuracy dipped ${-d} points from last week — a little extra watering will fix that!`
-      : `➡️ Accuracy is steady vs last week (${accW(thisW)}%). Keep it up!`;
+      : `Accuracy is steady vs last week (${accW(thisW)}%). Keep it up!`;
   }
 
-  // daily columns for this week
   const cols = [0, 1, 2, 3, 4, 5, 6].map(i => {
     const d = new Date(mon); d.setDate(mon.getDate() + i);
     const e = log[dstr(d)] || { t: 0, c: 0 };
-    return { label: ['M', 'T', 'W', 'Th', 'F', 'Sa', 'Su'][i], t: e.t, c: e.c };
+    return { label: ['M', 'T', 'W', 'Th', 'F', 'Sa', 'Su'][i], t: e.t };
   });
   const maxT = Math.max(...cols.map(c => c.t), 10);
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -1174,35 +1275,61 @@ function renderProgress() {
       <span class="cl">${c.label}</span>
     </div>`).join('');
 
+  // collapsible garden health — one group per subject, first one open
+  const groups = activeSubjects().map((sub, gi) => {
+    const u = subjUI(sub.id);
+    const subSkills = SKILLS.filter(s => strandSubject[s.strand] === sub.id);
+    const avg = Math.round(subSkills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / subSkills.length);
+    const mastered = subSkills.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
+    const rows = STRANDS.filter(x => x.subject === sub.id).map(strand => {
+      const skills = SKILLS.filter(s => s.strand === strand.id);
+      const sAvg = Math.round(skills.reduce((sum, s) => sum + (st[s.id] || { s: 0 }).s, 0) / skills.length);
+      return `<div class="row">
+        <span class="lbl">${strand.name}</span>
+        <span class="track"><span class="fill" style="width:${sAvg}%;background:${u.color}"></span></span>
+        <span class="val">${plantSVG(sAvg, 20)}</span>
+      </div>`;
+    }).join('');
+    return `<details class="prog-group" ${gi === 0 ? 'open' : ''}>
+      <summary>${subjTile(sub.id, 36, 18)}
+        <b>${sub.name}</b>
+        <span class="pg-meta">${mastered}/${subSkills.length} mastered · ${avg} avg</span>
+        ${icon('right', 16, 'pg-chev')}
+      </summary>
+      <div class="prog-bars" style="padding:6px 2px 12px">${rows}</div>
+    </details>`;
+  }).join('');
+
   const badges = getBadges().map(b => `<div class="badge ${b.got ? '' : 'locked'}"><div class="bi">${b.bi}</div><div class="bn">${b.bn}</div></div>`).join('');
 
   app.innerHTML = `<div class="reveal">
-    <div class="card tilt-l">
-      <h2><span class="bubble" style="background:var(--sun)">🌟</span>${esc(kid().name)}'s growing report</h2>
-      <div class="stat-row">
-        <div class="stat-tile"><div class="v">${totalQ}</div><div class="l">questions ever</div></div>
-        <div class="stat-tile"><div class="v">${acc}%</div><div class="l">correct overall</div></div>
-        <div class="stat-tile"><div class="v">🌻 ${flowers}</div><div class="l">of ${SKILLS.length} mastered</div></div>
-        <div class="stat-tile"><div class="v">🔥 ${streak}</div><div class="l">day streak</div></div>
+    <div style="margin:2px 4px 14px">
+      <div class="eyebrow">Progress</div>
+      <h2 style="font-family:var(--font-head);font-weight:800;font-size:21px">${esc(kid().name)}'s growing report</h2>
+    </div>
+    <div class="stat-row" style="margin-bottom:16px">
+      <div class="stat-tile"><div class="v">${totalQ}</div><div class="l">questions ever</div></div>
+      <div class="stat-tile"><div class="v">${acc}%</div><div class="l">correct overall</div></div>
+      <div class="stat-tile"><div class="v" style="color:var(--terra)">${flowers}</div><div class="l">of ${SKILLS.length} mastered</div></div>
+      <div class="stat-tile"><div class="v" style="color:var(--gold)">${streak}</div><div class="l">day streak</div></div>
+    </div>
+    <div class="today-grid" style="align-items:start">
+      <div class="card" style="margin-bottom:0">
+        <h2>This week</h2>
+        <div class="week-chart">${chart}</div>
+        <p style="font-weight:700;text-align:center;margin-top:10px;font-size:13px">${improveMsg}</p>
+        <p class="note" style="text-align:center">This week: ${thisW.t} questions, ${accW(thisW)}% right · Last week: ${lastW.t} questions, ${accW(lastW)}% right</p>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <h2>Garden health <span class="note" style="font-weight:600;margin-left:auto">tap a subject to open</span></h2>
+        ${groups}
       </div>
     </div>
-    <div class="card tilt-r">
-      <h2><span class="bubble" style="background:var(--sky)">📊</span>This week</h2>
-      <div class="week-chart">${chart}</div>
-      <p style="font-weight:800;text-align:center;margin-top:10px">${improveMsg}</p>
-      <p class="note" style="text-align:center">This week: ${thisW.t} questions, ${accW(thisW)}% right · Last week: ${lastW.t} questions, ${accW(lastW)}% right</p>
-    </div>
-    <div class="card">
-      <h2><span class="bubble" style="background:var(--leaf)">🌱</span>Garden health by topic</h2>
-      <div class="prog-bars">${bars}</div>
-    </div>
-    <div class="card tilt-l">
-      <h2><span class="bubble" style="background:var(--coral)">🏅</span>Sticker book</h2>
+    <div class="card" style="margin-top:16px">
+      <h2>Sticker book</h2>
       <div class="badge-grid">${badges}</div>
     </div>
-    <div style="text-align:center"><button class="btn small ghost" id="grownBtn2">🔑 Grown-ups corner</button></div>
   </div>`;
-  $('#grownBtn2').onclick = () => show('grownups');
 }
 
 // ============================================================
@@ -1217,12 +1344,12 @@ function renderHelper() {
       <p>A real tutor doesn't hand you answers — it asks you the right questions. Wrong answers get a hint first, so you always get a second try.</p></span>
     </div>
     <div class="helper-tabs">
-      <button data-t="home">🏠 Start</button>
-      <button data-t="tutor">🧮 Math</button>
-      <button data-t="wizard">📖 Word problems</button>
-      <button data-t="words">🔤 Tricky words</button>
-      <button data-t="homework">📄 My homework</button>
-      <button data-t="cheats">🗒️ Cheat sheets</button>
+      <button data-t="home">${icon('gradcap', 15)} Start</button>
+      <button data-t="tutor">${icon('calculator', 15)} Math</button>
+      <button data-t="wizard">${icon('book', 15)} Word problems</button>
+      <button data-t="words">${icon('pencil', 15)} Tricky words</button>
+      <button data-t="homework">${icon('camera', 15)} My homework</button>
+      <button data-t="cheats">${icon('clipboard', 15)} Cheat sheets</button>
     </div>
     <div class="card" id="helperBody"></div>
   </div>`;
@@ -1488,5 +1615,8 @@ function escAttr(s) { return esc(s); }
 // ---------------- boot ----------------
 loadCustomSkills(); // splice any saved custom lessons into the catalog
 $('#brandLogo').innerHTML = logoSVG(30);
+const brandEl = $('.brand');
+brandEl.style.cursor = 'pointer';
+brandEl.onclick = () => show(kid() ? 'today' : 'kids');
 $$('#tabbar [data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon, 21); });
 show(kid() ? 'today' : 'kids');

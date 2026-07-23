@@ -722,11 +722,11 @@ function renderTutorHome() {
       <p class="note">Pick one — we'll figure it out together, step by step.</p>
     </div>
     <div class="tutor-menu">
-      <button class="tutor-door" data-door="tutor"><span>🧮</span><b>A math problem</b><small>adding & subtracting, step by step</small></button>
-      <button class="tutor-door" data-door="wizard"><span>📖</span><b>A word problem</b><small>a story problem from homework</small></button>
-      <button class="tutor-door" data-door="words"><span>🔤</span><b>A tricky word</b><small>reading, meaning & word attack</small></button>
-      <button class="tutor-door" data-door="homework"><span>📄</span><b>My homework sheet</b><small>snap a photo & work through it</small></button>
-      <button class="tutor-door" data-door="cheats"><span>🗒️</span><b>Cheat sheets</b><small>money, clocks, clue words & more</small></button>
+      <button class="tutor-door" data-door="tutor"><span class="subj-ico" style="width:46px;height:46px;background:var(--terra-tint);color:var(--terra)">${icon('calculator', 23)}</span><b>A math problem</b><small>adding & subtracting, step by step</small></button>
+      <button class="tutor-door" data-door="wizard"><span class="subj-ico" style="width:46px;height:46px;background:var(--teal-tint);color:var(--teal)">${icon('book', 23)}</span><b>A word problem</b><small>a story problem from homework</small></button>
+      <button class="tutor-door" data-door="words"><span class="subj-ico" style="width:46px;height:46px;background:var(--purple-tint);color:var(--purple)">${icon('pencil', 23)}</span><b>A tricky word</b><small>reading, meaning & word attack</small></button>
+      <button class="tutor-door" data-door="homework"><span class="subj-ico" style="width:46px;height:46px;background:var(--blue-tint);color:var(--blue)">${icon('camera', 23)}</span><b>My homework sheet</b><small>snap a photo & work through it</small></button>
+      <button class="tutor-door" data-door="cheats"><span class="subj-ico" style="width:46px;height:46px;background:var(--gold-tint);color:var(--gold)">${icon('clipboard', 23)}</span><b>Cheat sheets</b><small>money, clocks, clue words & more</small></button>
     </div>`;
   $$('.tutor-door').forEach(b => b.onclick = () => { HELPER_TAB = b.dataset.door; renderHelper(); });
 }
