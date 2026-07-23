@@ -118,7 +118,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 8; // bump when the skill catalog or plan logic changes (8 = content3, 171 skills)
+const PLAN_VERSION = 9; // bump when the skill catalog or plan logic changes (9 = handwriting, 175 skills)
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};
@@ -1025,6 +1025,7 @@ function renderSession(skillId, guided) {
   if (!sk) return show('practice');
   const strand = STRANDS.find(x => x.id === sk.strand) || {};
   // Computer skills get the full keyboard experience (7a); reading gets the story reader (6b)
+  if (sk.strand === 'handwriting' && typeof renderHandwritingSession === 'function') return renderHandwritingSession(sk);
   if (strand.subject === 'typing' && strand.engine !== 'standard' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
   if (sk.strand === 'reading' && typeof renderStoryReader === 'function') return renderStoryReader(sk);
   // guided = arriving from a Learn lesson: 2 "Water it" warmups first (nothing recorded)

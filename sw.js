@@ -18,6 +18,7 @@ const SHELL = [
   'js/typing.js',
   'js/content2.js',
   'js/content3.js',
+  'js/handwriting.js',
   'js/sprint.js',
   'js/coach.js',
   'js/reader.js',
