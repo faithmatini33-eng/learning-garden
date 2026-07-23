@@ -1583,3 +1583,26 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 }
 .rd-art.has-art { border: none; padding: 0; background: none; }
 .rd-art.has-art svg.story-art-svg { width: 100%; height: auto; display: block; border-radius: 18px; box-shadow: var(--shadow-card); }
+
+/* ---- full-body fox teacher + talking mouth (transform-only) ---- */
+.fox-col .fox-face svg.fox-full { display: block; margin: 0 auto; }
+@keyframes foxmouth { from { transform: scaleY(.25); } to { transform: scaleY(1.15); } }
+@keyframes foxbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.fox-full .fox-mouth { transform-origin: 32px 42px; transform-box: view-box; }
+.fox-full.talking .fox-mouth { animation: foxmouth .28s ease-in-out infinite alternate; }
+.fox-full.talking { animation: foxbob 1.6s ease-in-out infinite; }
+body.calm-motion .fox-full.talking, body.calm-motion .fox-full.talking .fox-mouth { animation: none; }
+/* word-pair teaching cards */
+.pair-card { min-width: 150px; }
+.pair-card .pair-word { display: block; font-family: var(--font-head); font-weight: 800; font-size: 22px; }
+.pair-card.playing { border-color: var(--gold); background: var(--gold-tint); }
+/* big readable fox messages on moment screens */
+.fox-note-big {
+  display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 22px;
+}
+.fox-note-big .say {
+  background: #fff; border: 1px solid var(--border); border-radius: 6px 18px 18px 18px;
+  padding: 12px 18px; font-weight: 700; font-size: 16px; max-width: 340px; text-align: left;
+  box-shadow: var(--shadow-card);
+}
+.fox-note-big.on-grass .say { border: none; }

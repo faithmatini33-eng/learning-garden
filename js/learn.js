@@ -160,9 +160,25 @@ function autoSteps(lesson) {
   const strand = STRANDS.find(x => x.id === lesson.strand) || {};
   const sk = SKILL_MAP[lesson.skillId];
   const chunks = strand.lesson ? lessonChunks(strand.lesson) : [`<p><b>${esc(lesson.name)}</b> — let's figure it out together!</p>`];
+  const isSpanish = strand.subject === 'spanish';
   const steps = [];
   chunks.slice(0, 4).forEach((c, i) => {
-    steps.push({ kind: 'teach', variant: 'generic', html: c, say: speakableText(c) });
+    // a TABLE chunk = word pairs → teach them one at a time, out loud
+    if (/<table/i.test(c)) {
+      const box = document.createElement('div');
+      box.innerHTML = c;
+      const rows = [...box.querySelectorAll('tr')]
+        .map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim()))
+        .filter(r => r.length >= 2 && r[0]);
+      if (rows.length) {
+        steps.push({ kind: 'teach', variant: 'pairs', rows: rows.slice(0, 8), lang: isSpanish ? 'es-ES' : 'en-US',
+          say: isSpanish ? "Let's meet each word! Listen — then tap any card to hear it again." : "Let's look at these one at a time — listen along with me." });
+      } else {
+        steps.push({ kind: 'teach', variant: 'generic', html: c, say: speakableText(c) });
+      }
+    } else {
+      steps.push({ kind: 'teach', variant: 'generic', html: c, say: speakableText(c) });
+    }
     if (i % 2 === 1 || i === Math.min(chunks.length, 4) - 1) steps.push({ kind: 'tryit', generic: true });
   });
   // cap: exactly 2 try-its max for autos (README: every 2 teach steps → 1 try-it)
@@ -298,12 +314,12 @@ function lpBar(minimal) {
   $('#lpClose').onclick = () => { lpSpeechStop(); lpSaveProgress(); show('learnpath', LP.strandId); };
 }
 
-function lpSpeechStop() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+function lpSpeechStop() { FOX_TALK_TOKEN++; LP && (LP.tourStop = true); if ('speechSynthesis' in window) speechSynthesis.cancel(); const f = document.querySelector('.fox-full'); if (f) f.classList.remove('talking'); }
 
 // fox speech: auto-plays, "Playing…" ↔ "Again", optional Slower
 function foxPanel(sayHTML, opts = {}) {
   return `<div class="fox-col">
-    <span class="fox-face pop">${foxSVG(110, "talk")}</span>
+    <span class="fox-face pop">${typeof foxFullSVG === "function" ? foxFullSVG(168, "talk") : foxSVG(110, "talk")}</span>
     <div class="fox-card">
       <p class="fox-say">${sayHTML}</p>
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -313,15 +329,32 @@ function foxPanel(sayHTML, opts = {}) {
     </div>
   </div>`;
 }
-function foxSpeak(text, { lang = 'en-US', rate = 0.95 } = {}) {
+// Khan-Kids pacing: one sentence at a time, gentle rate, short breaths
+// between — and the big fox's mouth moves while it talks.
+let FOX_TALK_TOKEN = 0;
+function foxTalking(on) {
+  const f = document.querySelector('.fox-col .fox-full, .fox-col svg.fox-svg');
+  if (f) f.classList.toggle('talking', !!on);
+}
+function foxSpeak(text, { lang = 'en-US', rate = 0.8 } = {}) {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; const v = pickVoice(lang); if (v) u.voice = v;
-  u.rate = rate;
-  u.onstart = () => { const l = $('#foxPlayLbl'); if (l) l.textContent = 'Playing…'; };
-  u.onend = () => { const l = $('#foxPlayLbl'); if (l) l.textContent = 'Play'; };
-  speechSynthesis.speak(u);
+  const token = ++FOX_TALK_TOKEN;
+  const sentences = (String(text).match(/[^.!?…]+[.!?…]*/g) || [String(text)]).map(t => t.trim()).filter(Boolean);
+  const l = $('#foxPlayLbl'); if (l) l.textContent = 'Playing…';
+  foxTalking(true);
+  const done = () => { if (token !== FOX_TALK_TOKEN) return; foxTalking(false); const l2 = $('#foxPlayLbl'); if (l2) l2.textContent = 'Play'; };
+  const speakNext = (i) => {
+    if (token !== FOX_TALK_TOKEN) return;
+    if (i >= sentences.length) return done();
+    const u = new SpeechSynthesisUtterance(sentences[i]);
+    u.lang = lang; const v = pickVoice(lang); if (v) u.voice = v;
+    u.rate = rate;
+    u.onend = () => setTimeout(() => speakNext(i + 1), 320);
+    u.onerror = done;
+    speechSynthesis.speak(u);
+  };
+  speakNext(0);
 }
 function wireFox(text, opts = {}) {
   const play = $('#foxPlay');
@@ -421,6 +454,49 @@ function stagePic(s, size = 40) {
 }
 
 function teachVisual(step, u) {
+  // auto-lessons — word pairs taught one at a time (the fix for the
+  // sprint-through-the-table experience)
+  if (step.variant === 'pairs') {
+    const cards = step.rows.map(([a, b], i) => `
+      <button class="vocab-card pair-card" data-pi="${i}">
+        <span class="pair-word">${esc(a)}</span>
+        <span class="voc-gloss">${esc(b)}</span>
+        <span class="voc-badge">${icon('volume', 13)}</span>
+      </button>`).join('');
+    return {
+      eyebrow: 'Listen — one at a time', cta: 'I heard them all!',
+      html: `<div class="voc-grid pairs">${cards}</div>`,
+      wire: () => {
+        const sayPair = (i, after) => {
+          const [a, b] = step.rows[i];
+          $$('.pair-card').forEach((x, xi) => x.classList.toggle('playing', xi === i));
+          const u1 = new SpeechSynthesisUtterance(a);
+          u1.lang = step.lang; const v1 = pickVoice(step.lang); if (v1) u1.voice = v1;
+          u1.rate = 0.62;
+          u1.onend = () => setTimeout(() => {
+            const u2 = new SpeechSynthesisUtterance(step.lang === 'es-ES' ? `means ${b}` : b);
+            u2.lang = 'en-US'; const v2 = pickVoice('en-US'); if (v2) u2.voice = v2;
+            u2.rate = 0.85;
+            u2.onend = () => after && setTimeout(after, 550);
+            speechSynthesis.speak(u2);
+          }, 350);
+          speechSynthesis.cancel();
+          speechSynthesis.speak(u1);
+        };
+        // guided tour after the fox's intro, then free tapping
+        LP.tourStop = false;
+        const tour = (i) => {
+          if (LP.tourStop || i >= step.rows.length || !document.querySelector('.pair-card')) {
+            $$('.pair-card').forEach(x => x.classList.remove('playing'));
+            return;
+          }
+          sayPair(i, () => tour(i + 1));
+        };
+        setTimeout(() => { if (!LP.tourStop && document.querySelector('.pair-card')) tour(0); }, 3400);
+        $$('.pair-card').forEach(b => b.onclick = () => { LP.tourStop = true; sayPair(+b.dataset.pi); });
+      },
+    };
+  }
   // 10b — life-cycle diagram
   if (step.variant === 'diagram') {
     const cells = LIFE_STAGES.map(([pic, label], i) => {
@@ -684,7 +760,7 @@ function lpComplete() {
         <button class="btn big" id="lpPath">Back to my path</button>
       </div>
     </div>
-    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">${foxSVG(42, "cheer")}</span><span class="say">You're a ${esc((LP.ls.def ? LP.ls.def.term : LP.ls.name).replace(/!$/, ''))} expert now!</span></div>
+    <div class="fox-note-big"><span>${typeof foxFullSVG === "function" ? foxFullSVG(96, "cheer") : foxSVG(42, "cheer")}</span><span class="say">You're a ${esc((LP.ls.def ? LP.ls.def.term : LP.ls.name).replace(/!$/, ''))} expert now!</span></div>
   </div>`;
   $('#lpNext').onclick = () => startLesson(next.id, LP.strandId);
   $('#lpPath').onclick = () => show('learnpath', LP.strandId);
@@ -713,7 +789,7 @@ function lpPathDone() {
         <button class="btn big" id="pdNew" style="background:#fff">Pick a new path</button>
       </div>
     </div>
-    <div class="mascot" style="position:fixed;left:22px;bottom:22px"><span class="fox">${foxSVG(42, "cheer")}</span><span class="say">The whole bed bloomed — because of YOU!</span></div>
+    <div class="fox-note-big on-grass"><span>${typeof foxFullSVG === "function" ? foxFullSVG(96, "cheer") : foxSVG(42, "cheer")}</span><span class="say">The whole bed bloomed — because of YOU!</span></div>
     <div class="print-only cert-page">
       <h1>Certificate of Growing</h1>
       <p class="c-name">${esc(kid().name)}</p>

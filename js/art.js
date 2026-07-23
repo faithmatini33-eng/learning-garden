@@ -600,7 +600,7 @@ const GardenArt = {
   foxSVG, avatarSVG,
   starSVG, flameSVG, dropSVG, sunSVG, giftSVG, trophySVG, heartSVG,
   eggSVG, caterpillarSVG, chrysalisSVG, butterflySVG,
-  flowerSVG, critterSVG, gardenSceneSVG, storyArtSVG,
+  flowerSVG, critterSVG, gardenSceneSVG, storyArtSVG, foxFullSVG,
   GARDEN_PALETTE,
 };
 
@@ -653,6 +653,51 @@ function storyArtSVG(p, size = 300) {
     <path d="M0 252 Q90 226 180 248 T300 244 V300 H0 Z" fill="${hill2}"/>
     ${flowers}
     ${motif ? `<g transform="translate(98, 76)">${motif}</g>` : monogram}
+  </svg>`;
+}
+
+
+
+// ---------------- full-body fox teacher (Khan-Kids-style presence) ----------------
+// Poses: 'stand' | 'talk' (gesturing arm) | 'point' | 'cheer' (both arms up).
+// The mouth carries class "fox-mouth" — CSS animates it (transform-only)
+// while the wrapper has .talking, so the fox visibly speaks.
+function foxFullSVG(size = 180, pose = 'talk') {
+  const armL = pose === 'cheer'
+    ? `<path d="M38 88 Q26 74 22 60" stroke="${ART.terra}" stroke-width="9" stroke-linecap="round" fill="none"/><circle cx="22" cy="58" r="6" fill="${ART.cream}"/>`
+    : `<path d="M38 90 Q28 98 24 108" stroke="${ART.terra}" stroke-width="9" stroke-linecap="round" fill="none"/><circle cx="24" cy="110" r="6" fill="${ART.cream}"/>`;
+  const armR = (pose === 'cheer')
+    ? `<path d="M82 88 Q94 74 98 60" stroke="${ART.terra}" stroke-width="9" stroke-linecap="round" fill="none"/><circle cx="98" cy="58" r="6" fill="${ART.cream}"/>`
+    : (pose === 'talk' || pose === 'point')
+      ? `<path d="M82 88 Q96 82 104 72" stroke="${ART.terra}" stroke-width="9" stroke-linecap="round" fill="none"/><circle cx="105" cy="70" r="6" fill="${ART.cream}"/>`
+      : `<path d="M82 90 Q92 98 96 108" stroke="${ART.terra}" stroke-width="9" stroke-linecap="round" fill="none"/><circle cx="96" cy="110" r="6" fill="${ART.cream}"/>`;
+  return `<svg class="fox-full fox-${pose}" width="${size}" height="${Math.round(size * 1.22)}" viewBox="0 0 120 146" fill="none" aria-hidden="true">
+    <path d="M88 116 Q112 112 110 92 Q109 78 96 76 Q104 92 84 102 Z" fill="${ART.terra}"/>
+    <path d="M104 84 Q109 80 110 92 Q110 100 100 104 Z" fill="${ART.cream}"/>
+    <path d="M60 74 C82 74 92 92 92 110 C92 130 80 140 60 140 C40 140 28 130 28 110 C28 92 38 74 60 74 Z" fill="${ART.terraSoft}"/>
+    <ellipse cx="60" cy="112" rx="18" ry="22" fill="${ART.cream}"/>
+    ${armL}${armR}
+    <ellipse cx="47" cy="139" rx="10" ry="5.5" fill="${ART.terra}"/>
+    <ellipse cx="73" cy="139" rx="10" ry="5.5" fill="${ART.terra}"/>
+    <g transform="translate(28, 2) scale(1.0)">
+      <path d="M9.5 21.5 L12.6 3.5 L25 15.5 Z" fill="${ART.terra}"/>
+      <path d="M54.5 21.5 L51.4 3.5 L39 15.5 Z" fill="${ART.terra}"/>
+      <path d="M13 18 L14.3 9 L20.6 15.2 Z" fill="${ART.cream}"/>
+      <path d="M51 18 L49.7 9 L43.4 15.2 Z" fill="${ART.cream}"/>
+      <path d="M32 7.5 C43.8 7.5 53 15.2 53 26.8 C53 41 44.3 52 32 52 C19.7 52 11 41 11 26.8 C11 15.2 20.2 7.5 32 7.5 Z" fill="${ART.terraSoft}"/>
+      <path d="M12.5 28.5 L3 33.8 L13.4 38.4 Z" fill="${ART.terraSoft}"/>
+      <path d="M51.5 28.5 L61 33.8 L50.6 38.4 Z" fill="${ART.terraSoft}"/>
+      <path d="M19 38.5 Q19.5 32 26 33 Q30 34 32 37 Q34 34 38 33 Q44.5 32 45 38.5 Q45.3 48.5 32 49.5 Q18.7 48.5 19 38.5 Z" fill="${ART.cream}"/>
+      <circle cx="24.5" cy="27.5" r="3.6" fill="#2A2320"/>
+      <circle cx="39.5" cy="27.5" r="3.6" fill="#2A2320"/>
+      <circle cx="25.8" cy="26.3" r="1.2" fill="#fff"/>
+      <circle cx="40.8" cy="26.3" r="1.2" fill="#fff"/>
+      <circle cx="18" cy="34" r="3" fill="#F2B8A0" opacity=".85"/>
+      <circle cx="46" cy="34" r="3" fill="#F2B8A0" opacity=".85"/>
+      <path d="M32 35.5 L29.4 33 Q32 31.6 34.6 33 Z" fill="#2A2320"/>
+      <path class="fox-mouth" d="M27.5 41.5 Q32 46.5 36.5 41.5 Q32 44 27.5 41.5 Z" fill="#8C4A32"/>
+    </g>
+    ${pose === 'cheer' ? `<g fill="${ART.gold || '#F2B035'}"><circle cx="14" cy="44" r="3"/><circle cx="106" cy="44" r="3"/><circle cx="24" cy="30" r="2"/><circle cx="96" cy="30" r="2"/></g>` : ''}
   </svg>`;
 }
 
