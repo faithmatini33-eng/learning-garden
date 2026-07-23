@@ -1506,3 +1506,15 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
   .ws-page * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .wsp-head { border-bottom-color: var(--terra) !important; }
 }
+
+/* ---- lesson-on-Today card, nudge toast, welcome tour ---- */
+.lesson-today { display: flex; align-items: center; gap: 14px; border: 2px solid var(--terra); }
+.nudge-toast {
+  position: fixed; top: 74px; right: 18px; z-index: 90;
+  display: flex; align-items: center; gap: 10px; max-width: 380px;
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--shadow-float); padding: 12px 14px; font-weight: 600; font-size: 13px;
+  animation: toastIn .3s var(--spring);
+}
+@keyframes toastIn { from { transform: translateX(30px); } to { transform: none; } }
+.tour-card { text-align: center; max-width: 420px; position: relative; }

@@ -488,6 +488,23 @@ function renderToday() {
         <div id="bonusWrap" style="display:none;margin-top:6px">${bonusTasks.map(rowFor).join('')}</div>` : ''}
       </div>`;
 
+  const tl = typeof todayLessonPick === 'function' ? todayLessonPick() : null;
+  const lessonCard = !tl ? '' : tl.doneToday
+    ? `<div class="card" style="display:flex;align-items:center;gap:12px;background:var(--green-tint);border-color:var(--green-tint)">
+        <span style="flex:none;display:inline-flex">${foxSVG(38, 'cheer')}</span>
+        <span style="flex:1;min-width:0;font-weight:700">Lesson learned today — beautiful! It's planted in Practice with a head start.</span>
+        <button class="btn small ghost" id="tlDash">My Learning ${icon('right', 13)}</button>
+      </div>`
+    : `<div class="card lesson-today">
+        <span style="flex:none;display:inline-flex">${foxSVG(44, 'talk')}</span>
+        <span style="flex:1;min-width:0">
+          <span class="eyebrow" style="color:var(--terra)">${tl.resume ? 'Keep learning' : "Today's lesson"}</span>
+          <b style="display:block;font-family:var(--font-head);font-size:17px">${esc(tl.ls.name)}</b>
+          <p class="note">${esc((STRANDS.find(x => x.id === tl.strandId) || {}).name || '')} path · the fox teaches, then you try</p>
+        </span>
+        <button class="btn primary caps-btn" id="tlGo">${tl.resume ? 'Keep going' : "Let's learn"}</button>
+      </div>`;
+
   const owlCard = `<div class="owl-card">
       <span class="owl-tile">${owlSVG(36)}</span>
       <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>Snap a photo and the Helper Owl walks you through it, step by step.</p></span>
@@ -550,7 +567,7 @@ function renderToday() {
   app.innerHTML = `<div class="reveal">
     <div class="today-grid">
       <div class="today-left">
-        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${planCard}${checkupCard}${owlCard}`}
+        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${lessonCard}${planCard}${checkupCard}${owlCard}`}
       </div>
       ${theme === 'stars' ? trophyPanel : gardenPanel}
     </div>
@@ -566,6 +583,10 @@ function renderToday() {
   const gh = $('#goHelper'); if (gh) gh.onclick = () => { HELPER_TAB = 'homework'; show('helper'); };
   $('#grownBtnT').onclick = () => show('grownups');
   $('#gearBtn').onclick = openSettings;
+  const tlGo = $('#tlGo'); if (tlGo) tlGo.onclick = () => startLesson(tl.ls.id, tl.strandId, { resume: tl.resume });
+  const tlD = $('#tlDash'); if (tlD) tlD.onclick = () => show('learn');
+  maybeTour();
+  updateAppBadge();
   const gs = $('.garden-scene'); if (gs) { gs.style.cursor = 'pointer'; gs.onclick = (e) => { if (!e.target.closest('.water-float')) show('garden'); }; }
   const spb = $('#startPlanBtn'); if (spb) spb.onclick = () => {
     const next = coreTasks.find(t => !taskDoneToday(t));
@@ -792,6 +813,12 @@ function renderSettingsPage() {
         <p class="note">Reports, school focus, worksheets, and family tools.</p></span>
       <button class="btn sky caps-btn" id="setGrown">Open</button>
     </div>
+    <div class="card" style="display:flex;align-items:center;gap:14px">
+      <span style="flex:none;display:inline-flex">${foxSVG(40, 'talk')}</span>
+      <span style="flex:1;min-width:0"><b style="font-family:var(--font-head)">Show me around again</b>
+        <p class="note">Replay the welcome tour of the garden.</p></span>
+      <button class="btn ghost caps-btn" id="setTour">Replay</button>
+    </div>
   </div>`;
   $('#setBack').onclick = () => show('today');
   $$('.theme-card').forEach(b => b.onclick = () => {
@@ -817,6 +844,7 @@ function renderSettingsPage() {
     document.body.classList.toggle('calm-motion', !!s.calmMotion);
   };
   $('#setGrown').onclick = () => show('grownups');
+  $('#setTour').onclick = () => { kidSettings().toured = false; save(); show('today'); };
 }
 
 // ---------------- time in the garden (Faith 2026-07-23) ----------------
@@ -853,6 +881,103 @@ function weekSeconds(kidId) {
 function fmtMins(sec) {
   const m = Math.round(sec / 60);
   return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
+}
+
+// ---------------- practice-time reminders (free + offline-honest) ----------------
+// While the app is OPEN we can nudge: an in-app banner always works, and a
+// system notification fires where the browser allows it (desktop; installed
+// PWAs on some tablets). True push-while-closed needs a server — never here.
+function remindersCfg() {
+  DB.settings.reminders = DB.settings.reminders || { nudge: true, streakAlert: true, recap: false };
+  const r = DB.settings.reminders;
+  r.time = r.time || '15:30';
+  return r;
+}
+function reminderTick() {
+  const r = remindersCfg();
+  if (!r.nudge || !kid()) return;
+  const today = dstr();
+  if (r.lastFired === today) return;
+  const now = new Date();
+  const [hh, mm] = r.time.split(':').map(Number);
+  if (now.getHours() < hh || (now.getHours() === hh && now.getMinutes() < mm)) return;
+  const goal = kidSettings().schoolGoal || 3;
+  const plan = getWeekPlan();
+  const dow = (now.getDay() + 6) % 7;
+  if (dow > 4) return; // weekends rest
+  const core = (plan[dow] || []).filter(sid => SKILL_MAP[sid]).slice(0, goal);
+  const left = core.filter(t => !taskDoneToday(t)).length;
+  if (!left) return;
+  r.lastFired = today; save();
+  const msg = `${kid().name}'s garden is thirsty — ${left} little ${left === 1 ? 'task' : 'tasks'} to water it today!`;
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Learning Garden', { body: msg, icon: 'icons/icon-192.png', tag: 'lg-nudge' });
+    }
+  } catch (e) {}
+  nudgeToast(msg);
+}
+function nudgeToast(msg) {
+  if (document.getElementById('nudgeToast')) return;
+  const el = document.createElement('div');
+  el.id = 'nudgeToast'; el.className = 'nudge-toast';
+  el.innerHTML = `${owlSVG(34)}<span style="flex:1;min-width:0">${esc(msg)}</span>
+    <button class="btn small primary" id="nudgeGo">Let's go</button>
+    <button class="icon-btn" id="nudgeX" aria-label="Dismiss" style="width:30px;height:30px">${icon('x', 13)}</button>`;
+  document.body.appendChild(el);
+  el.querySelector('#nudgeGo').onclick = () => { el.remove(); show('today'); };
+  el.querySelector('#nudgeX').onclick = () => el.remove();
+}
+setInterval(reminderTick, 60000);
+
+// app-icon badge = plan tasks left today (installed PWAs that support it)
+function updateAppBadge() {
+  if (!('setAppBadge' in navigator) || !kid()) return;
+  try {
+    const goal = kidSettings().schoolGoal || 3;
+    const dow = (new Date().getDay() + 6) % 7;
+    if (dow > 4) { navigator.clearAppBadge(); return; }
+    const core = (getWeekPlan()[dow] || []).filter(sid => SKILL_MAP[sid]).slice(0, goal);
+    const left = core.filter(t => !taskDoneToday(t)).length;
+    if (left) navigator.setAppBadge(left); else navigator.clearAppBadge();
+  } catch (e) {}
+}
+
+// ---------------- first-run tour (newbies welcome) ----------------
+const TOUR_STEPS = [
+  ['Welcome to your garden!', 'Every day has a little plan. Finish it and your garden gets watered — skills grow from seeds into flowers.', 'sprout'],
+  ['The fox teaches you', 'Tap <b>Learn</b> to be taught something brand new, step by step. Lessons plant new skills with a head start!', 'bulb'],
+  ['Practice makes flowers', 'In <b>Practice</b>, every skill grows as you answer. Wrong answers get a hint and a second try — that is how gardens grow.', 'book'],
+  ['Stuck? The owl helps', 'The <b>Helper</b> owl walks you through homework, listens to you read, and never just gives away answers.', 'gradcap'],
+  ['Grown-ups corner', 'Parents: reports, school focus, worksheets, and settings live behind the <b>Grown-ups</b> lock. Kids — go grab your grown-up!', 'lock'],
+];
+function maybeTour() {
+  if (!kid() || kidSettings().toured) return;
+  if (document.getElementById('tourBack')) return; // never stack two tours
+  let ti = 0;
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.id = 'tourBack';
+  const paint = () => {
+    const [title, body, ic] = TOUR_STEPS[ti];
+    back.innerHTML = `<div class="modal tour-card pop">
+      <span style="display:inline-flex;margin-bottom:6px">${ti === 0 ? foxSVG(64, 'cheer') : ti === 3 ? owlSVG(60) : foxSVG(64, 'talk')}</span>
+      <span class="subj-ico" style="width:34px;height:34px;background:var(--terra-tint);color:var(--terra);position:absolute;top:18px;right:18px">${icon(ic, 17)}</span>
+      <h2 style="font-family:var(--font-head);font-weight:800;font-size:20px;justify-content:center">${title}</h2>
+      <p style="font-weight:600;color:var(--soft);line-height:1.55;margin-top:6px">${body}</p>
+      <div class="pdots" style="justify-content:center;margin:14px 0 12px">${TOUR_STEPS.map((_, j) => `<span class="pdot ${j <= ti ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="answer-row" style="justify-content:center">
+        ${ti < TOUR_STEPS.length - 1 ? `<button class="btn ghost" id="tourSkip">Skip</button>
+        <button class="btn primary caps-btn" id="tourNext">Next ${icon('arrowright', 14)}</button>`
+        : `<button class="btn primary big caps-btn" id="tourNext">Let's grow!</button>`}
+      </div>
+    </div>`;
+    const done = () => { kidSettings().toured = true; save(); back.remove(); };
+    back.querySelector('#tourNext').onclick = () => { ti++; if (ti >= TOUR_STEPS.length) { sfx('cheer'); done(); } else paint(); };
+    const sk = back.querySelector('#tourSkip'); if (sk) sk.onclick = done;
+  };
+  paint();
+  document.body.appendChild(back);
 }
 
 // ============================================================
@@ -1000,6 +1125,7 @@ function sessionShell(title, backView, tileHTML = '') {
 
 // 3b: bottom-right "Today's water" drops = plan tasks done today
 function updateWaterChip() {
+  updateAppBadge();
   const el = $('#waterChip');
   if (!el) return;
   const goal = kidSettings().schoolGoal;
@@ -1770,14 +1896,33 @@ function renderGrownups() {
       <div>
         ${goalCards}
         <div class="card">
+          <h2><span class="bubble" style="background:var(--gold-tint);color:var(--gold)">${icon('bulb', 16)}</span>New here? How it works</h2>
+          <details><summary style="font-weight:700;cursor:pointer;color:var(--teal)">The 2-minute guide</summary>
+            <ol style="font-weight:600;line-height:1.8;padding-left:20px;margin-top:8px;font-size:13.5px">
+              <li><b>Add each kid</b> (their own garden, avatar, and progress).</li>
+              <li>Have them take a 5-minute <b>Garden Checkup</b> — the app finds what they already know and plans around it.</li>
+              <li>Kids just open the app daily: <b>Today</b> shows their small plan; finishing it waters the garden.</li>
+              <li><b>Learn</b> = the fox teaches new topics first; <b>Practice</b> grows skills from seed to flower; the <b>Helper</b> owl coaches homework.</li>
+              <li>You: paste the teacher's newsletter into <b>School focus</b>, check <b>this week in 10 seconds</b> here, print <b>worksheets</b>, and set the practice-time nudge below.</li>
+              <li>On a tablet: open the app in the browser → Share → <b>Add to Home Screen</b> — it works offline forever after.</li>
+            </ol>
+            <p class="note">Kids get their own friendly tour on first visit — replay it any time from Settings.</p>
+          </details>
+        </div>
+        <div class="card">
           <h2>Reminders</h2>
-          <div class="toggle-row"><span><b>Daily practice nudge</b><br><small class="note">3:30 PM on school days</small></span>
-            <button class="tog ${rem.nudge ? 'on' : ''}" data-tog="nudge"></button></div>
+          <div class="toggle-row"><span><b>Daily practice nudge</b><br><small class="note">On school days, when the plan isn't done yet</small></span>
+            <span style="display:inline-flex;align-items:center;gap:9px;margin-left:auto">
+              <input type="time" id="remTime" value="${remindersCfg().time}" style="font-weight:700;padding:5px 8px;border:var(--outline);border-radius:10px">
+              <button class="tog ${rem.nudge ? 'on' : ''}" data-tog="nudge"></button>
+            </span></div>
+          <div class="toggle-row"><span><b>System notifications</b><br><small class="note" id="sysNoteState">${('Notification' in window) ? (Notification.permission === 'granted' ? 'On — pops up even when the app is in another tab' : 'Off — nudges show inside the app only') : 'Not supported on this browser — in-app nudges still work'}</small></span>
+            ${('Notification' in window) && Notification.permission !== 'granted' ? `<button class="btn small sky" id="askNotif">Turn on</button>` : ''}</div>
           <div class="toggle-row"><span><b>Streak alerts</b><br><small class="note">Heads-up before a streak breaks</small></span>
             <button class="tog ${rem.streakAlert ? 'on' : ''}" data-tog="streakAlert"></button></div>
           <div class="toggle-row"><span><b>Weekly recap</b><br><small class="note">Summary on this screen every Sunday</small></span>
             <button class="tog ${rem.recap ? 'on' : ''}" data-tog="recap"></button></div>
-          <p class="note" style="margin-top:8px">Reminders show while the app is open on this device.</p>
+          <p class="note" style="margin-top:8px">Honest fine print: with no servers and no accounts, reminders can only fire while the app (or its tab) is open. On an installed tablet app, the icon also shows a badge with today's tasks left.</p>
         </div>
         ${recapCards}
       </div>
@@ -1785,6 +1930,8 @@ function renderGrownups() {
   </div>`;
 
   $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
+  const rt = $('#remTime'); if (rt) rt.onchange = () => { remindersCfg().time = rt.value || '15:30'; remindersCfg().lastFired = null; save(); };
+  const an = $('#askNotif'); if (an) an.onclick = () => Notification.requestPermission().then(() => renderGrownups());
   $('#addKid2').onclick = renderAddKid;
   $('#wsMaker').onclick = () => show('worksheet');
   $('#voiceF').onclick = () => { DB.settings.voicePref = 'female'; save(); renderGrownups(); };
@@ -1838,6 +1985,9 @@ function renderGrownups() {
       DB.kids = DB.kids.filter(x => x.id !== k.id);
       delete DB.stats[k.id]; delete DB.log[k.id]; delete DB.plans[k.id];
       delete DB.focus[k.id]; delete DB.diag[k.id]; delete DB.sprint[k.id];
+      if (DB.learn) delete DB.learn[k.id];
+      if (DB.lessons) delete DB.lessons[k.id];
+      if (DB.settings) delete DB.settings[k.id];
       if (DB.activeKid === k.id) DB.activeKid = null;
       save(); renderGrownups();
     }

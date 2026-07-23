@@ -116,6 +116,29 @@ function learnPathState(strandId) {
   const idx = lessons.findIndex(x => !doneIds.has(x.id));
   return { lessons, doneIds, currentIdx: idx === -1 ? lessons.length : idx };
 }
+// what should Today suggest? resume-in-progress > next lesson on the
+// most recently active path > first path with something unlearned
+function todayLessonPick() {
+  const L = kidLearn();
+  for (const [strandId, pth] of Object.entries(L.paths)) {
+    if (pth.current) {
+      const ls = lessonsForStrand(strandId).find(l => l.id === pth.current.lessonId);
+      if (ls) return { ls, strandId, resume: true };
+    }
+  }
+  const today = dstr();
+  const doneToday = L.learnedLessons.filter(e => e.date === today).length;
+  if (doneToday) return { doneToday };
+  const learned = new Set(L.learnedLessons.map(e => e.lessonId));
+  const recent = [...L.learnedLessons].reverse().map(e => e.strand);
+  const order = [...new Set(recent.concat(STRANDS.filter(x => x.lesson && !x.custom).map(x => x.id)))];
+  for (const sid of order) {
+    const ls = lessonsForStrand(sid).find(l => !learned.has(l.id));
+    if (ls) return { ls, strandId: sid };
+  }
+  return null;
+}
+
 function subjOfStrand(strandId) { return (STRANDS.find(x => x.id === strandId) || {}).subject || 'custom'; }
 
 // auto-lesson step builder: strand lesson chunks + generated try-its
