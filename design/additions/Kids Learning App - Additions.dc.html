@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/schola-design-system-019deae7-57a6-7e0e-bc54-2c7706f76e66/colors_and_type.css">
+  <link rel="stylesheet" href="_ds/schola-design-system-019deae7-57a6-7e0e-bc54-2c7706f76e66/uploads/tokens.css">
+  <script src="_ds/schola-design-system-019deae7-57a6-7e0e-bc54-2c7706f76e66/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="./image-slot.js"></script>
+  <script src="./sounds.js"></script>
+  <style>
+    body { margin:0; background:#F3E9DA; }
+    a { color:#B8491A; text-decoration:none; }
+    a:hover { color:#D05C38; }
+    @keyframes floaty { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
+    @keyframes pulsePin { 0%,100%{ transform:translateY(-4px) scale(1); } 50%{ transform:translateY(-9px) scale(1.06); } }
+    @keyframes ring { 0%{ box-shadow:0 0 0 0 rgba(208,92,56,.4); } 100%{ box-shadow:0 0 0 16px rgba(208,92,56,0); } }
+    @keyframes checkLoop { 0%,55%{ transform:scale(0); opacity:0; } 62%{ transform:scale(1.25); opacity:1; } 70%{ transform:scale(.95); } 76%,100%{ transform:scale(1); opacity:1; } }
+    @keyframes dropFall { 0%{ transform:translateY(-26px); opacity:0; } 30%{ opacity:1; } 70%{ transform:translateY(10px); opacity:1; } 100%{ transform:translateY(14px); opacity:0; } }
+    @keyframes fillLoop { 0%,15%{ width:35%; } 55%,100%{ width:75%; } }
+    @keyframes growLoop { 0%,10%{ transform:scale(.3) translateY(18px); opacity:0; } 45%{ transform:scale(1.12) translateY(-2px); opacity:1; } 60%,90%{ transform:scale(1) translateY(0); opacity:1; } 100%{ transform:scale(1) translateY(0); opacity:0; } }
+    @keyframes starFly { 0%,10%{ transform:translateY(14px) scale(.4) rotate(-12deg); opacity:0; } 40%{ transform:translateY(-14px) scale(1.15) rotate(8deg); opacity:1; } 70%{ transform:translateY(-30px) scale(1) rotate(0); opacity:1; } 100%{ transform:translateY(-44px) scale(.8); opacity:0; } }
+    @keyframes confettiLoop { 0%,8%{ transform:translateY(-8px) rotate(0); opacity:0; } 20%{ opacity:1; } 100%{ transform:translateY(64px) rotate(220deg); opacity:0; } }
+    @keyframes nudgeLoop { 0%,55%{ transform:translateX(0); } 62%{ transform:translateX(-5px); } 72%{ transform:translateX(4px); } 82%{ transform:translateX(-2px); } 90%,100%{ transform:translateX(0); } }
+    @keyframes slideCard { 0%,12%{ transform:translateX(46px); opacity:0; } 40%,85%{ transform:translateX(0); opacity:1; } 100%{ transform:translateX(-10px); opacity:0; } }
+    @keyframes bounceTap { 0%,55%{ transform:translateY(0); } 65%{ transform:translateY(3px) scale(.97); } 78%{ transform:translateY(0) scale(1); } 100%{ transform:translateY(0); } }
+  </style>
+</helmet>
+
+<section style="padding:64px 72px; display:flex; flex-direction:column; gap:40px; font-family:'Be Vietnam Pro',sans-serif;">
+  <div style="max-width:1000px;">
+    <div style="display:inline-block; background:#4E9B6B; color:#fff; font-weight:700; font-size:12px; letter-spacing:.14em; text-transform:uppercase; padding:7px 14px; border-radius:4px;">Turn 9 — Missing screens &amp; delight</div>
+    <h1 style="font-family:'Nunito',sans-serif; font-weight:800; font-size:46px; color:#2A2320; margin:18px 0 8px;">The rest of the app</h1>
+    <p style="font-size:18px; line-height:1.6; color:#6b5f55; margin:0 0 40px; max-width:820px;"><a href="#9a">9a</a> My Garden world · <a href="#9b">9b</a> Sprint mode · <a href="#9c">9c</a> the three other question types · <a href="#9d">9d</a> Tutor's other tabs · <a href="#9e">9e</a> My Lessons creator · <a href="#9f">9f</a> PIN gate + first-day + welcome-back states · <a href="#9g">9g</a> delight &amp; accessibility extras.</p>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:80px; align-items:flex-start; margin:-20px 0 40px;">
+
+    <!-- 9a MY GARDEN -->
+    <div id="9a" style="position:relative;">
+      <div style="position:absolute; top:-14px; left:-14px; z-index:5; background:#4E9B6B; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(78,155,107,.35);">9a</div>
+      <div style="width:1194px; height:834px; border:1px solid #E3D8C8; border-radius:30px; overflow:hidden; box-shadow:0 24px 60px rgba(43,33,28,.16); display:flex; flex-direction:column; position:relative; background:linear-gradient(#BFE0EF 0%, #DDEFE0 42%, #A8CF8E 42.5%, #8FBB75 100%);">
+        <!-- sun + clouds -->
+        <div style="position:absolute; top:26px; right:60px; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(255,226,138,.95) 0%, rgba(255,226,138,0) 68%);"></div>
+        <div style="position:absolute; top:52px; right:86px; width:56px; height:56px; border-radius:50%; background:#FFD84D; border:2px solid #F2B035;"></div>
+        <div style="position:absolute; top:60px; left:140px; width:110px; height:34px; border-radius:100px; background:rgba(255,255,255,.85);"></div>
+        <div style="position:absolute; top:84px; left:200px; width:70px; height:26px; border-radius:100px; background:rgba(255,255,255,.7);"></div>
+        <div style="position:absolute; top:120px; left:520px; width:90px; height:28px; border-radius:100px; background:rgba(255,255,255,.75);"></div>
+        <!-- header -->
+        <div style="position:relative; z-index:5; display:flex; align-items:center; justify-content:space-between; padding:20px 30px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:38px; height:38px; border-radius:12px; background:rgba(255,255,255,.9); color:#6b5f55; display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="m15 18-6-6 6-6"/></svg></div>
+            <span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320;">Maya's Garden</span>
+          </div>
+          <span style="font-weight:700; font-size:13px; color:#2A2320; background:rgba(255,255,255,.9); border-radius:100px; padding:8px 16px;">7 of 122 skills planted 🌱</span>
+        </div>
+        <!-- plots -->
+        <div style="position:absolute; bottom:120px; left:70px; right:70px; display:grid; grid-template-columns:repeat(6,1fr); gap:26px 20px; z-index:4;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;"><svg viewBox="0 0 24 24" style="width:64px;height:64px; animation:floaty 5s ease-in-out infinite;"><circle cx="12" cy="9" r="3.2" fill="#8C5A2B"/><ellipse cx="12" cy="3.5" rx="2.6" ry="3.6" fill="#F2B035"/><ellipse cx="17.2" cy="7" rx="2.6" ry="3.6" transform="rotate(72 17.2 7)" fill="#F2B035"/><ellipse cx="15.2" cy="13.8" rx="2.6" ry="3.6" transform="rotate(144 15.2 13.8)" fill="#F2B035"/><ellipse cx="8.8" cy="13.8" rx="2.6" ry="3.6" transform="rotate(216 8.8 13.8)" fill="#F2B035"/><ellipse cx="6.8" cy="7" rx="2.6" ry="3.6" transform="rotate(288 6.8 7)" fill="#F2B035"/><path d="M12 12v10" stroke="#4E9B6B" stroke-width="2" stroke-linecap="round"/></svg><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px; position:relative;">
+            <div style="position:absolute; bottom:110%; left:50%; transform:translateX(-50%); white-space:nowrap; background:#2A2320; color:#fff; border-radius:12px; padding:8px 13px; font-size:12.5px; font-weight:600; z-index:6;">Doubles facts · mastered Jan 8<span style="position:absolute; top:100%; left:50%; transform:translateX(-50%); border:6px solid transparent; border-top-color:#2A2320;"></span></div>
+            <svg viewBox="0 0 24 24" style="width:64px;height:64px; animation:floaty 4.6s ease-in-out infinite .3s;"><circle cx="12" cy="9" r="3.2" fill="#8C5A2B"/><ellipse cx="12" cy="3.5" rx="2.6" ry="3.6" fill="#F2B035"/><ellipse cx="17.2" cy="7" rx="2.6" ry="3.6" transform="rotate(72 17.2 7)" fill="#F2B035"/><ellipse cx="15.2" cy="13.8" rx="2.6" ry="3.6" transform="rotate(144 15.2 13.8)" fill="#F2B035"/><ellipse cx="8.8" cy="13.8" rx="2.6" ry="3.6" transform="rotate(216 8.8 13.8)" fill="#F2B035"/><ellipse cx="6.8" cy="7" rx="2.6" ry="3.6" transform="rotate(288 6.8 7)" fill="#F2B035"/><path d="M12 12v10" stroke="#4E9B6B" stroke-width="2" stroke-linecap="round"/></svg><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;"><svg viewBox="0 0 24 24" style="width:58px;height:58px; animation:floaty 5.2s ease-in-out infinite .6s;"><circle cx="12" cy="9" r="3" fill="#FFD84D"/><ellipse cx="12" cy="3.5" rx="2.4" ry="3.4" fill="#F58BA4"/><ellipse cx="17" cy="7" rx="2.4" ry="3.4" transform="rotate(72 17 7)" fill="#F58BA4"/><ellipse cx="15" cy="13.5" rx="2.4" ry="3.4" transform="rotate(144 15 13.5)" fill="#F58BA4"/><ellipse cx="9" cy="13.5" rx="2.4" ry="3.4" transform="rotate(216 9 13.5)" fill="#F58BA4"/><ellipse cx="7" cy="7" rx="2.4" ry="3.4" transform="rotate(288 7 7)" fill="#F58BA4"/><path d="M12 12v10" stroke="#4E9B6B" stroke-width="2" stroke-linecap="round"/></svg><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#4E9B6B" stroke-width="2" stroke-linecap="round" style="width:50px;height:50px;"><path d="M12 22V9"/><path d="M12 12C8 11.5 6 9 5.5 5 9 5.5 11.5 7.5 12 11z" fill="#C9E4D0"/><path d="M12 15c4-.5 6-3 6.5-7-3.5.5-6 2.5-6.5 6z" fill="#C9E4D0"/></svg><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#6FA97F" stroke-width="2.2" stroke-linecap="round" style="width:40px;height:40px;"><path d="M12 22V12"/><path d="M12 14c-4-.5-6-3-6.5-7C9 7.5 11.5 9.5 12 13z" fill="#DCEEE2"/></svg><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px;"><span style="width:22px; height:22px; border-radius:50%; background:#A97B4F; border:2px solid #8a6844;"></span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.55;"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:rgba(43,35,32,.4);">?</span><span style="width:78px; height:18px; border-radius:50%; background:#8a6844; opacity:.35; border:2px dashed rgba(255,255,255,.5);"></span></div>
+        </div>
+        <!-- fox + info -->
+        <div style="position:absolute; bottom:26px; left:40px; display:flex; align-items:flex-end; gap:10px; z-index:5;">
+          <span style="font-size:56px; animation:floaty 3.5s ease-in-out infinite;">🦊</span>
+          <div style="background:rgba(255,255,255,.95); border-radius:14px 14px 14px 3px; padding:9px 14px; font-family:'Nunito',sans-serif; font-weight:700; font-size:14px; color:#2A2320; margin-bottom:14px;">Every flower here is a skill you mastered. Tap one to remember it!</div>
+        </div>
+        <div style="position:absolute; bottom:26px; right:30px; display:flex; gap:9px; z-index:5;">
+          <span style="font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#2A2320; background:rgba(255,255,255,.95); border-radius:100px; padding:11px 18px; cursor:pointer;">Garden album</span>
+          <span style="font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:#B8491A; border-radius:100px; padding:11px 20px; cursor:pointer;" style-active="transform:translateY(1px)">Plant more — practice</span>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:#2A2320;">My Garden — the world that fills up all year</div>
+      <div style="text-align:center; font-size:14px; color:#8a7e74; max-width:1194px;">One plot per mastered skill (tap a flower to see which and when); dashed plots tease what's next. Reached from the profile and the dashboard panel.</div>
+    </div>
+
+    <!-- 9b SPRINT -->
+    <div id="9b" style="position:relative;">
+      <div style="position:absolute; top:-14px; left:-14px; z-index:5; background:#4A7FB5; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(74,127,181,.35);">9b</div>
+      <div style="width:1194px; height:834px; background:#FBF6EF; border:1px solid #E3D8C8; border-radius:30px; overflow:hidden; box-shadow:0 24px 60px rgba(43,33,28,.16); display:flex; flex-direction:column; position:relative;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 30px; background:#fff; border-bottom:1px solid #EDE4D6;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:38px; height:38px; border-radius:12px; border:1px solid #EDE4D6; color:#6b5f55; display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></div>
+            <span style="width:30px;height:30px;border-radius:9px;background:#E4EDF6;color:#4A7FB5;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="m13 2-2 10h6L11 22l2-10H7z"/></svg></span>
+            <span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; color:#2A2320;">Sprint · Addition facts</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #EDE4D6; border-radius:12px; padding:7px 12px; font-weight:700; font-size:13px; color:#2A2320;"><svg viewBox="0 0 24 24" fill="none" stroke="#4E9B6B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 6 9 17l-5-5"/></svg><span style="white-space:nowrap;">12 solved</span></span>
+            <span style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #EDE4D6; border-radius:12px; padding:7px 12px; font-weight:700; font-size:13px; color:#C98A2B;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg><span style="white-space:nowrap;">best 15</span></span>
+          </div>
+        </div>
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:60px; padding:20px 40px; min-height:0;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:18px;">
+            <div style="width:120px; height:120px; border-radius:50%; background:conic-gradient(#4A7FB5 0 252deg, #E9E0D0 252deg 360deg); display:flex; align-items:center; justify-content:center;"><div style="width:94px; height:94px; border-radius:50%; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;"><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:28px; color:#2A2320;">0:42</span><span style="font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8a7e74;">left</span></div></div>
+            <div style="display:flex; gap:5px;">
+              <span style="width:12px; height:12px; border-radius:50%; background:#4E9B6B;"></span><span style="width:12px; height:12px; border-radius:50%; background:#4E9B6B;"></span><span style="width:12px; height:12px; border-radius:50%; background:#4E9B6B;"></span><span style="width:12px; height:12px; border-radius:50%; background:#D05C38;"></span><span style="width:12px; height:12px; border-radius:50%; background:#4E9B6B;"></span><span style="width:12px; height:12px; border-radius:50%; background:#4E9B6B;"></span>
+            </div>
+            <span style="font-size:12px; font-weight:700; color:#8a7e74;">last 6 answers</span>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:22px;">
+            <div style="background:#fff; border:1px solid #EDE4D6; border-radius:20px; box-shadow:0 2px 12px rgba(43,33,28,.05); padding:26px 60px; display:flex; align-items:center; gap:18px;">
+              <span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:84px; color:#2A2320; white-space:nowrap;">7&nbsp;+&nbsp;8&nbsp;=</span>
+              <span style="width:130px; border-bottom:5px solid #4A7FB5; font-family:'Nunito',sans-serif; font-weight:800; font-size:84px; color:#4A7FB5; text-align:center;">1<span style="display:inline-block; width:3px; height:64px; background:#4A7FB5; vertical-align:-8px; margin-left:2px;"></span></span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 108px); gap:10px;">
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">1</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">2</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">3</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">4</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">5</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">6</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">7</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">8</span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">9</span>
+              <span style="height:66px; border-radius:14px; background:#F6EFE4; display:flex; align-items:center; justify-content:center; color:#8a7e74; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><line x1="18" x2="12" y1="9" y2="15"/><line x1="12" x2="18" y1="9" y2="15"/></svg></span>
+              <span style="height:66px; border-radius:14px; background:#fff; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A2320; cursor:pointer;" style-active="transform:translateY(2px); background:#E4EDF6">0</span>
+              <span style="height:66px; border-radius:14px; background:#4A7FB5; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer;" style-active="transform:translateY(2px)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px;"><path d="M20 6 9 17l-5-5"/></svg></span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute; bottom:22px; left:30px; display:flex; align-items:flex-end; gap:10px;"><span style="font-size:46px; animation:floaty 3.5s ease-in-out infinite;">🦊</span><div style="background:#fff; border:1px solid #EDE4D6; border-radius:14px 14px 14px 3px; padding:9px 14px; font-family:'Nunito',sans-serif; font-weight:700; font-size:14px; color:#2A2320; box-shadow:0 2px 10px rgba(43,33,28,.07); margin-bottom:12px;">Three more beats your best!</div></div>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:#2A2320;">Sprint — 60-second fact drill</div>
+      <div style="text-align:center; font-size:14px; color:#8a7e74; max-width:1194px;">Timer ring, giant problem, thumb-sized keypad, last-6 dots, personal best. Ends with the 5b-style celebration.</div>
+    </div>
+
+    <!-- 9c QUESTION TYPES -->
+    <div id="9c" style="position:relative; width:100%; max-width:1840px;">
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;"><span style="background:#D05C38; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;">9c</span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:24px; color:#2A2320;">The other question types</span></div>
+      <div style="display:flex; gap:22px; flex-wrap:wrap;">
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#4E9B6B; margin-bottom:8px;">Type: line — tap the number line</div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:21px; color:#2A2320; text-align:center;">Tap where <span style="color:#D05C38;">35</span> lives!</div>
+          <svg viewBox="0 0 520 84" style="width:100%; margin-top:10px;">
+            <line x1="20" y1="46" x2="500" y2="46" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/>
+            <line x1="20" y1="34" x2="20" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="20" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">0</text>
+            <line x1="68" y1="38" x2="68" y2="54" stroke="#8a7e74" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="116" y1="34" x2="116" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="116" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">10</text>
+            <line x1="164" y1="38" x2="164" y2="54" stroke="#8a7e74" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="212" y1="34" x2="212" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="212" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">20</text>
+            <line x1="260" y1="38" x2="260" y2="54" stroke="#8a7e74" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="308" y1="34" x2="308" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="308" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">30</text>
+            <circle cx="356" cy="46" r="13" fill="#D05C38" opacity=".9"/>
+            <circle cx="356" cy="46" r="6" fill="#fff"/>
+            <line x1="404" y1="34" x2="404" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="404" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">40</text>
+            <line x1="452" y1="38" x2="452" y2="54" stroke="#8a7e74" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="500" y1="34" x2="500" y2="58" stroke="#2A2320" stroke-width="3" stroke-linecap="round"/><text x="500" y="78" text-anchor="middle" font-family="Nunito" font-weight="800" font-size="15" fill="#2A2320">50</text>
+          </svg>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:8px;">Whole line is tappable (48px hit zones per tick). Chosen spot shows the terra dot; correct pops green with the frog hopping to it.</div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#4A7FB5; margin-bottom:8px;">Type: num — type the answer</div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:21px; color:#2A2320; text-align:center;">What is 46 − 19?</div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px;">
+            <span style="width:120px; border:2px solid #4A7FB5; background:#F7FAFD; border-radius:14px; padding:12px 0; font-family:'Nunito',sans-serif; font-weight:800; font-size:34px; color:#2A2320; text-align:center;">2<span style="display:inline-block; width:2.5px; height:28px; background:#4A7FB5; vertical-align:-4px; margin-left:2px;"></span></span>
+            <span style="font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:#4A7FB5; border-radius:100px; padding:12px 22px; cursor:pointer;">Check</span>
+          </div>
+          <div style="display:flex; justify-content:center; gap:7px; margin-top:14px;">
+            <span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">1</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">2</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">3</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">4</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">5</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">6</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; color:#2A2320;">7</span><span style="width:46px; height:46px; border-radius:11px; background:#FBF6EF; border:1px solid #EDE4D6; display:flex; align-items:center; justify-content:center; color:#8a7e74;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><line x1="18" x2="12" y1="9" y2="15"/><line x1="12" x2="18" y1="9" y2="15"/></svg></span>
+          </div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:12px;">On-screen keypad always shows (tablet has no keyboard). Key press = key() sound + cap dip.</div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#C98A2B; margin-bottom:8px;">Type: compare — pick the sign</div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:21px; color:#2A2320; text-align:center;">Which sign makes this true?</div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-top:14px;">
+            <span style="background:#FBF6EF; border:1px solid #EDE4D6; border-radius:16px; padding:14px 26px; font-family:'Nunito',sans-serif; font-weight:800; font-size:40px; color:#2A2320;">48</span>
+            <span style="width:66px; height:66px; border-radius:16px; border:2px dashed #C98A2B; background:#FBF0DE; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:30px; color:#C98A2B;">?</span>
+            <span style="background:#FBF6EF; border:1px solid #EDE4D6; border-radius:16px; padding:14px 26px; font-family:'Nunito',sans-serif; font-weight:800; font-size:40px; color:#2A2320;">61</span>
+          </div>
+          <div style="display:flex; justify-content:center; gap:10px; margin-top:16px;">
+            <span style="width:76px; height:56px; border-radius:14px; border:2px solid #4E9B6B; background:#EAF3EA; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#2A5B36;">&lt;</span>
+            <span style="width:76px; height:56px; border-radius:14px; border:1.5px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#8a7e74; cursor:pointer;">=</span>
+            <span style="width:76px; height:56px; border-radius:14px; border:1.5px solid #EDE4D6; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:26px; color:#8a7e74; cursor:pointer;">&gt;</span>
+          </div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:12px;">"The alligator eats the bigger number" hint appears after a miss.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9d TUTOR TABS -->
+    <div id="9d" style="position:relative; width:100%; max-width:1840px;">
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;"><span style="background:#1F8A80; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;">9d</span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:24px; color:#2A2320;">Tutor Owl — the other tabs</span></div>
+      <div style="display:flex; gap:22px; flex-wrap:wrap;">
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#1F8A80; margin-bottom:10px;">Word-problem wizard</div>
+          <div style="display:flex; align-items:center; gap:9px; background:#EAF3EA; border:1px solid #CBE3CE; border-radius:12px; padding:10px 13px;"><span style="width:22px;height:22px;border-radius:50%;background:#4E9B6B;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><path d="M20 6 9 17l-5-5"/></svg></span><span style="font-weight:600; font-size:13.5px; color:#2A5B36;">Read your problem out loud — twice!</span></div>
+          <div style="background:#fff; border:2px solid #1F8A80; border-radius:12px; padding:12px 14px; margin-top:9px;">
+            <div style="display:flex; align-items:center; gap:9px;"><span style="width:22px;height:22px;border-radius:50%;background:#1F8A80;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;flex:none;">2</span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:14.5px; color:#2A2320;">What is the story asking you to find?</span></div>
+            <div style="display:flex; gap:7px; margin:9px 0 0 31px; flex-wrap:wrap;">
+              <span style="font-weight:700; font-size:12px; color:#fff; background:#1F8A80; border-radius:100px; padding:6px 13px;">how many in all</span>
+              <span style="font-weight:600; font-size:12px; color:#6b5f55; border:1px solid #EDE4D6; border-radius:100px; padding:6px 13px; cursor:pointer;">how many are left</span>
+              <span style="font-weight:600; font-size:12px; color:#6b5f55; border:1px solid #EDE4D6; border-radius:100px; padding:6px 13px; cursor:pointer;">how many more</span>
+            </div>
+          </div>
+          <div style="background:#FBF6EF; border:1px dashed #D9CDBD; border-radius:12px; padding:10px 13px; margin-top:9px; display:flex; align-items:center; gap:9px; opacity:.75;"><span style="width:22px;height:22px;border-radius:50%;background:#E8DFD0;color:#8a7e74;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;flex:none;">3</span><span style="font-weight:600; font-size:13px; color:#8a7e74;">Circle the numbers you'll use</span></div>
+          <div style="display:flex; align-items:center; gap:9px; margin-top:12px;"><span style="font-size:28px;">🦉</span><span style="background:#E8F4F2; border-radius:12px 12px 12px 3px; padding:7px 12px; font-family:'Nunito',sans-serif; font-weight:700; font-size:13px; color:#2A2320;">"In all" is a clue… what do those words usually mean?</span></div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8E6BB0; margin-bottom:10px;">Tricky words</div>
+          <div style="background:#FBF6EF; border:1px solid #EDE4D6; border-radius:16px; padding:20px; text-align:center;">
+            <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:44px; color:#2A2320; letter-spacing:.02em;">be<span style="color:#8E6BB0;">·</span>cause</div>
+            <div style="display:flex; justify-content:center; gap:9px; margin-top:12px;">
+              <span style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:12px; color:#fff; background:#8E6BB0; border-radius:100px; padding:9px 16px; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></svg>hear it</span>
+              <span style="font-weight:700; font-size:12px; color:#8E6BB0; border:1.5px solid #8E6BB0; border-radius:100px; padding:9px 16px; cursor:pointer;">say it with me</span>
+              <span style="font-weight:700; font-size:12px; color:#6b5f55; border:1.5px solid #EDE4D6; border-radius:100px; padding:9px 16px; cursor:pointer;">I know it now ✓</span>
+            </div>
+          </div>
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8a7e74; margin:14px 0 8px;">My tricky words</div>
+          <div style="display:flex; gap:7px; flex-wrap:wrap;">
+            <span style="font-weight:700; font-size:13px; color:#8E6BB0; background:#EFE8F5; border-radius:100px; padding:6px 14px;">because</span>
+            <span style="font-weight:700; font-size:13px; color:#8E6BB0; background:#EFE8F5; border-radius:100px; padding:6px 14px;">friend</span>
+            <span style="font-weight:700; font-size:13px; color:#8E6BB0; background:#EFE8F5; border-radius:100px; padding:6px 14px;">thought</span>
+            <span style="font-weight:600; font-size:13px; color:#6b5f55; border:1px dashed #D9CDBD; border-radius:100px; padding:6px 14px; cursor:pointer;">+ add a word</span>
+          </div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;"><span style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#C98A2B;">Cheat sheets — clue words</span><span style="display:flex; align-items:center; gap:5px; font-weight:700; font-size:12px; color:#1F8A80; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>print</span></div>
+          <div style="display:flex; flex-direction:column;">
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #F1EADD;"><span style="width:32px; height:32px; border-radius:10px; background:#EAF3EA; color:#4E9B6B; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; flex:none;">+</span><span style="flex:1; font-weight:600; font-size:13.5px; color:#2A2320;">"in all" · "altogether" · "total" · "both"</span><span style="font-size:12px; font-weight:700; color:#4E9B6B;">add</span></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #F1EADD;"><span style="width:32px; height:32px; border-radius:10px; background:#FBE7DD; color:#D05C38; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:18px; flex:none;">−</span><span style="flex:1; font-weight:600; font-size:13.5px; color:#2A2320;">"left" · "fewer" · "gave away" · "how many more"</span><span style="font-size:12px; font-weight:700; color:#B8491A;">subtract</span></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #F1EADD;"><span style="width:32px; height:32px; border-radius:10px; background:#E4EDF6; color:#4A7FB5; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; flex:none;">=</span><span style="flex:1; font-weight:600; font-size:13.5px; color:#2A2320;">"is the same as" · "equals" · "makes"</span><span style="font-size:12px; font-weight:700; color:#4A7FB5;">equals</span></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 0;"><span style="width:32px; height:32px; border-radius:10px; background:#FBF0DE; color:#C98A2B; display:flex; align-items:center; justify-content:center; flex:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><span style="flex:1; font-weight:600; font-size:13.5px; color:#2A2320;">"how much later" · "elapsed" — count up on the clock</span><span style="font-size:12px; font-weight:700; color:#C98A2B;">time</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9e MY LESSONS CREATOR -->
+    <div id="9e" style="position:relative;">
+      <div style="position:absolute; top:-14px; left:-14px; z-index:5; background:#2A2320; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(43,33,28,.35);">9e</div>
+      <div style="width:1194px; height:834px; background:#F6F3ED; border:1px solid #E3D8C8; border-radius:30px; overflow:hidden; box-shadow:0 24px 60px rgba(43,33,28,.16); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 30px; background:#1F8A80;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="width:40px; height:40px; border-radius:12px; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; color:#fff;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></span>
+            <div><div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:#fff; line-height:1;">My Lessons — make one</div><div style="font-size:11.5px; font-weight:600; color:rgba(255,255,255,.8); margin-top:2px;">Teach exactly what the class is learning — spelling lists, facts, anything.</div></div>
+          </div>
+          <div style="display:flex; gap:9px;">
+            <span style="font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#1F8A80; background:#fff; border-radius:100px; padding:9px 20px; cursor:pointer;">Save lesson</span>
+            <span style="display:flex; align-items:center; gap:6px; font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; border:1.5px solid rgba(255,255,255,.5); border-radius:100px; padding:9px 16px; cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="m15 18-6-6 6-6"/></svg>Back</span>
+          </div>
+        </div>
+        <div style="flex:1; padding:20px 30px; display:flex; gap:18px; min-height:0;">
+          <div style="flex:1.25; background:#fff; border:1px solid #E5DCCB; border-radius:16px; padding:18px 22px; display:flex; flex-direction:column; gap:13px; min-height:0; overflow:hidden;">
+            <div style="display:flex; gap:12px;">
+              <div style="flex:1;"><div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8a7e74; margin-bottom:6px;">Lesson name</div><div style="border:1.5px solid #E5DCCB; border-radius:11px; padding:10px 14px; font-family:'Nunito',sans-serif; font-weight:700; font-size:15px; color:#2A2320;">Week 14 spelling list</div></div>
+              <div><div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8a7e74; margin-bottom:6px;">Shows under</div><div style="display:flex; gap:7px;"><span style="font-weight:700; font-size:12px; color:#fff; background:#8E6BB0; border-radius:100px; padding:9px 15px;">My Lessons</span><span style="font-weight:600; font-size:12px; color:#6b5f55; border:1px solid #E5DCCB; border-radius:100px; padding:9px 15px; cursor:pointer;">Language</span><span style="font-weight:600; font-size:12px; color:#6b5f55; border:1px solid #E5DCCB; border-radius:100px; padding:9px 15px; cursor:pointer;">Math</span></div></div>
+            </div>
+            <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8a7e74;">Questions (3)</div>
+            <div style="border:1px solid #E5DCCB; border-radius:13px; padding:12px 15px; display:flex; align-items:center; gap:12px;"><span style="width:26px; height:26px; border-radius:8px; background:#EFE8F5; color:#8E6BB0; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; flex:none;">1</span><div style="flex:1;"><div style="font-weight:600; font-size:14px; color:#2A2320;">Spell the word for a person you like to play with</div><div style="font-size:12px; font-weight:600; color:#4E9B6B;">✓ friend &nbsp;<span style="color:#8a7e74;">· wrong: frend, freind</span></div></div><svg viewBox="0 0 24 24" fill="none" stroke="#8a7e74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;cursor:pointer;"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></div>
+            <div style="border:1px solid #E5DCCB; border-radius:13px; padding:12px 15px; display:flex; align-items:center; gap:12px;"><span style="width:26px; height:26px; border-radius:8px; background:#EFE8F5; color:#8E6BB0; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; flex:none;">2</span><div style="flex:1;"><div style="font-weight:600; font-size:14px; color:#2A2320;">Spell the opposite of "day"</div><div style="font-size:12px; font-weight:600; color:#4E9B6B;">✓ night &nbsp;<span style="color:#8a7e74;">· wrong: nite, nihgt</span></div></div><svg viewBox="0 0 24 24" fill="none" stroke="#8a7e74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;cursor:pointer;"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></div>
+            <div style="border:2px solid #1F8A80; border-radius:13px; padding:12px 15px; display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:26px; height:26px; border-radius:8px; background:#1F8A80; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; flex:none;">3</span><div style="flex:1; border-bottom:1.5px solid #CDE6E2; padding-bottom:4px; font-weight:600; font-size:14px; color:#2A2320;">Spell the word that means "thought about it"<span style="display:inline-block; width:2px; height:15px; background:#1F8A80; margin-left:2px; vertical-align:-2px;"></span></div></div>
+              <div style="display:flex; gap:8px; margin-left:38px;"><span style="font-size:12px; font-weight:600; color:#4E9B6B; background:#EAF3EA; border-radius:8px; padding:6px 12px;">✓ answer: thought</span><span style="font-size:12px; font-weight:600; color:#8a7e74; border:1px dashed #D9CDBD; border-radius:8px; padding:6px 12px; cursor:pointer;">+ wrong answer</span></div>
+            </div>
+            <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12px; color:#1F8A80; background:#E8F4F2; border-radius:100px; padding:9px 16px; cursor:pointer; align-self:flex-start;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:13px;height:13px;"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add a question</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#fff; border:1px solid #E5DCCB; border-radius:16px; padding:17px 20px;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8a7e74; margin-bottom:10px;">How Maya will see it</div>
+              <div style="background:#FBF6EF; border-radius:14px; padding:16px;">
+                <div style="background:#fff; border:1px solid #EDE4D6; border-radius:13px; padding:13px 15px; display:flex; align-items:center; gap:11px;"><svg viewBox="0 0 24 24" style="width:20px;height:20px;flex:none;"><circle cx="12" cy="14" r="6" fill="#A97B4F"/></svg><span style="flex:1; font-family:'Nunito',sans-serif; font-weight:700; font-size:15px; color:#2A2320;">Week 14 spelling list</span><span style="font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#8E6BB0; background:#EFE8F5; border-radius:6px; padding:3px 8px;">My Lessons</span></div>
+                <div style="font-size:12px; font-weight:600; color:#8a7e74; margin-top:9px; text-align:center;">Appears in Practice and can be picked as this week's school focus.</div>
+              </div>
+            </div>
+            <div style="background:#E8F4F2; border:1px solid #CDE6E2; border-radius:16px; padding:16px 18px; display:flex; gap:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1F8A80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;flex:none;margin-top:2px;"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+              <div style="font-size:12.5px; font-weight:500; color:#3d5a56; line-height:1.5;"><b style="font-family:'Nunito',sans-serif;">Tips:</b> 5–10 questions is plenty. Wrong answers you type become the multiple-choice distractors. Questions read themselves aloud to early readers automatically.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; color:#2A2320;">My Lessons creator — parent-made practice</div>
+    </div>
+
+    <!-- 9f STATES -->
+    <div id="9f" style="position:relative; width:100%; max-width:1840px;">
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;"><span style="background:#8E6BB0; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;">9f</span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:24px; color:#2A2320;">Gates &amp; edge states</span></div>
+      <div style="display:flex; gap:22px; flex-wrap:wrap;">
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#1F8A80; margin-bottom:12px;">Grown-ups gate</div>
+          <div style="background:#F6F3ED; border-radius:16px; padding:22px; text-align:center;">
+            <span style="display:inline-flex; width:44px; height:44px; border-radius:13px; background:#E8F4F2; color:#1F8A80; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:19px; color:#2A2320; margin-top:8px;">Grown-ups only</div>
+            <div style="font-size:13px; font-weight:500; color:#6b5f55; margin-top:2px;">What is 6 × 7? (kids can't sneak past this one)</div>
+            <div style="display:flex; justify-content:center; gap:9px; margin-top:14px;">
+              <span style="width:64px; height:52px; border:2px solid #1F8A80; background:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:22px; color:#2A2320;">4</span>
+              <span style="width:64px; height:52px; border:2px solid #1F8A80; background:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:800; font-size:22px; color:#2A2320;">2</span>
+              <span style="font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:#1F8A80; border-radius:100px; padding:0 22px; display:flex; align-items:center; cursor:pointer;">Enter</span>
+            </div>
+          </div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:10px;">A rotating times-table question instead of a PIN — nothing to forget, and it filters 2nd graders reliably.</div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#4E9B6B; margin-bottom:12px;">First day — empty dashboard</div>
+          <div style="background:#FBF6EF; border-radius:16px; padding:22px; text-align:center;">
+            <div style="display:flex; justify-content:center; align-items:flex-end; gap:8px;"><span style="width:20px; height:20px; border-radius:50%; background:#A97B4F;"></span><svg viewBox="0 0 24 24" fill="none" stroke="#6FA97F" stroke-width="2.2" stroke-linecap="round" style="width:40px;height:40px; animation:floaty 4s ease-in-out infinite;"><path d="M12 22V12"/><path d="M12 14c-4-.5-6-3-6.5-7C9 7.5 11.5 9.5 12 13z" fill="#DCEEE2"/></svg></div>
+            <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:19px; color:#2A2320; margin-top:8px;">Let's plant your first seed!</div>
+            <div style="font-size:13px; font-weight:500; color:#6b5f55; margin-top:2px;">A 5-minute Garden Checkup finds what you already know — then your garden plans itself.</div>
+            <span style="display:inline-block; font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:#B8491A; border-radius:100px; padding:12px 26px; margin-top:14px; cursor:pointer;">Start the checkup</span>
+          </div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:10px;">No empty stats, no locked-feeling zeroes — the checkup is the hero until it's done.</div>
+        </div>
+        <div style="width:580px; background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:24px 28px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#C98A2B; margin-bottom:12px;">Welcome back — streak reset, zero guilt</div>
+          <div style="background:linear-gradient(#E7F1F5,#EBF3E5); border-radius:16px; padding:22px; text-align:center;">
+            <span style="font-size:40px;">🦊</span>
+            <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:19px; color:#2A2320; margin-top:6px;">We missed you, Maya!</div>
+            <div style="font-size:13px; font-weight:500; color:#5c6b5c; margin-top:2px;">Your garden waited for you — nothing wilted. Water it today and a brand-new streak begins.</div>
+            <span style="display:inline-block; font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:#B8491A; border-radius:100px; padding:12px 26px; margin-top:14px; cursor:pointer;">Start today's plan</span>
+          </div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; margin-top:10px;">Never "you lost your streak" — plants don't die here, and weekends already never break streaks.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9g DELIGHT & ACCESS -->
+    <div id="9g" style="position:relative; width:100%; max-width:1840px;">
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;"><span style="background:#C98A2B; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:20px; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;">9g</span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:24px; color:#2A2320;">Delight &amp; accessibility extras</span></div>
+      <div style="display:grid; grid-template-columns:repeat(3, 400px); gap:22px;">
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; gap:14px; background:#FBF6EF; border-radius:12px;"><span style="position:relative; font-size:44px;">🦊<span style="position:absolute; top:-14px; left:50%; transform:translateX(-50%) rotate(-8deg); font-size:24px;">🎩</span></span><span style="font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; color:#C98A2B; background:#FBF0DE; border-radius:100px; padding:6px 13px;">Unlocked at Level 5!</span></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Avatar rewards</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">Each level unlocks one accessory (hat, scarf, glasses) for the animal friend — picked on the profile page. Pure cosmetics, zero pay/pressure.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; gap:12px; background:#FBF6EF; border-radius:12px;"><span style="font-size:42px; animation:floaty 3s ease-in-out infinite;">🎁</span><div style="text-align:left;"><div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:14px; color:#2A2320;">Saturday chest</div><div style="font-size:11.5px; font-weight:600; color:#8a7e74;">5 school days done → opens</div></div></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Weekly treasure chest</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">Finish every school day's plan and a chest appears Saturday with a garden decoration (gnome, birdhouse, butterfly) placed in My Garden.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; background:#FBF6EF; border-radius:12px;"><div style="width:190px; background:#fff; border:2px solid #C98A2B; border-radius:6px; padding:9px; text-align:center;"><div style="font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#C98A2B;">Certificate of Mastery</div><div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:13px; color:#2A2320; margin-top:2px;">Maya mastered Place Value!</div><div style="font-size:8px; font-weight:600; color:#8a7e74; margin-top:2px;">Learning Garden · Jan 16</div></div></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Printable certificates</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">Mastering a whole strand prints a fridge-worthy certificate — reuses the worksheet-maker's print path.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; gap:9px; background:#FBF6EF; border-radius:12px;"><span style="font-weight:700; font-size:13px; color:#fff; background:#B8491A; border-radius:100px; padding:10px 18px;">I have 5 minutes</span><span style="font-weight:700; font-size:13px; color:#6b5f55; border:1.5px solid #EDE4D6; border-radius:100px; padding:10px 18px;">I have 15</span></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Session mood picker</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">On tired days the plan shrinks to 1 skill instead of 3 — the streak still counts. Shown when opening Today after 6 PM.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; gap:10px; background:#FBF6EF; border-radius:12px;"><span style="width:44px; height:44px; border-radius:13px; background:#E8F4F2; color:#1F8A80; display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></span><span style="font-size:13px; font-weight:600; color:#6b5f55;">on every question,<br>every subject</span></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Read-aloud everywhere</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">The speaker button from Spanish/Reading goes on every prompt app-wide (built-in speechSynthesis) — early readers practice math without a reading barrier.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #EDE4D6; border-radius:18px; padding:20px 22px; box-shadow:0 2px 12px rgba(43,33,28,.05);">
+          <div style="height:92px; display:flex; align-items:center; justify-content:center; gap:8px; background:#FBF6EF; border-radius:12px;"><span style="font-weight:700; font-size:12px; color:#fff; background:#2A2320; border-radius:100px; padding:8px 14px;">Aa easy-read font</span><span style="font-weight:700; font-size:12px; color:#6b5f55; border:1.5px solid #EDE4D6; border-radius:100px; padding:8px 14px;">calm motion</span></div>
+          <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:17px; color:#2A2320; margin:12px 0 3px;">Accessibility toggles</div>
+          <div style="font-size:12.5px; font-weight:500; color:#6b5f55; line-height:1.5;">In Settings: dyslexia-friendly font (Andika/OpenDyslexic), calm-motion mode (honors prefers-reduced-motion), and correct/wrong always shown with shape + color, never color alone.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    planA: this.seed(),
+    planB: this.seed(),
+    planC: this.seed(),
+    planG: this.seed(),
+    theme: "garden",
+    settingsOpen: false,
+    prefs: [
+      { key:"practice", label:"Daily practice nudge",   desc:"A friendly reminder at 3:30 PM on school days", on:true },
+      { key:"streak",   label:"Streak alerts",          desc:"A heads-up before the streak is about to break", on:true },
+      { key:"recap",    label:"Weekly recap for grown-ups", desc:"Progress summary emailed every Sunday", on:true },
+      { key:"sounds",   label:"Sounds & cheers",        desc:"Celebration sounds when tasks are finished", on:true },
+    ],
+  };
+  componentDidMount() {
+    const t = localStorage.getItem("kidapp-theme");
+    if (t === "garden" || t === "stars") this.setState({ theme: t });
+  }
+  pick(t) { this.setState({ theme: t }); localStorage.setItem("kidapp-theme", t); }
+  flipPref(i) {
+    this.setState(s => ({ prefs: s.prefs.map((p, idx) => idx === i ? { ...p, on: !p.on } : p) }));
+  }
+  seed() {
+    return [
+      { key:"math",  icon:"🔢", label:"Place value: tens & ones", subject:"Math",    color:"#D05C38", tint:"#FBE7DD", done:true  },
+      { key:"read",  icon:"📖", label:"Read \"The Lost Kite\"",     subject:"Reading", color:"#1F8A80", tint:"#E1F0EE", done:false },
+      { key:"gram",  icon:"✏️", label:"Find the adjective",         subject:"Grammar", color:"#C98A2B", tint:"#FBF0DE", done:false },
+      { key:"sci",   icon:"🧊", label:"Solid, liquid, or gas?",      subject:"Science", color:"#4E9B6B", tint:"#E7F2E9", done:false },
+      { key:"spell", icon:"🔤", label:"Spell the -ing words",        subject:"Spelling",color:"#8E6BB0", tint:"#EFE8F5", done:false },
+    ];
+  }
+  icon(key) {
+    const s = { width:20, height:20 };
+    const wrap = (children) => React.createElement("svg", { viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:2, strokeLinecap:"round", strokeLinejoin:"round", style:s }, children);
+    const P = (d, k) => React.createElement("path", { d, key:k });
+    const map = {
+      math:  wrap([React.createElement("rect",{width:16,height:20,x:4,y:2,rx:2,key:1}), React.createElement("line",{x1:8,x2:16,y1:6,y2:6,key:2}), P("M8 10h.01",3), P("M12 10h.01",4), P("M16 10h.01",5), P("M8 14h.01",6), P("M12 14h.01",7), P("M16 14v4",8), P("M8 18h.01",9), P("M12 18h.01",10)]),
+      read:  wrap([P("M12 7v14",1), P("M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z",2)]),
+      gram:  wrap([P("M12 20h9",1), P("M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z",2)]),
+      sci:   wrap([P("M10 2v7.31",1), P("M14 9.3V1.99",2), P("M8.5 2h7",3), P("M14 9.3a6.5 6.5 0 1 1-4 0",4), P("M5.52 16h12.96",5)]),
+      spell: wrap([P("M4 7V4h16v3",1), P("M9 20h6",2), P("M12 4v16",3)]),
+    };
+    return map[key] || null;
+  }
+  toggleItem(key, i) {
+    this.setState(s => ({ [key]: s[key].map((it, idx) => idx === i ? { ...it, done: !it.done } : it) }));
+  }
+  decorate(key) {
+    const MINS = { math:5, read:10, gram:5, sci:5, spell:5 };
+    return this.state[key].map((it, i) => ({
+      ...it,
+      iconEl: this.icon(it.key),
+      toggle: () => this.toggleItem(key, i),
+      checkBg: it.done ? "#4E9B6B" : "transparent",
+      checkBorder: it.done ? "#4E9B6B" : "#D9CDBD",
+      strike: it.done ? "line-through" : "none",
+      labelColor: it.done ? "#9a8e83" : "#2A2320",
+      mins: MINS[it.key] || 5,
+    }));
+  }
+  count(key) { return this.state[key].filter(it => it.done).length; }
+  snd(name) { const S = window.GardenSounds; if (S && S[name]) S[name](); }
+  renderVals() {
+    const { theme, settingsOpen, prefs } = this.state;
+    return {
+      sTap: () => this.snd("tap"),
+      sCorrect: () => this.snd("correct"),
+      sWrong: () => this.snd("wrong"),
+      sStar: () => this.snd("star"),
+      sWater: () => this.snd("water"),
+      sGrow: () => this.snd("grow"),
+      sCheer: () => this.snd("cheer"),
+      sKey: () => this.snd("key"),
+      planA: this.decorate("planA"),
+      planB: this.decorate("planB"),
+      planC: this.decorate("planC"),
+      planG: this.decorate("planG"),
+      doneA: this.count("planA"),
+      doneB: this.count("planB"),
+      doneC: this.count("planC"),
+      doneG: this.count("planG"),
+      allDoneG: this.count("planG") === 5,
+      pctA: (this.count("planA") / 5 * 100) + "%",
+      pctG: (this.count("planG") / 5 * 100) + "%",
+      themeGarden: theme === "garden",
+      themeStars: theme === "stars",
+      gardenBorder: theme === "garden" ? "#D05C38" : "#EDE4D6",
+      starsBorder: theme === "stars" ? "#D05C38" : "#EDE4D6",
+      settingsOpen,
+      openSettings: () => this.setState({ settingsOpen: true }),
+      closeSettings: () => this.setState({ settingsOpen: false }),
+      pickGarden: () => this.pick("garden"),
+      pickStars: () => this.pick("stars"),
+      prefs: prefs.map((p, i) => ({
+        ...p,
+        flip: () => this.flipPref(i),
+        bg: p.on ? "#4E9B6B" : "#D9CDBD",
+        knob: p.on ? "22px" : "3px",
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

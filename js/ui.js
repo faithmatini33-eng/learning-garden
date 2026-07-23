@@ -67,7 +67,9 @@ function subjTile(subjectId, size = 38, iconSize = 19) {
 }
 
 // ---------------- plant-stage SVGs (custom, per design) ----------------
-function plantSVG(score, size = 26) {
+// variant only affects flowering stages, so the garden scene gets a mix of
+// pink daisies, orange daisies, and yellow tulips like the mockup.
+function plantSVG(score, size = 26, variant = 0) {
   const stage = score >= 100 ? 4 : score >= 75 ? 3 : score >= 50 ? 2 : score >= 25 ? 1 : 0;
   const stem = '<path d="M16 28 L16 17" stroke="#4E9B6B" stroke-width="2.4" stroke-linecap="round"/>';
   const leaf1 = '<path d="M16 22 C12 21 10.5 18.5 10 16 C13.5 16.5 15.5 18.5 16 22 Z" fill="#4E9B6B"/>';
@@ -79,17 +81,25 @@ function plantSVG(score, size = 26) {
     }
     return p + `<circle cx="16" cy="12" r="3.6" fill="${center}"/>`;
   };
+  const tulip = (petal) =>
+    `<path d="M10.5 7 C10.5 5 12 4 13 6 L16 10 L19 6 C20 4 21.5 5 21.5 7 L21.5 11 C21.5 14.5 19 16.5 16 16.5 C13 16.5 10.5 14.5 10.5 11 Z" fill="${petal}"/>
+     <path d="M14.5 6.5 L16 10 L17.5 6.5 C17 4.5 15 4.5 14.5 6.5 Z" fill="${petal}" opacity=".75"/>`;
+  const bloomFor = (mastered) => {
+    const v = ((variant % 3) + 3) % 3;
+    if (mastered) return v === 2 ? tulip('#F2B035') : daisy(v === 1 ? '#E8833A' : '#F2B035', '#8C5A2B');
+    return v === 2 ? tulip('#FFD84D') : daisy(v === 1 ? '#F0975C' : '#F58BA4', '#FFD84D');
+  };
   const art = [
-    // 0 seed
-    '<circle cx="16" cy="24" r="5" fill="#A97B4F"/><path d="M16 21c.8-1.6 2-2.4 3.4-2.6" stroke="#8C5A2B" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
+    // 0 seed (little mound)
+    '<ellipse cx="16" cy="25.5" rx="5.5" ry="3.4" fill="#C9A876"/><circle cx="16" cy="23.6" r="2.6" fill="#A97B4F"/>',
     // 1 sprout
     stem + leaf1,
     // 2 growing
     stem + leaf1 + leaf2,
-    // 3 blooming (pink daisy)
-    stem + leaf1 + leaf2 + daisy('#F58BA4', '#FFD84D'),
-    // 4 mastered (gold daisy)
-    stem + leaf1 + leaf2 + daisy('#F2B035', '#8C5A2B'),
+    // 3 blooming
+    stem + leaf1 + leaf2 + bloomFor(false),
+    // 4 mastered
+    stem + leaf1 + leaf2 + bloomFor(true),
   ][stage];
   return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true">${art}</svg>`;
 }
@@ -122,10 +132,10 @@ function soundsOn() {
 function sfx(name) {
   try { if (soundsOn() && window.GardenSounds && GardenSounds[name]) GardenSounds[name](); } catch (e) { /* audio blocked */ }
 }
-// every button tap: press motion + soft tick (capture so it never blocks handlers)
+// every button tap: press motion only — no sound on plain clicks.
+// (Sounds are saved for moments that MEAN something: correct, water, grow, cheer.)
 document.addEventListener('pointerdown', (e) => {
   const b = e.target.closest('button');
   if (!b || b.disabled) return;
   b.classList.remove('pressed-anim'); void b.offsetWidth; b.classList.add('pressed-anim');
-  sfx('tap');
 }, true);

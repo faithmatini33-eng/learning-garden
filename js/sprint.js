@@ -33,36 +33,71 @@ function startSprint(drillId) {
   const drill = SPRINT_DRILLS.find(d => d.id === drillId);
   if (!drill) return;
   clearInterval(SPRINT && SPRINT.timer);
-  SPRINT = { drill, right: 0, total: 0, end: Date.now() + SPRINT_SECONDS * 1000, locked: false };
+  const best = sprintBest(drillId).best;
+  SPRINT = { drill, right: 0, total: 0, end: Date.now() + SPRINT_SECONDS * 1000, locked: false, entry: '', last: [] };
   VIEW = 'session';
+  $('#tabbar').style.display = 'none';
+  document.body.classList.add('no-brand');
   app.innerHTML = `
-    <div class="practice-top">
-      <button class="btn small ghost back" id="sprintQuit">← Stop</button>
-      <div class="title">⚡ ${drill.name}</div>
-      <div class="scorebox"><span class="plant">⚡</span><span class="num" id="sprintScore">0</span></div>
+    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
+      <button class="back" id="sprintQuit" aria-label="Stop">${icon('x', 18)}</button>
+      <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('zap', 17)}</span>
+      <div class="title">Sprint · ${drill.name}</div>
+      <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="sprintScore">0</span> solved</span>
+      <span class="pill gold" style="white-space:nowrap">${icon('award', 14)} best ${best}</span>
     </div>
-    <div class="card qcard" style="padding-top:18px">
-      <div class="sprint-timer"><i id="sprintBar"></i></div>
-      <div class="qprompt" style="margin-top:14px">Answer as many as you can — go!</div>
-      <div class="bignum" id="sprintQ" style="margin:10px 0"></div>
-      <div class="answer-row">
-        <input class="num-input" id="sprintIn" inputmode="numeric" autocomplete="off">
-        <button class="btn primary big" id="sprintCheck">✓</button>
-        <button class="btn ghost" id="sprintPass">Pass ▸</button>
+    <div class="sprint-stage">
+      <div class="sprint-side">
+        <div class="timer-ring" id="timerRing"><div class="timer-inner"><b id="timerText">1:00</b><small>left</small></div></div>
+        <div class="dot-row" id="dotRow"></div>
+        <small class="eyebrow">last 6 answers</small>
       </div>
-      <div id="sprintFlash" style="min-height:34px;margin-top:10px;font-weight:800;font-size:18px"></div>
-    </div>`;
+      <div class="sprint-main">
+        <div class="sprint-problem card"><span id="sprintQ"></span><span class="sprint-slot"><b id="sprintEntry"></b><i class="caret"></i></span></div>
+        <div class="keypad" id="keypad">
+          ${[1,2,3,4,5,6,7,8,9].map(n => `<button class="key" data-k="${n}">${n}</button>`).join('')}
+          <button class="key del" data-k="del">${icon('left', 20)}</button>
+          <button class="key" data-k="0">0</button>
+          <button class="key ok" data-k="ok">${icon('check', 22)}</button>
+        </div>
+      </div>
+    </div>
+    <div class="mascot"><span class="fox">🦊</span><span class="say" id="sprintSay">Ready? Answer as many as you can!</span></div>`;
   window.scrollTo(0, 0);
 
-  $('#sprintQuit').onclick = () => { clearInterval(SPRINT.timer); show('today'); };
-  $('#sprintCheck').onclick = sprintCheck;
-  $('#sprintPass').onclick = () => sprintAnswer(null);
-  $('#sprintIn').addEventListener('keydown', e => { if (e.key === 'Enter') sprintCheck(); });
+  $('#sprintQuit').onclick = () => {
+    clearInterval(SPRINT.timer);
+    document.removeEventListener('keydown', SPRINT.keyHandler);
+    show('today');
+  };
+  $$('#keypad .key').forEach(kb => kb.onclick = () => {
+    sfx('key');
+    const v = kb.dataset.k;
+    if (v === 'del') SPRINT.entry = SPRINT.entry.slice(0, -1);
+    else if (v === 'ok') return sprintCheck();
+    else if (SPRINT.entry.length < 3) SPRINT.entry += v;
+    $('#sprintEntry').textContent = SPRINT.entry;
+  });
+  SPRINT.keyHandler = (e) => {
+    if (/^[0-9]$/.test(e.key)) { if (SPRINT.entry.length < 3) { SPRINT.entry += e.key; sfx('key'); } }
+    else if (e.key === 'Backspace') SPRINT.entry = SPRINT.entry.slice(0, -1);
+    else if (e.key === 'Enter') return sprintCheck();
+    else return;
+    const el = $('#sprintEntry'); if (el) el.textContent = SPRINT.entry;
+  };
+  document.addEventListener('keydown', SPRINT.keyHandler);
 
   SPRINT.timer = setInterval(() => {
-    const left = SPRINT.end - Date.now();
-    const bar = $('#sprintBar');
-    if (bar) bar.style.width = Math.max(0, (left / (SPRINT_SECONDS * 1000)) * 100) + '%';
+    const left = Math.max(0, SPRINT.end - Date.now());
+    const ring = $('#timerRing'), txt = $('#timerText');
+    if (ring) {
+      const pct = (left / (SPRINT_SECONDS * 1000)) * 100;
+      ring.style.background = `conic-gradient(#4A7FB5 ${pct}%, #E9E0D0 0)`;
+    }
+    if (txt) {
+      const s = Math.ceil(left / 1000);
+      txt.textContent = `0:${String(s % 60).padStart(2, '0')}`;
+    }
     if (left <= 0) sprintFinish();
   }, 100);
 
@@ -72,15 +107,24 @@ function startSprint(drillId) {
 function sprintNext() {
   SPRINT.q = SPRINT.drill.gen();
   SPRINT.locked = false;
-  $('#sprintQ').textContent = SPRINT.q.text + ' = ?';
-  const inp = $('#sprintIn');
-  inp.value = ''; inp.style.background = '#FFFDF4'; inp.focus();
+  SPRINT.entry = '';
+  const q = $('#sprintQ'), en = $('#sprintEntry');
+  if (q) q.textContent = SPRINT.q.text + ' =';
+  if (en) en.textContent = '';
+  const card = $('.sprint-problem');
+  if (card) { card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop'); }
 }
 
 function sprintCheck() {
-  const v = $('#sprintIn').value.trim();
-  if (v === '' || SPRINT.locked) return;
-  sprintAnswer(Number(v.replace(/[,\s]/g, '')));
+  if (SPRINT.entry === '' || SPRINT.locked) return;
+  sprintAnswer(Number(SPRINT.entry));
+}
+
+function sprintDots() {
+  const row = $('#dotRow');
+  if (!row) return;
+  row.innerHTML = SPRINT.last.slice(-6).map(ok =>
+    `<span class="dot ${ok ? 'ok' : 'miss'}"></span>`).join('') || '<span class="eyebrow">go!</span>';
 }
 
 function sprintAnswer(given) {
@@ -89,18 +133,27 @@ function sprintAnswer(given) {
   const correct = given === SPRINT.q.ans;
   SPRINT.total++;
   if (correct) SPRINT.right++;
+  SPRINT.last.push(correct);
   $('#sprintScore').textContent = SPRINT.right;
-  const flash = $('#sprintFlash');
-  flash.innerHTML = correct
-    ? `<span style="color:var(--leaf-deep)">✓ Yes!</span>`
-    : `<span style="color:var(--coral-deep)">${SPRINT.q.text} = ${SPRINT.q.ans}</span>`;
-  $('#sprintIn').style.background = correct ? 'var(--ok-bg)' : 'var(--bad-bg)';
-  // brief pause on a miss so the correct fact sinks in; instant on a hit
-  setTimeout(sprintNext, correct ? 120 : 900);
+  sprintDots();
+  sfx(correct ? 'correct' : 'wrong');
+  const say = $('#sprintSay');
+  const best = sprintBest(SPRINT.drill.id).best;
+  if (say) {
+    const toBeat = best - SPRINT.right + 1;
+    say.textContent = !correct ? `${SPRINT.q.text} = ${SPRINT.q.ans} — you've got the next one!`
+      : best && toBeat > 0 && toBeat <= 3 ? `${toBeat} more beats your best!`
+      : best && toBeat <= 0 ? 'NEW RECORD territory — keep going! 🏆'
+      : 'Nice! Keep it rolling!';
+  }
+  const en = $('#sprintEntry');
+  if (en) en.style.color = correct ? 'var(--green)' : 'var(--terra)';
+  setTimeout(() => { if (en) en.style.color = ''; sprintNext(); }, correct ? 150 : 900);
 }
 
 function sprintFinish() {
   clearInterval(SPRINT.timer);
+  if (SPRINT.keyHandler) document.removeEventListener('keydown', SPRINT.keyHandler);
   const { drill, right, total } = SPRINT;
   const rec = sprintBest(drill.id);
   const isPB = right > rec.best;

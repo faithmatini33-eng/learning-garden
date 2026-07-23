@@ -181,9 +181,9 @@ const isWeekendDate = (d) => ((d.getDay() + 6) % 7) > 4;
 function dailyQuestionGoal(id = DB.activeKid) {
   return Math.max(SKILL_DONE_Q, kidSettings(id).schoolGoal * SKILL_DONE_Q);
 }
-function streakDays() {
-  const log = kidLog();
-  const goal = dailyQuestionGoal();
+function streakDays(id = DB.activeKid) {
+  const log = kidLog(id);
+  const goal = dailyQuestionGoal(id);
   const met = (dt) => { const e = log[dstr(dt)]; return e && e.t >= goal; };
   let streak = 0;
   const d = new Date();
@@ -237,12 +237,51 @@ function tick() {
 
 // ---------------- router ----------------
 let VIEW = 'kids';
+let GATE_OK = false; // grown-ups gate passes once per visit
 const PARENT_VIEWS = ['grownups', 'report', 'schoolsync', 'worksheet'];
+
+// 9f: rotating times-table gate — nothing to forget, filters 2nd graders
+function openGate(view, param) {
+  const a = ri(6, 9), b = ri(6, 9);
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-back';
+  wrap.innerHTML = `<div class="modal" style="text-align:center;max-width:380px;background:var(--bg-parent)">
+    <span class="subj-ico" style="width:46px;height:46px;background:var(--teal-tint);color:var(--teal);margin:0 auto 10px">${icon('lock', 21)}</span>
+    <h2 style="font-family:var(--font-head);font-weight:800;font-size:19px;justify-content:center">Grown-ups only</h2>
+    <p class="note">What is ${a} × ${b}? (kids can't sneak past this one)</p>
+    <div class="answer-row" style="margin-top:14px">
+      <input class="num-input" id="gateIn" inputmode="numeric" style="width:110px;border-color:var(--teal)" autocomplete="off">
+      <button class="btn sky caps-btn" id="gateGo">Enter</button>
+    </div>
+    <div id="gateMsg" style="min-height:20px;font-weight:700;font-size:12.5px;color:var(--terra);margin-top:6px"></div>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+  const go = () => {
+    if (Number($('#gateIn', wrap).value) === a * b) {
+      GATE_OK = true; wrap.remove(); show(view, param);
+    } else {
+      $('#gateMsg', wrap).textContent = 'Hmm, not quite — ask a grown-up!';
+      $('#gateIn', wrap).value = ''; $('#gateIn', wrap).focus();
+    }
+  };
+  $('#gateGo', wrap).onclick = go;
+  $('#gateIn', wrap).addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('#gateIn', wrap).focus();
+}
+
 function show(view, param) {
+  if (PARENT_VIEWS.includes(view) && !GATE_OK) return openGate(view, param);
+  if (!PARENT_VIEWS.includes(view)) GATE_OK = false; // re-lock when leaving parent world
   VIEW = view;
   const hasKid = !!kid();
+  // per-kid accessibility prefs
+  const ks = hasKid ? kidSettings() : {};
+  document.body.classList.toggle('easy-font', !!ks.easyFont);
+  document.body.classList.toggle('calm-motion', !!ks.calmMotion);
   document.body.classList.toggle('parent-mode', PARENT_VIEWS.includes(view));
-  $('#tabbar').style.display = hasKid && view !== 'kids' && !PARENT_VIEWS.includes(view) ? 'flex' : 'none';
+  $('#tabbar').style.display = hasKid && view !== 'kids' && view !== 'garden' && !PARENT_VIEWS.includes(view) ? 'flex' : 'none';
+  document.body.classList.toggle('no-brand', view === 'today' || view === 'garden');
   $('#kidChip').style.display = hasKid ? 'flex' : 'none';
   if (hasKid) $('#kidChip').innerHTML = `<span class="face">${kid().avatar}</span> ${kid().name}`;
   $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -252,7 +291,7 @@ function show(view, param) {
     session: () => renderSession(param), plan: renderPlan,
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
-    worksheet: renderWorksheetMaker,
+    worksheet: renderWorksheetMaker, garden: renderMyGarden,
   };
   (views[view] || renderKids)();
 }
@@ -298,22 +337,29 @@ function renderAddKid() {
     <div class="field-row"><input class="text-input" id="kidName" maxlength="20" placeholder="First name"></div>
     <p style="font-weight:800;margin:14px 0 8px">Pick your animal friend:</p>
     <div class="avatar-pick" id="avPick">${AVATARS.map((a, i) => `<button data-a="${a}" class="${i === 0 ? 'sel' : ''}">${a}</button>`).join('')}</div>
+    <p style="font-weight:800;margin:14px 0 8px">What grade?</p>
+    <div class="avatar-pick" id="gradePick">${[1, 2, 3].map(g => `<button data-g="${g}" class="${g === 2 ? 'sel' : ''}" style="font-family:var(--font-head);font-weight:800;font-size:15px;padding:8px 16px">Grade ${g}</button>`).join('')}</div>
+    <p class="note" style="margin-top:6px">Practice content is 2nd grade today — more grades are coming as your kids grow.</p>
     <div class="field-row">
       <button class="btn primary" id="saveKid">Let's grow! 🌻</button>
       <button class="btn ghost" id="cancelKid">Back</button>
     </div>
   </div></div>`;
-  let av = AVATARS[0];
+  let av = AVATARS[0], grade = 2;
   $$('#avPick button').forEach(b => b.onclick = () => {
     $$('#avPick button').forEach(x => x.classList.remove('sel'));
     b.classList.add('sel'); av = b.dataset.a;
+  });
+  $$('#gradePick button').forEach(b => b.onclick = () => {
+    $$('#gradePick button').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel'); grade = +b.dataset.g;
   });
   $('#saveKid').onclick = () => {
     const name = $('#kidName').value.trim();
     if (!name) { $('#kidName').focus(); return; }
     const id = 'k' + Date.now();
-    DB.kids.push({ id, name, avatar: av });
-    DB.activeKid = id; save(); burst(30); show('today');
+    DB.kids.push({ id, name, avatar: av, grade });
+    DB.activeKid = id; save(); burst(30); sfx('cheer'); show('today');
   };
   $('#cancelKid').onclick = () => show('kids');
   $('#kidName').focus();
@@ -324,20 +370,38 @@ function renderAddKid() {
 // ============================================================
 function renderToday() {
   const k = kid();
-  const goal = kidSettings().schoolGoal;
+  let goal = kidSettings().schoolGoal;
   const plan = getWeekPlan();
   const dow = (new Date().getDay() + 6) % 7; // Mon=0
   const isWeekend = dow > 4;
+  const todayStr = dstr();
+  const logAll = kidLog();
+  const totalQEver = Object.values(logAll).reduce((s, d) => s + d.t, 0);
+  const qTodayNow = logAll[todayStr] ? logAll[todayStr].t : 0;
+
+  // 9g: evening quick mode — after 6 PM a tired kid can pick a 5-minute day
+  const mood = kidSettings().mood;
+  const moodActive = mood && mood.date === todayStr && mood.mins === 5;
+  if (moodActive) goal = 1;
+  const offerMood = !isWeekend && new Date().getHours() >= 18 && (!mood || mood.date !== todayStr) && totalQEver > 0;
+
+  // 9f: welcome back after a gap — zero guilt
+  let gapDays = 0;
+  if (totalQEver > 0 && qTodayNow === 0) {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    while (gapDays < 30 && !(logAll[dstr(d)] && logAll[dstr(d)].t > 0)) { gapDays++; d.setDate(d.getDate() - 1); }
+  }
+  const showWelcomeBack = gapDays >= 3;
+
   const fullDay = isWeekend ? [] : (plan[dow] || []).filter(sid => SKILL_MAP[sid]);
   const coreTasks = fullDay.slice(0, goal);
   const bonusTasks = fullDay.slice(goal);
   const doneCount = coreTasks.filter(t => taskDoneToday(t)).length;
   const allDone = coreTasks.length > 0 && doneCount === coreTasks.length;
-  const qToday = questionsToday();
-  const qGoal = dailyQuestionGoal();
   const streak = streakDays();
   const st = kidStats();
   const lv = levelInfo();
+  const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const focus = focusSet();
@@ -351,18 +415,19 @@ function renderToday() {
     const mins = sk.strand === 'reading' ? 10 : 5;
     const done = taskDoneToday(sid);
     return `<button class="plan-task ${done ? 'done' : ''}" data-skill="${sid}">
-      <span class="chk">${icon('check', 15)}</span>
+      <span class="chk">${icon('check', 16)}</span>
       ${subjTile(subjId)}
       <span style="flex:1;min-width:0;text-align:left">
         <span class="t-name">${focus.has(sid) ? '🎯 ' : ''}${sk.name}</span>
         <span class="eyebrow t-sub" style="color:${u.color}">${subName} · ${mins} min</span>
       </span>
-      <span class="go" style="background:${u.tint};color:${u.dark}">${done ? '✓ Done' : 'Start →'}</span>
+      <span class="go" style="background:${u.tint};color:${u.dark}">Start ${icon('arrowright', 13)}</span>
     </button>`;
   };
 
   const hasDiag = (DB.diag[k.id] || []).length > 0;
-  const checkupCard = hasDiag ? '' : `
+  const firstDay = totalQEver === 0 && !hasDiag;
+  const checkupCard = (hasDiag || firstDay) ? '' : `
     <div class="card">
       <h2><span class="bubble" style="background:var(--green-tint);color:var(--green)">${icon('stetho', 17)}</span>First time? Garden checkup!</h2>
       <p class="note">A 5-minute quiz that finds what ${esc(k.name)} already knows — then the whole garden plans itself around it.</p>
@@ -371,71 +436,91 @@ function renderToday() {
       </div>
     </div>`;
 
-  // ---- left column: plan + owl + extras ----
+  // 9f: first-day hero — the checkup is the star, never zeroed stats
+  const firstDayCard = `<div class="card" style="text-align:center;padding:34px 24px;background:#FDF8F0">
+      <div style="display:flex;justify-content:center;gap:8px;align-items:flex-end;margin-bottom:10px">${plantSVG(0, 40)}${plantSVG(30, 46)}</div>
+      <h2 style="justify-content:center;font-size:21px">Let's plant your first seed!</h2>
+      <p class="note" style="max-width:400px;margin:4px auto 16px">A 5-minute Garden Checkup finds what you already know — then your garden plans itself.</p>
+      <button class="btn primary caps-btn big" data-diag="math">Start the checkup</button>
+    </div>`;
+
+  // 9f: welcome-back — plants never wilt here
+  const welcomeCard = `<div class="welcome-card">
+      <span style="font-size:38px">🦊</span>
+      <h2 style="justify-content:center;font-size:20px;margin:6px 0 2px">We missed you, ${esc(k.name)}!</h2>
+      <p class="note" style="max-width:380px;margin:0 auto 14px">Your garden waited for you — nothing wilted. Water it today and a brand-new streak begins.</p>
+      <button class="btn primary caps-btn" id="startPlanBtn">Start today's plan</button>
+    </div>`;
+
+  // 9g: evening mood picker
+  const moodCard = offerMood ? `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:26px">🌙</span>
+      <span style="flex:1;min-width:160px"><b style="font-family:var(--font-head)">Long day? Pick your size.</b>
+      <p class="note">Either way, today still counts.</p></span>
+      <button class="btn small ghost" data-mood="5">I have 5 minutes</button>
+      <button class="btn small primary" data-mood="15">I have 15</button>
+    </div>` : '';
+  const moodNote = moodActive ? `<p class="note" style="margin:0 0 8px 4px">🌙 Quick-day mode: just 1 skill tonight — it still waters the garden.</p>` : '';
+
+  // ---- left column ----
   const planCard = isWeekend
-    ? `<div class="card">
-        <div class="eyebrow" style="margin-bottom:8px">Weekend</div>
-        <h2 style="margin-bottom:4px">Explore day! 🎈</h2>
-        <p class="note">No school-day plan — wander the garden, try a Daily Mix, or learn something brand new. Weekends never break your streak.</p>
-        <div class="answer-row" style="justify-content:flex-start;margin-top:12px">
+    ? `<div class="card plan-card">
+        <div class="plan-title-row">
+          <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('calendar', 19)}</span>
+          <h2 style="margin:0">Weekend explore day! 🎈</h2>
+        </div>
+        <p class="note" style="margin-top:8px">No school-day plan — wander the garden, try a Daily Mix, or learn something brand new. Weekends never break your streak.</p>
+        <div class="answer-row" style="justify-content:flex-start;margin-top:14px">
           <button class="btn primary" id="goMixW">${icon('rainbow', 16)} Daily Mix</button>
           <button class="btn ghost" id="freePlay">${icon('sprout', 16)} Explore practice</button>
         </div>
       </div>`
-    : `<div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <span class="eyebrow">${DAY_NAMES[dow]}'s plan</span>
-          <span class="sticker" style="position:static;margin-left:auto">${doneCount} of ${coreTasks.length} done</span>
+    : `<div class="card plan-card">
+        <div class="plan-title-row">
+          <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('calendar', 19)}</span>
+          <h2 style="margin:0">Today's plan</h2>
+          <span class="done-chip">${doneCount} of ${coreTasks.length} done</span>
         </div>
-        ${allDone ? `<div style="background:var(--green-tint);border-radius:12px;padding:12px 14px;font-weight:700;color:#2E5C3F;margin-bottom:6px">🎉 Plan complete! Anything more today is pure bonus. Amazing work!</div>` : ''}
+        ${allDone ? `<div style="background:var(--green-tint);border-radius:12px;padding:12px 14px;font-weight:700;color:#2E5C3F;margin:10px 0 2px">🎉 Plan complete! Anything more today is pure bonus. Amazing work!</div>` : ''}
         ${coreTasks.map(rowFor).join('')}
-        ${bonusTasks.length ? `<button class="btn small ghost" id="bonusToggle" style="margin-top:10px">＋ Feeling great? ${bonusTasks.length} bonus skills</button>
+        ${bonusTasks.length ? `<button class="btn small ghost" id="bonusToggle" style="margin-top:12px">＋ Feeling great? ${bonusTasks.length} bonus skill${bonusTasks.length > 1 ? 's' : ''}</button>
         <div id="bonusWrap" style="display:none;margin-top:6px">${bonusTasks.map(rowFor).join('')}</div>` : ''}
       </div>`;
 
   const owlCard = `<div class="owl-card">
-      <span class="owl">🦉</span>
-      <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>The Tutor Owl asks the right questions until YOU find the answer.</p></span>
-      <button class="btn sky small" id="goHelper">${icon('camera', 15)} Open Tutor</button>
+      <span class="owl-tile">🦉</span>
+      <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>Snap a photo and the Helper Owl walks you through it, step by step.</p></span>
+      <button class="btn sky caps-btn" id="goHelper">${icon('camera', 16)} Open Helper</button>
     </div>`;
 
-  const extrasCard = `<div class="card">
-      <div class="eyebrow" style="margin-bottom:10px">Extra sunshine</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn primary small" id="goMix">${icon('rainbow', 15)} Daily Mix</button>
-        ${SPRINT_DRILLS.map(d => {
-          const rec = sprintBest(d.id);
-          return `<button class="btn small ghost" data-sprint="${d.id}">${icon('zap', 14)} ${d.name}${rec.best ? ` · ${rec.best}` : ''}</button>`;
-        }).join('')}
-      </div>
-    </div>`;
-
-  // ---- right column: theme panel ----
+  // ---- right column: garden or trophy shelf ----
   const gardenSkills = fullDay.length ? fullDay : SKILLS.slice(0, 6).map(s => s.id);
   const plantRow = gardenSkills.slice(0, 6).map((sid, i) => {
     const sc = (st[sid] || { s: 0 }).s;
-    return plantSVG(sc, [46, 60, 50, 66, 54, 44][i % 6]);
+    return plantSVG(sc, [78, 64, 70, 56, 48, 42][i % 6], i);
   }).join('');
   const gardenPanel = `<div class="garden-panel">
       <div class="garden-scene">
+        <div class="g-head">
+          <b>${esc(k.name)}'s garden</b>
+          <span class="g-chip">${flowers} flower${flowers === 1 ? '' : 's'} grown</span>
+        </div>
+        <p class="g-desc">Finish today's plan to water the garden. Master a skill and a new flower blooms.</p>
         <span class="sun-circ"></span>
-        <span class="hill" style="left:-10%"></span>
-        <span class="hill" style="right:-15%;bottom:-45px"></span>
+        <div class="g-ground"><span class="g-hill"></span></div>
         <div class="garden-plants">${plantRow}</div>
-      </div>
-      <div class="garden-head"><b>${esc(k.name)}'s garden</b>
-        <p class="note">Finish today's plan to water the garden. Mastered skills bloom gold!</p></div>
-      <div class="water-card">
-        <div class="water-row">${icon('droplet', 16)} Today's water
-          <span class="water-meter"><i style="width:${Math.min(100, Math.round(qToday / qGoal * 100))}%"></i></span>
-          <span style="color:var(--muted);font-size:11.5px">${Math.min(qToday, qGoal)}/${qGoal}</span></div>
+        <div class="water-float">
+          <div class="water-row">${icon('droplet', 16)} Today's water
+            <span class="water-meter"><i style="width:${coreTasks.length ? Math.round(doneCount / coreTasks.length * 100) : 0}%"></i></span>
+            <b style="font-size:12.5px">${doneCount}/${coreTasks.length || goal}</b></div>
+        </div>
       </div>
     </div>`;
 
   const badges = getBadges();
   const earned = badges.filter(b => b.got);
   const nextBadge = badges.find(b => !b.got);
-  const trophyPanel = `<div class="card">
+  const trophyPanel = `<div class="card" style="height:100%">
       <div class="eyebrow" style="margin-bottom:10px">Trophy shelf</div>
       ${nextBadge ? `<div style="display:flex;align-items:center;gap:12px;background:var(--gold-tint);border-radius:14px;padding:12px 14px;margin-bottom:12px">
         <span style="font-size:30px">${nextBadge.bi}</span>
@@ -446,10 +531,10 @@ function renderToday() {
     </div>`;
 
   app.innerHTML = `<div class="reveal">
-    <div class="hero-strip">
+    <div class="top-band">
       <span class="hero-avatar">${k.avatar}</span>
       <div class="hero-meta">
-        <div class="hi">${greet}, ${esc(k.name)}!</div>
+        <div class="hi">${greet}, ${esc(k.name)}</div>
         <div class="level-row">
           <span class="level-chip">Lv ${lv.level}</span>
           <span class="xp-bar"><i style="width:${Math.round(lv.into / lv.need * 100)}%"></i></span>
@@ -457,37 +542,97 @@ function renderToday() {
         </div>
       </div>
       <div class="hero-pills">
+        <span class="pill ghost-pill">Grade ${k.grade || 2} ${icon('right', 13, 'chev-down')}</span>
         <span class="pill">${icon('flame', 15)} ${streak}</span>
         <span class="pill gold">${icon('star', 15)} ${lv.stars}</span>
         <button class="icon-btn" id="gearBtn" aria-label="Settings">${icon('settings', 19)}</button>
-        <button class="btn sky small" id="grownBtnT">${icon('lock', 14)} Grown-ups</button>
+        <button class="btn sky caps-btn" id="grownBtnT">Grown-ups</button>
       </div>
     </div>
     <div class="today-grid">
-      <div>
-        ${planCard}
-        ${owlCard}
-        ${checkupCard}
-        ${extrasCard}
+      <div class="today-left">
+        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${planCard}${checkupCard}${owlCard}`}
       </div>
-      <div>
-        ${theme === 'stars' ? trophyPanel : gardenPanel}
-      </div>
+      ${theme === 'stars' ? trophyPanel : gardenPanel}
     </div>
   </div>`;
 
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
   $$('[data-diag]').forEach(b => b.onclick = () => startDiagnostic(b.dataset.diag));
-  $$('[data-sprint]').forEach(b => b.onclick = () => startSprint(b.dataset.sprint));
   const fp = $('#freePlay'); if (fp) fp.onclick = () => show('practice');
   const bt = $('#bonusToggle'); if (bt) bt.onclick = () => {
     const w = $('#bonusWrap'); w.style.display = w.style.display === 'none' ? 'block' : 'none';
   };
   const gmw = $('#goMixW'); if (gmw) gmw.onclick = startMix;
-  const gm = $('#goMix'); if (gm) gm.onclick = startMix;
-  $('#goHelper').onclick = () => show('helper');
+  const gh = $('#goHelper'); if (gh) gh.onclick = () => { HELPER_TAB = 'homework'; show('helper'); };
   $('#grownBtnT').onclick = () => show('grownups');
   $('#gearBtn').onclick = openSettings;
+  const gs = $('.garden-scene'); if (gs) { gs.style.cursor = 'pointer'; gs.onclick = (e) => { if (!e.target.closest('.water-float')) show('garden'); }; }
+  const spb = $('#startPlanBtn'); if (spb) spb.onclick = () => {
+    const next = coreTasks.find(t => !taskDoneToday(t));
+    if (next) show('session', next); else show('practice');
+  };
+  $$('[data-mood]').forEach(b => b.onclick = () => {
+    kidSettings().mood = { date: todayStr, mins: +b.dataset.mood };
+    save(); renderToday();
+  });
+}
+
+// ============================================================
+// 9a — MY GARDEN: the world that fills up all year
+// ============================================================
+function renderMyGarden() {
+  const k = kid();
+  const st = kidStats();
+  const scored = SKILLS.map(s => ({ s, sc: (st[s.id] || { s: 0 }).s, a: (st[s.id] || { a: 0 }).a }));
+  const planted = scored.filter(x => x.a > 0 || x.sc > 0).sort((a, b) => b.sc - a.sc);
+  const mastered = planted.filter(x => x.sc >= 100).length;
+  const plots = planted.slice(0, 6);
+  const plotHTML = plots.map((x, i) => `
+    <button class="g-plot" data-tip="${escAttr(x.s.name)} · ${x.sc >= 100 ? 'mastered! 🌼' : 'score ' + x.sc}">
+      <span class="g-plant ${x.sc >= 100 ? 'float-plant' : ''}">${plantSVG(x.sc, x.sc >= 100 ? 64 : 44 + Math.round(x.sc / 6), i)}</span>
+      <span class="g-mound"></span>
+    </button>`).join('');
+  const lockedHTML = Array.from({ length: 6 }, () => `
+    <span class="g-plot locked"><span class="g-q">?</span><span class="g-mound dashed"></span></span>`).join('');
+
+  app.innerHTML = `<div class="mygarden">
+    <div class="mg-sky">
+      <div class="mg-head">
+        <button class="back" id="mgBack">${icon('left', 18)}</button>
+        <h2>${esc(k.name)}'s Garden</h2>
+        <span class="g-chip" style="margin-left:auto">${mastered} of ${SKILLS.length} skills planted ${plantSVG(30, 16)}</span>
+      </div>
+      <span class="mg-cloud" style="left:12%;top:14%"></span>
+      <span class="mg-cloud" style="left:44%;top:26%;width:90px"></span>
+      <span class="sun-circ" style="top:24px;right:44px"></span>
+    </div>
+    <div class="mg-grass">
+      <div class="mg-plots">${plotHTML}${lockedHTML}</div>
+      <div class="mascot" style="position:absolute;left:18px;bottom:18px">
+        <span class="fox">🦊</span>
+        <span class="say">Every flower here is a skill you mastered. Tap one to remember it!</span>
+      </div>
+      <div class="mg-actions">
+        <button class="btn caps-btn" id="mgAlbum">Garden album</button>
+        <button class="btn primary caps-btn" id="mgPractice">Plant more — practice</button>
+      </div>
+      <div class="g-tip" id="gTip" style="display:none"></div>
+    </div>
+  </div>`;
+  $('#mgBack').onclick = () => show('today');
+  $('#mgAlbum').onclick = () => show('progress');
+  $('#mgPractice').onclick = () => show('practice');
+  $$('.g-plot[data-tip]').forEach(p => p.onclick = () => {
+    const tip = $('#gTip');
+    tip.textContent = p.dataset.tip;
+    tip.style.display = 'block';
+    const r = p.getBoundingClientRect(), host = $('.mg-grass').getBoundingClientRect();
+    tip.style.left = Math.max(8, r.left - host.left + r.width / 2 - 90) + 'px';
+    tip.style.top = (r.top - host.top - 40) + 'px';
+    clearTimeout(renderMyGarden._t);
+    renderMyGarden._t = setTimeout(() => { tip.style.display = 'none'; }, 2200);
+  });
 }
 
 // ---------------- badges (shared: Progress page + trophy theme) ----------------
@@ -532,6 +677,11 @@ function openSettings() {
     <div class="eyebrow" style="margin-top:16px">Sounds</div>
     <div class="toggle-row">${icon('volume', 17)} Sounds & cheers
       <button class="tog ${soundsOn() ? 'on' : ''}" id="togSounds" aria-label="Toggle sounds"></button></div>
+    <div class="eyebrow" style="margin-top:16px">Reading & motion</div>
+    <div class="toggle-row">${icon('book', 17)} Easy-read font
+      <button class="tog ${s.easyFont ? 'on' : ''}" id="togFont" aria-label="Toggle easy-read font"></button></div>
+    <div class="toggle-row">${icon('rainbow', 17)} Calm motion (fewer animations)
+      <button class="tog ${s.calmMotion ? 'on' : ''}" id="togMotion" aria-label="Toggle calm motion"></button></div>
     <div class="answer-row" style="margin-top:16px"><button class="btn primary" id="closeSettings">Done</button></div>
   </div>`;
   document.body.appendChild(wrap);
@@ -544,6 +694,16 @@ function openSettings() {
     s.sounds = !soundsOn(); save();
     e.target.classList.toggle('on', soundsOn());
     if (soundsOn()) sfx('correct');
+  };
+  $('#togFont', wrap).onclick = (e) => {
+    s.easyFont = !s.easyFont; save();
+    e.target.classList.toggle('on', !!s.easyFont);
+    document.body.classList.toggle('easy-font', !!s.easyFont);
+  };
+  $('#togMotion', wrap).onclick = (e) => {
+    s.calmMotion = !s.calmMotion; save();
+    e.target.classList.toggle('on', !!s.calmMotion);
+    document.body.classList.toggle('calm-motion', !!s.calmMotion);
   };
   $('#closeSettings', wrap).onclick = () => { wrap.remove(); if (VIEW === 'today') renderToday(); };
 }
@@ -599,10 +759,22 @@ function renderPractice() {
     ${plantSVG(0, 18)} new → ${plantSVG(30, 18)} sprouting → ${plantSVG(55, 18)} growing → ${plantSVG(80, 18)} blooming → ${plantSVG(100, 18)} <b style="color:var(--gold)">mastered!</b>
   </div>`;
 
+  const extras = `<div class="card" style="padding:14px 18px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span class="eyebrow" style="margin-right:4px">Extra sunshine</span>
+    <button class="btn primary small" id="goMix">${icon('rainbow', 15)} Daily Mix</button>
+    ${SPRINT_DRILLS.map(d => {
+      const rec = sprintBest(d.id);
+      return `<button class="btn small ghost" data-sprint="${d.id}">${icon('zap', 14)} ${d.name}${rec.best ? ` · ${rec.best}` : ''}</button>`;
+    }).join('')}
+  </div>`;
+
   app.innerHTML = `<div class="reveal">
     <div class="subj-tabs">${tabs}</div>
     ${legend}
+    ${extras}
     ${html}</div>`;
+  $('#goMix').onclick = startMix;
+  $$('[data-sprint]').forEach(b => b.onclick = () => startSprint(b.dataset.sprint));
   $$('[data-subj]').forEach(b => b.onclick = () => { PRACTICE_SUBJ = b.dataset.subj; renderPractice(); });
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
   $$('[data-lesson]').forEach(b => b.onclick = () => {
@@ -1103,93 +1275,172 @@ function renderCheats() {
 // GROWN-UPS CORNER
 // ============================================================
 function renderGrownups() {
-  const rows = DB.kids.map(k => {
+  DB.settings.reminders = DB.settings.reminders || { nudge: true, streakAlert: true, recap: false };
+  const rem = DB.settings.reminders;
+  const wk = weekKey();
+  const mon = mondayOf();
+
+  // ---- per-kid stats ----
+  const kidRows = DB.kids.map(k => {
     const st = kidStats(k.id);
     const log = DB.log[k.id] || {};
-    const totalQ = Object.values(log).reduce((s, d) => s + d.t, 0);
-    const totalC = Object.values(log).reduce((s, d) => s + d.c, 0);
-    const flowers = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
-    return `<div class="kid-admin-row">
-      <span class="face">${k.avatar}</span>
-      <span class="nm">${esc(k.name)} <span style="font-weight:700;color:var(--ink-soft);font-size:13.5px">· ${totalQ} questions · ${totalQ ? Math.round(totalC / totalQ * 100) : 0}% correct · ${flowers} 🌻</span></span>
-      <button class="btn small sky" data-report="${k.id}">📊 Report</button>
-      <button class="btn small sunny" data-sync="${k.id}">🎯 School focus</button>
-      <button class="btn small ghost" data-reset="${k.id}">Reset progress</button>
-      <button class="btn small ghost" data-del="${k.id}">Remove</button>
+    let wkT = 0, wkC = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + i);
+      const e = log[dstr(d)]; if (e) { wkT += e.t; wkC += e.c; }
+    }
+    const acc = wkT ? Math.round(wkC / wkT * 100) : 0;
+    const mastered = SKILLS.filter(s => (st[s.id] || { s: 0 }).s >= 100).length;
+    return `<div class="kid-stat-row">
+      <span class="kid-face">${k.avatar}</span>
+      <span class="kid-id"><b>${esc(k.name)}</b><small>Grade ${k.grade || 2}</small></span>
+      <span class="kstat"><b>${streakDays(k.id)}</b><small>streak</small></span>
+      <span class="kstat"><b>${wkT}</b><small>this week</small></span>
+      <span class="kstat"><b style="color:var(--green)">${acc}%</b><small>correct</small></span>
+      <span class="kstat"><b style="color:var(--terra)">${mastered}</b><small>mastered</small></span>
+      <button class="btn sky small" data-report="${k.id}">Weekly report</button>
+      <button class="btn small ghost" data-reset="${k.id}" title="Reset progress">Reset</button>
+      <button class="btn small ghost" data-del="${k.id}" title="Remove kid">✕</button>
     </div>`;
-  }).join('') || `<p class="note">No kids added yet — add one from the first screen.</p>`;
+  }).join('') || '<p class="note">No kids yet — add one to plant the first garden.</p>';
 
-  const lessons = (DB.custom || []).map(c => {
-    const sub = SUBJECTS.find(s => s.id === c.subject) || { emoji: '📌', name: 'My Lessons' };
-    return `<div class="kid-admin-row" style="border-bottom-style:dotted">
-      <span style="font-size:22px">📌</span>
-      <span class="nm" style="font-size:15px">${esc(c.name)}
-        <span style="color:var(--ink-soft);font-size:13px">· ${sub.emoji} ${sub.name} · ${c.items.length} card${c.items.length > 1 ? 's' : ''} · ${c.kind === 'mc' ? 'multiple choice' : 'flashcards'}</span></span>
-      <button class="btn small sky" data-editles="${c.id}">Edit</button>
-      <button class="btn small ghost" data-delles="${c.id}">Delete</button>
+  // ---- per-kid school focus chips ----
+  const focusCards = DB.kids.map(k => {
+    const f = DB.focus[k.id];
+    const ids = (f && f.week === wk ? f.skills : []).filter(id => SKILL_MAP[id]);
+    const chips = ids.map(id => `<span class="focus-chip">${SKILL_MAP[id].name}
+      <button data-unfocus="${k.id}:${id}" aria-label="Remove">✕</button></span>`).join('');
+    return `<div class="card">
+      <h2><span class="bubble" style="background:var(--terra-tint);color:var(--terra)">${icon('target', 17)}</span>This week's school focus · ${esc(k.name)}</h2>
+      <p class="note">Pick what the class is working on — these skills jump to the front of ${esc(k.name)}'s daily plan.</p>
+      <div class="focus-chip-row">
+        ${chips}
+        <button class="focus-add" data-sync="${k.id}">＋ Add a skill</button>
+      </div>
     </div>`;
-  }).join('') || '<p class="note">No custom lessons yet. Create one to add your own spelling words, vocabulary, or quizzes.</p>';
+  }).join('');
+
+  // ---- per-kid daily goal steppers ----
+  const goalCards = DB.kids.map(k => {
+    const g = kidSettings(k.id).schoolGoal;
+    return `<div class="card">
+      <h2 style="margin-bottom:4px">Daily goal · ${esc(k.name)}</h2>
+      <p class="note">Core skills per school day. Everything past the goal counts as bonus.</p>
+      <div class="goal-stepper">
+        <button class="stepper-btn minus" data-goal="${k.id}:-1" aria-label="Fewer">−</button>
+        <span class="goal-num"><b>${g}</b><small>skills / day</small></span>
+        <button class="stepper-btn plus" data-goal="${k.id}:1" aria-label="More">＋</button>
+      </div>
+      <p style="text-align:center;color:var(--green);font-weight:700;font-size:13px">≈ ${g * 3} minutes after school</p>
+    </div>`;
+  }).join('');
+
+  // ---- Sunday-style recap (from real data) ----
+  const recapCards = DB.kids.map(k => {
+    const log = DB.log[k.id] || {};
+    let daysPracticed = 0;
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + i);
+      const e = log[dstr(d)]; if (e && e.t > 0) daysPracticed++;
+    }
+    if (!daysPracticed) return '';
+    const st = kidStats(k.id);
+    const trouble = SKILLS.map(s => ({ s, v: st[s.id] || { s: 0, a: 0 } }))
+      .filter(x => x.v.a > 0 && x.v.s < 50).sort((a, b) => a.v.s - b.v.s)[0];
+    return `<div class="recap-card">${icon('bulb', 16)}
+      <span><b>This week:</b> ${esc(k.name)} practiced ${daysPracticed} of 5 school days${trouble
+        ? `, and the trouble spot is <b>${trouble.s.name}</b> — it's already prioritized in the plan.`
+        : ' — no trouble spots right now. 🌟'}</span></div>`;
+  }).join('');
 
   app.innerHTML = `<div class="reveal">
     <div class="parent-band">
-      ${icon('lock', 20)}
-      <span><b>Grown-ups corner</b>Everything stays on this device — no accounts, no ads, no fees.</span>
-      <button class="btn" id="backHome">Back to kids ${icon('arrowright', 14)}</button>
+      <span class="band-lock">${icon('lock', 19)}</span>
+      <span><b>Grown-ups corner</b>Everything stays on this device — no accounts, no internet needed.</span>
+      <button class="btn caps-btn" id="backHome">${icon('left', 14)} Back to kids</button>
     </div>
-    <div class="card">
-      <h2><span class="bubble" style="background:var(--teal-tint);color:var(--teal)">${icon('users', 17)}</span>Your kids</h2>
-      ${rows}
-      <div class="field-row"><button class="btn sky" id="addKid2">＋ Add a kid</button></div>
-    </div>
-    <div class="card">
-      <h2><span class="bubble" style="background:var(--sun)">🛠️</span>Family tools</h2>
-      <div class="field-row" style="align-items:center">
-        <button class="btn sunny" id="wsMaker">🖨️ Worksheet maker</button>
-        <span style="font-weight:800;margin-left:8px">Reading voice:</span>
-        <button class="btn small ${(DB.settings.voicePref || 'female') === 'female' ? 'sky' : 'ghost'}" id="voiceF">👧 Girl voice</button>
-        <button class="btn small ${DB.settings.voicePref === 'male' ? 'sky' : 'ghost'}" id="voiceM">👦 Boy voice</button>
-        <button class="btn small ghost" id="voiceTest">🔊 Test</button>
+    <div class="parent-grid">
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;margin-bottom:10px">
+            <h2 style="margin:0">Your kids</h2>
+            <button class="btn small" style="margin-left:auto;background:var(--teal-tint);border-color:var(--teal-tint);color:var(--teal)" id="addKid2">＋ Add a kid</button>
+          </div>
+          ${kidRows}
+        </div>
+        ${focusCards}
+        <div class="card" style="display:flex;align-items:center;gap:14px">
+          <span class="subj-ico" style="width:48px;height:48px;background:var(--gold-tint);color:var(--gold)">${icon('printer', 22)}</span>
+          <span style="flex:1"><b style="font-family:var(--font-head);font-size:15px">Worksheet maker</b>
+            <p class="note">Print a paper practice page from any skills — great for car rides and screen-free time.</p></span>
+          <button class="btn caps-btn" style="color:var(--teal);border-color:var(--teal)" id="wsMaker">Make one</button>
+        </div>
+        <div class="card">
+          <h2>Family tools</h2>
+          <div class="field-row" style="align-items:center">
+            <span style="font-weight:700;font-size:13px">Reading voice:</span>
+            <button class="btn small ${(DB.settings.voicePref || 'female') === 'female' ? 'sky' : 'ghost'}" id="voiceF">Girl voice</button>
+            <button class="btn small ${DB.settings.voicePref === 'male' ? 'sky' : 'ghost'}" id="voiceM">Boy voice</button>
+            <button class="btn small ghost" id="voiceTest">${icon('volume', 14)} Test</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2><span class="bubble" style="background:var(--purple-tint);color:var(--purple)">${icon('pin', 16)}</span>My lessons</h2>
+          <p class="note">Add your own content — spelling lists, vocabulary, or quizzes. It becomes a real skill your kids practice.</p>
+          ${lessonsListHTML()}
+          <div class="field-row"><button class="btn small" style="background:var(--purple);border-color:var(--purple);color:#fff" id="newLesson">＋ Create a lesson</button></div>
+        </div>
+        <div class="card">
+          <h2><span class="bubble" style="background:var(--teal-tint);color:var(--teal)">${icon('book', 16)}</span>Real-books library corner</h2>
+          <p class="note">Our reading passages are <b>original stories written for this app</b>. For real books, these are free and legit:
+          <a href="https://www.storylineonline.net" target="_blank" rel="noopener">Storyline Online</a> ·
+          <a href="https://www.uniteforliteracy.com" target="_blank" rel="noopener">Unite for Literacy</a> ·
+          the <b>Libby app</b> (free with a library card) ·
+          <a href="https://www.readworks.org" target="_blank" rel="noopener">ReadWorks</a>.</p>
+        </div>
       </div>
-      <p class="note" style="margin-top:8px">Worksheets print with show-your-work boxes and an answer key — because pencil-and-paper practice matters as much as screen practice. The reading voice uses the free voices built into this computer.</p>
-    </div>
-    <div class="card">
-      <h2><span class="bubble" style="background:var(--berry)">📌</span>My lessons</h2>
-      <p class="note">Add your own content — spelling lists, vocabulary, or quizzes. It becomes a skill your kids practice, with its own garden score, and can be added to their weekly focus.</p>
-      ${lessons}
-      <div class="field-row"><button class="btn berry" id="newLesson" style="background:var(--berry);color:#fff">➕ Create a lesson</button></div>
-    </div>
-    <div class="card">
-      <h2><span class="bubble" style="background:var(--sky)">📚</span>Real-books library corner</h2>
-      <p class="note">Our reading passages are <b>original stories written for this app</b> (so they're free forever and match 2nd-grade reading levels). For real books, these are free and legit:</p>
-      <ul style="font-weight:700;line-height:1.9;padding-left:22px;font-size:14.5px">
-        <li><a href="https://www.storylineonline.net" target="_blank" rel="noopener">Storyline Online</a> — famous actors read real picture books aloud on video. Free, no account.</li>
-        <li><a href="https://www.uniteforliteracy.com" target="_blank" rel="noopener">Unite for Literacy</a> — free digital picture books with narration.</li>
-        <li><b>The Libby app</b> — thousands of free kids' ebooks & audiobooks with your public library card.</li>
-        <li><a href="https://www.readworks.org" target="_blank" rel="noopener">ReadWorks</a> — free leveled reading passages (free parent account; great for printing).</li>
-      </ul>
-      <p class="note" style="margin-top:8px">Tip: found words or facts in a library book worth practicing? Turn them into a <b>My Lesson</b> above — then they're part of the garden too.</p>
-    </div>
-    <div class="card tilt-r">
-      <h2><span class="bubble" style="background:var(--sun)">💡</span>How Learning Garden works</h2>
-      <p class="note">
-        • <b>Six areas</b> — Math, Language, Science, Social Studies, Spanish, and your own "My Lessons" — modeled on IXL's grade-2 skill lists.<br><br>
-        • <b>⚡ Lightning Round</b> builds math-fact fluency: 60-second sprints where kids race their own personal best. Sprints count toward streaks but never lower a garden score, so time pressure stays fun.<br><br>
-        • <b>🖨️ Printable report:</b> each kid's Report page has a Print button — great for sharing with their teacher.<br><br>
-        • <b>Questions are made fresh every time</b>, and math questions <b>get harder as a kid improves</b> and ease back after misses, so they're always met where they are and gently stretched.<br><br>
-        • <b>The garden score (0–100)</b> works like IXL's SmartScore: right answers grow it, wrong shrink it, 100 = mastered (🌻).<br><br>
-        • <b>Lighter school days:</b> each kid does a short set of skills Mon–Fri (you set how many with the slider on their School focus page), with weekends left open for exploring. Bonus skills are always one tap away.<br><br>
-        • <b>Diagnostics:</b> a first-time Garden Checkup finds each kid's level and plans around it; rerun it anytime to see growth.<br><br>
-        • <b>Tutor, not answer key:</b> the Tutor Owl guides kids step-by-step and can show their real homework photo alongside (the photo never leaves this device).<br><br>
-        • <b>Each kid has their own separate garden.</b> Everything is saved on this computer only — no accounts, no ads, no fees, works offline.
-      </p>
+      <div>
+        ${goalCards}
+        <div class="card">
+          <h2>Reminders</h2>
+          <div class="toggle-row"><span><b>Daily practice nudge</b><br><small class="note">3:30 PM on school days</small></span>
+            <button class="tog ${rem.nudge ? 'on' : ''}" data-tog="nudge"></button></div>
+          <div class="toggle-row"><span><b>Streak alerts</b><br><small class="note">Heads-up before a streak breaks</small></span>
+            <button class="tog ${rem.streakAlert ? 'on' : ''}" data-tog="streakAlert"></button></div>
+          <div class="toggle-row"><span><b>Weekly recap</b><br><small class="note">Summary on this screen every Sunday</small></span>
+            <button class="tog ${rem.recap ? 'on' : ''}" data-tog="recap"></button></div>
+          <p class="note" style="margin-top:8px">Reminders show while the app is open on this device.</p>
+        </div>
+        ${recapCards}
+      </div>
     </div>
   </div>`;
+
+  $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
   $('#addKid2').onclick = renderAddKid;
   $('#wsMaker').onclick = () => show('worksheet');
   $('#voiceF').onclick = () => { DB.settings.voicePref = 'female'; save(); renderGrownups(); };
   $('#voiceM').onclick = () => { DB.settings.voicePref = 'male'; save(); renderGrownups(); };
   $('#voiceTest').onclick = () => speak('Hello! I will be your reading buddy in the Learning Garden.', 'en');
   $('#newLesson').onclick = () => renderCreateLesson();
+  $$('[data-tog]').forEach(b => b.onclick = () => {
+    rem[b.dataset.tog] = !rem[b.dataset.tog]; save();
+    b.classList.toggle('on', rem[b.dataset.tog]);
+  });
+  $$('[data-goal]').forEach(b => b.onclick = () => {
+    const [kidId, delta] = b.dataset.goal.split(':');
+    const s = kidSettings(kidId);
+    s.schoolGoal = Math.max(2, Math.min(6, s.schoolGoal + Number(delta)));
+    save(); renderGrownups();
+  });
+  $$('[data-report]').forEach(b => b.onclick = () => show('report', b.dataset.report));
+  $$('[data-sync]').forEach(b => b.onclick = () => show('schoolsync', b.dataset.sync));
+  $$('[data-unfocus]').forEach(b => b.onclick = () => {
+    const [kidId, sid] = b.dataset.unfocus.split(':');
+    const f = DB.focus[kidId];
+    if (f) { f.skills = f.skills.filter(x => x !== sid); if (DB.plans[kidId]) delete DB.plans[kidId][weekKey()]; save(); }
+    renderGrownups();
+  });
   $$('[data-editles]').forEach(b => b.onclick = () => renderCreateLesson(b.dataset.editles));
   $$('[data-delles]').forEach(b => b.onclick = () => {
     const c = DB.custom.find(x => x.id === b.dataset.delles);
@@ -1198,9 +1449,6 @@ function renderGrownups() {
       save(); loadCustomSkills(); renderGrownups();
     }
   });
-  $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
-  $$('[data-report]').forEach(b => b.onclick = () => show('report', b.dataset.report));
-  $$('[data-sync]').forEach(b => b.onclick = () => show('schoolsync', b.dataset.sync));
   $$('[data-reset]').forEach(b => b.onclick = () => {
     const k = DB.kids.find(x => x.id === b.dataset.reset);
     if (confirm(`Reset ALL of ${k.name}'s progress? This cannot be undone.`)) {
@@ -1218,6 +1466,19 @@ function renderGrownups() {
       save(); renderGrownups();
     }
   });
+}
+
+// custom-lesson list rows (used by Grown-ups)
+function lessonsListHTML() {
+  return (DB.custom || []).map(c => {
+    const sub = SUBJECTS.find(s => s.id === c.subject) || { name: 'My Lessons' };
+    return `<div class="kid-admin-row" style="border-bottom-style:dotted">
+      <span class="nm" style="font-size:13.5px">${esc(c.name)}
+        <span style="color:var(--muted);font-size:11.5px;font-weight:600"> · ${sub.name} · ${c.items.length} card${c.items.length > 1 ? 's' : ''}</span></span>
+      <button class="btn small sky" data-editles="${c.id}">Edit</button>
+      <button class="btn small ghost" data-delles="${c.id}">Delete</button>
+    </div>`;
+  }).join('');
 }
 
 // ---------------- utils ----------------
