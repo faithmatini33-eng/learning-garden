@@ -1588,7 +1588,7 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 .fox-col .fox-face svg.fox-full { display: block; margin: 0 auto; }
 @keyframes foxmouth { from { transform: scaleY(.25); } to { transform: scaleY(1.15); } }
 @keyframes foxbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-.fox-full .fox-mouth { transform-origin: 32px 42px; transform-box: view-box; }
+.fox-full .fox-mouth { transform-box: fill-box; transform-origin: 50% 20%; }
 .fox-full.talking .fox-mouth { animation: foxmouth .28s ease-in-out infinite alternate; }
 .fox-full.talking { animation: foxbob 1.6s ease-in-out infinite; }
 body.calm-motion .fox-full.talking, body.calm-motion .fox-full.talking .fox-mouth { animation: none; }
