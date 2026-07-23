@@ -113,18 +113,16 @@ function renderTypingSession(sk) {
   TYPING = { sk, targets, ti: 0, pos: 0, errors: 0, wordErrors: 0, keys: 0, good: 0, start: Date.now() };
   VIEW = 'session';
   $('#tabbar').style.display = 'none';
-  document.body.classList.add('no-brand');
 
+  setAppbar(`
+    <button class="back" id="typeQuit" aria-label="Done">${icon('left', 18)}</button>
+    <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('laptop', 17)}</span>
+    <div class="title">Computer · ${sk.name}</div>
+    <span class="type-progress"><i id="typeBar"></i></span>
+    <span style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"><span id="typeCount">1</span> of ${SKILL_DONE_Q}</span>
+    <span class="pill" style="white-space:nowrap">${icon('zap', 14)} <span id="wpmChip">0</span> wpm</span>
+    <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="accChip">100</span>%</span>`);
   app.innerHTML = `
-    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
-      <button class="back" id="typeQuit" aria-label="Done">${icon('left', 18)}</button>
-      <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('laptop', 17)}</span>
-      <div class="title">Computer · ${sk.name}</div>
-      <span class="type-progress"><i id="typeBar"></i></span>
-      <span style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"><span id="typeCount">1</span> of ${SKILL_DONE_Q}</span>
-      <span class="pill" style="white-space:nowrap">${icon('zap', 14)} <span id="wpmChip">0</span> wpm</span>
-      <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="accChip">100</span>%</span>
-    </div>
     <div class="type-stage">
       <div class="card type-line" id="typeLine"></div>
       <div class="card kb-card">

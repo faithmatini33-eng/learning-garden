@@ -281,9 +281,8 @@ function show(view, param) {
   document.body.classList.toggle('calm-motion', !!ks.calmMotion);
   document.body.classList.toggle('parent-mode', PARENT_VIEWS.includes(view));
   $('#tabbar').style.display = hasKid && view !== 'kids' && view !== 'garden' && !PARENT_VIEWS.includes(view) ? 'flex' : 'none';
-  document.body.classList.toggle('no-brand', view === 'today' || view === 'garden');
-  $('#kidChip').style.display = hasKid ? 'flex' : 'none';
-  if (hasKid) $('#kidChip').innerHTML = `<span class="face">${kid().avatar}</span> ${kid().name}`;
+  // default app bar: brand left, kid chip right — screens may override with their own bar content
+  setAppbar(appbarBrand() + '<span class="ab-spacer"></span>' + appbarKidChip());
   $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   window.scrollTo(0, 0);
   const views = {
@@ -296,7 +295,6 @@ function show(view, param) {
   (views[view] || renderKids)();
 }
 $$('#tabbar button').forEach(b => b.onclick = () => show(b.dataset.view));
-$('#kidChip').onclick = () => show(kid() ? 'profile' : 'kids'); // name chip opens the kid's profile (7c)
 
 // ============================================================
 // KID PICKER
@@ -530,25 +528,23 @@ function renderToday() {
       <p class="note" style="margin-top:10px">${earned.length} of ${badges.length} earned</p>
     </div>`;
 
-  app.innerHTML = `<div class="reveal">
-    <div class="top-band">
-      <span class="hero-avatar">${k.avatar}</span>
-      <div class="hero-meta">
-        <div class="hi">${greet}, ${esc(k.name)}</div>
-        <div class="level-row">
-          <span class="level-chip">Lv ${lv.level}</span>
-          <span class="xp-bar"><i style="width:${Math.round(lv.into / lv.need * 100)}%"></i></span>
-          <span class="xp-label">${lv.into}/${lv.need} XP</span>
-        </div>
-      </div>
-      <div class="hero-pills">
-        <span class="pill ghost-pill">Grade ${k.grade || 2} ${icon('right', 13, 'chev-down')}</span>
-        <span class="pill">${icon('flame', 15)} ${streak}</span>
-        <span class="pill gold">${icon('star', 15)} ${lv.stars}</span>
-        <button class="icon-btn" id="gearBtn" aria-label="Settings">${icon('settings', 19)}</button>
-        <button class="btn sky caps-btn" id="grownBtnT">Grown-ups</button>
+  setAppbar(`
+    <span class="hero-avatar">${k.avatar}</span>
+    <div class="hero-meta">
+      <div class="hi">${greet}, ${esc(k.name)}</div>
+      <div class="level-row">
+        <span class="level-chip">Lv ${lv.level}</span>
+        <span class="xp-bar"><i style="width:${Math.round(lv.into / lv.need * 100)}%"></i></span>
+        <span class="xp-label">${lv.into}/${lv.need} XP</span>
       </div>
     </div>
+    <span class="ab-spacer"></span>
+    <span class="pill ghost-pill">Grade ${k.grade || 2} ${icon('right', 13, 'chev-down')}</span>
+    <span class="pill">${icon('flame', 15)} ${streak}</span>
+    <span class="pill gold">${icon('star', 15)} ${lv.stars}</span>
+    <button class="icon-btn" id="gearBtn" aria-label="Settings">${icon('settings', 19)}</button>
+    <button class="btn sky caps-btn" id="grownBtnT">Grown-ups</button>`);
+  app.innerHTML = `<div class="reveal">
     <div class="today-grid">
       <div class="today-left">
         ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${planCard}${checkupCard}${owlCard}`}
@@ -885,16 +881,14 @@ function renderPractice() {
 let SESSION = null;
 function sessionShell(title, backView, tileHTML = '') {
   $('#tabbar').style.display = 'none'; // focused mode — no bottom nav
-  document.body.classList.add('no-brand'); // no brand header either (design 3b)
+  setAppbar(`
+    <button class="back" id="backBtn" aria-label="Done">${icon('left', 19)}</button>
+    ${tileHTML}
+    <div class="title" id="sessTitle">${title}</div>
+    <span class="type-progress" style="max-width:240px"><i id="sessBar" style="background:var(--green)"></i></span>
+    <span id="sessCount" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
+    <div class="scorebox" id="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>`);
   app.innerHTML = `
-    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
-      <button class="back" id="backBtn" aria-label="Done">${icon('left', 19)}</button>
-      ${tileHTML}
-      <div class="title" id="sessTitle">${title}</div>
-      <span class="type-progress" style="max-width:240px"><i id="sessBar" style="background:var(--green)"></i></span>
-      <span id="sessCount" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
-      <div class="scorebox" id="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
-    </div>
     <div class="session-stage"><div class="card qcard" id="qcard"></div></div>
     <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>
     <span class="g-chip water-chip" id="waterChip"></span>`;
@@ -1534,12 +1528,12 @@ function renderGrownups() {
         : ' — no trouble spots right now. 🌟'}</span></div>`;
   }).join('');
 
+  setAppbar(`
+    <span class="band-lock">${icon('lock', 19)}</span>
+    <span><b>Grown-ups corner</b>Everything stays on this device — no accounts, no internet needed.</span>
+    <span class="ab-spacer"></span>
+    <button class="btn caps-btn" id="backHome">${icon('left', 14)} Back to kids</button>`);
   app.innerHTML = `<div class="reveal">
-    <div class="parent-band">
-      <span class="band-lock">${icon('lock', 19)}</span>
-      <span><b>Grown-ups corner</b>Everything stays on this device — no accounts, no internet needed.</span>
-      <button class="btn caps-btn" id="backHome">${icon('left', 14)} Back to kids</button>
-    </div>
     <div class="parent-grid">
       <div>
         <div class="card">

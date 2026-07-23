@@ -57,6 +57,25 @@ function icon(name, size = 18, cls = '') {
   return `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.star}</svg>`;
 }
 
+// ---------------- app bar — ONE full-width top bar, every screen ----------------
+// Faith's rule (2026-07-23): the strip aligns across the whole page, flush to
+// the top, identical frame everywhere. Screens feed content into it; nothing
+// renders its own floating header band.
+function appbarBrand() {
+  return `<div class="brand"><div class="logo">${logoSVG(30)}</div><h1>Learning Garden<small>grow a little every day</small></h1></div>`;
+}
+function appbarKidChip() {
+  const k = typeof kid === 'function' ? kid() : null;
+  return k ? `<button class="kid-chip" id="kidChip"><span class="face">${k.avatar}</span> ${esc(k.name)}</button>` : '';
+}
+function setAppbar(html) {
+  const el = document.getElementById('appbarInner');
+  if (!el) return;
+  el.innerHTML = html;
+  const kc = document.getElementById('kidChip');
+  if (kc) kc.onclick = () => show(kid() ? 'profile' : 'kids'); // name chip opens the profile (7c)
+}
+
 // ---------------- Tutor Owl mascot (replaces the 🦉 emoji) ----------------
 // Flat, warm, design-token palette; the grad cap says "tutor".
 function owlSVG(size = 64, cls = '') {

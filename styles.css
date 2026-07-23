@@ -79,11 +79,33 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 h1, h2, h3, .head { font-family: var(--font-head); color: var(--ink); }
 
-/* ---------------- header ---------------- */
-header.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 10px 2px 16px;
+/* ---------------- app bar (one full-width top strip, every screen) ---------------- */
+header.appbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,.97);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
 }
+.appbar-inner {
+  max-width: 1080px; margin: 0 auto; min-height: 64px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 9px 22px;
+}
+.ab-spacer { flex: 1; }
+.appbar-inner .back {
+  width: 40px; height: 40px; border-radius: 100px; background: #fff; border: 1px solid var(--border);
+  display: grid; place-items: center; box-shadow: var(--shadow-card); padding: 0; min-height: 40px; flex: none;
+}
+.appbar-inner .title {
+  font-family: var(--font-head); font-weight: 800; font-size: 14.5px; flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+/* parent world: the bar itself goes teal — no separate floating band */
+body.parent-mode header.appbar { background: var(--teal); border-bottom-color: var(--teal); }
+body.parent-mode .appbar-inner { color: #fff; font-weight: 600; font-size: 12.5px; }
+body.parent-mode .appbar-inner b { font-family: var(--font-head); font-weight: 800; font-size: 16px; display: block; }
+body.parent-mode .appbar-inner .btn.caps-btn { background: #fff; border-color: #fff; color: var(--teal); box-shadow: none; }
+
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand .logo {
   width: 46px; height: 46px; border-radius: 14px; background: #fff;
@@ -179,19 +201,15 @@ nav.tabbar button.active { background: var(--terra-tint); color: var(--terra-dar
 .kid-card .nm { font-family: var(--font-head); font-size: 18px; font-weight: 800; display: block; }
 .kid-card .sub { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 4px; display: block; }
 
-/* ---------------- Today: white header band (mockup 2a) ---------------- */
-body.no-brand header.topbar { display: none; }
-.top-band {
-  background: #fff; border: 1px solid var(--border); border-radius: var(--r-card);
-  box-shadow: var(--shadow-card); padding: 16px 20px; margin-bottom: 18px;
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-}
+/* ---------------- Today: hero lives IN the app bar (Faith's 2026-07-23 rule) ---------------- */
 .hero-avatar {
-  width: 66px; height: 66px; border-radius: 18px; background: var(--gold-tint);
-  border: none; box-shadow: none;
-  display: grid; place-items: center; font-size: 36px;
-  animation: floaty 3.5s ease-in-out infinite;
+  width: 44px; height: 44px; border-radius: 13px; background: var(--gold-tint);
+  border: none; box-shadow: none; flex: none;
+  display: grid; place-items: center; font-size: 25px;
 }
+.appbar-inner .hero-meta .hi { font-size: 18.5px; }
+.appbar-inner .level-row { margin-top: 2px; }
+.appbar-inner .xp-bar { width: 104px; }
 .pill.ghost-pill { color: var(--soft); font-weight: 700; }
 .pill .chev-down { transform: rotate(90deg); color: var(--muted); }
 .caps-btn { text-transform: uppercase; letter-spacing: .06em; font-size: 12px; padding: 11px 18px; }
@@ -220,7 +238,6 @@ body.no-brand header.topbar { display: none; }
 .xp-bar { width: 140px; height: 7px; background: var(--gold-tint); border-radius: 100px; overflow: hidden; }
 .xp-bar i { display: block; height: 100%; background: var(--gold); border-radius: 100px; transition: width .5s ease-out; }
 .xp-label { font-size: 11px; color: var(--muted); font-weight: 700; }
-.hero-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
   background: #fff; border: 1px solid var(--border); border-radius: 100px;
@@ -361,16 +378,7 @@ body.no-brand header.topbar { display: none; }
   color: var(--soft); box-shadow: var(--shadow-card); margin-bottom: 4px;
 }
 
-/* ---------------- session (focused mode) ---------------- */
-.practice-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.practice-top .back {
-  width: 40px; height: 40px; border-radius: 100px; background: #fff; border: 1px solid var(--border);
-  display: grid; place-items: center; box-shadow: var(--shadow-card); padding: 0; min-height: 40px;
-}
-.practice-top .title {
-  font-family: var(--font-head); font-weight: 800; font-size: 14.5px; flex: 1; min-width: 0;
-  display: flex; align-items: center; gap: 8px;
-}
+/* ---------------- session (focused mode) — bar content is in .appbar-inner ---------------- */
 .scorebox {
   display: flex; align-items: center; gap: 7px; background: #fff;
   border: 1px solid var(--border); border-radius: 100px; padding: 7px 14px;
@@ -768,18 +776,10 @@ body.no-brand header.topbar { display: none; }
   font-family: var(--font-head); font-weight: 800; font-size: 13.5px; background: #fff;
 }
 
-/* ---------------- grown-ups (parent chrome = teal) ---------------- */
-.parent-band {
-  background: var(--teal); color: #fff; border-radius: var(--r-card);
-  padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
-  font-weight: 600; font-size: 12.5px;
-}
-.parent-band b { font-family: var(--font-head); font-weight: 800; font-size: 16px; display: block; }
-.parent-band .btn { margin-left: auto; background: rgba(255,255,255,.15); border-color: transparent; color: #fff; box-shadow: none; }
+/* ---------------- grown-ups (parent chrome = teal, in the app bar) ---------------- */
 .parent-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .parent-grid { grid-template-columns: 1fr; } }
-.band-lock { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex: none; }
-.parent-band .btn { margin-left: auto; background: #fff; border-color: #fff; color: var(--teal); box-shadow: none; }
+.band-lock { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex: none; }
 
 .kid-stat-row { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--divider); padding: 14px 2px; flex-wrap: wrap; }
 .kid-stat-row:last-child { border-bottom: none; }
@@ -1027,7 +1027,7 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 /* ---------------- print ---------------- */
 @media print {
   body { background: #fff; padding-bottom: 0; }
-  header.topbar, nav.tabbar, .btn, .answer-row, .no-print, #confetti, .mascot,
+  header.appbar, nav.tabbar, .btn, .answer-row, .no-print, #confetti, .mascot,
   .tutor-hero, .helper-tabs { display: none !important; }
   .print-only { display: block !important; }
   .card { box-shadow: none; break-inside: avoid; margin-bottom: 12px; transform: none !important; }

@@ -29,17 +29,15 @@ function renderStoryReader(sk) {
 
   VIEW = 'session';
   $('#tabbar').style.display = 'none';
-  document.body.classList.add('no-brand');
   const u = subjUI('ela');
+  setAppbar(`
+    <button class="back" id="rdQuit" aria-label="Done">${icon('left', 18)}</button>
+    <span class="subj-ico" style="width:34px;height:34px;background:${u.tint};color:${u.color}">${icon('book', 17)}</span>
+    <div class="title">Reading · ${esc(p.title)}</div>
+    <span class="type-progress" style="max-width:260px"><i id="rdBar" style="background:var(--teal)"></i></span>
+    <span id="rdPage" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
+    <button class="btn small ghost" id="rdMode" style="white-space:nowrap"></button>`);
   app.innerHTML = `
-    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
-      <button class="back" id="rdQuit" aria-label="Done">${icon('left', 18)}</button>
-      <span class="subj-ico" style="width:34px;height:34px;background:${u.tint};color:${u.color}">${icon('book', 17)}</span>
-      <div class="title">Reading · ${esc(p.title)}</div>
-      <span class="type-progress" style="max-width:260px"><i id="rdBar" style="background:var(--teal)"></i></span>
-      <span id="rdPage" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
-      <button class="btn small ghost" id="rdMode" style="white-space:nowrap"></button>
-    </div>
     <div class="reader-grid">
       <div class="rd-art">${icon('camera', 26)}<p>Story art for "${esc(p.title)}" —<br>real illustrations coming soon</p></div>
       <div class="rd-panel">

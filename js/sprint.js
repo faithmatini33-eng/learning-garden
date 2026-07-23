@@ -37,15 +37,13 @@ function startSprint(drillId) {
   SPRINT = { drill, right: 0, total: 0, end: Date.now() + SPRINT_SECONDS * 1000, locked: false, entry: '', last: [] };
   VIEW = 'session';
   $('#tabbar').style.display = 'none';
-  document.body.classList.add('no-brand');
+  setAppbar(`
+    <button class="back" id="sprintQuit" aria-label="Stop">${icon('x', 18)}</button>
+    <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('zap', 17)}</span>
+    <div class="title">Sprint · ${drill.name}</div>
+    <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="sprintScore">0</span> solved</span>
+    <span class="pill gold" style="white-space:nowrap">${icon('award', 14)} best ${best}</span>`);
   app.innerHTML = `
-    <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
-      <button class="back" id="sprintQuit" aria-label="Stop">${icon('x', 18)}</button>
-      <span class="subj-ico" style="width:34px;height:34px;background:var(--blue-tint);color:var(--blue)">${icon('zap', 17)}</span>
-      <div class="title">Sprint · ${drill.name}</div>
-      <span class="pill" style="white-space:nowrap;color:var(--green)">${icon('check', 14)} <span id="sprintScore">0</span> solved</span>
-      <span class="pill gold" style="white-space:nowrap">${icon('award', 14)} best ${best}</span>
-    </div>
     <div class="sprint-stage">
       <div class="sprint-side">
         <div class="timer-ring" id="timerRing"><div class="timer-inner"><b id="timerText">1:00</b><small>left</small></div></div>
