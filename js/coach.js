@@ -877,6 +877,7 @@ function renderParentReport(kidId) {
         <button class="btn small ghost no-print" id="printReport" style="margin-left:auto">🖨️ Print</button></h2>
       <p class="note print-only" style="display:none">Learning Garden report · printed ${dstr()}</p>
       <div class="stat-row">
+        <div class="stat-tile"><div class="v">${fmtMins(weekSeconds(kidId))}</div><div class="l">time this week</div></div>
         <div class="stat-tile"><div class="v">${tw.t}</div><div class="l">questions this week</div></div>
         <div class="stat-tile"><div class="v">${pct(tw)}%</div><div class="l">correct this week</div></div>
         <div class="stat-tile"><div class="v">${lw.t ? (pct(tw) - pct(lw) >= 0 ? '+' : '') + (pct(tw) - pct(lw)) + ' pts' : '—'}</div><div class="l">vs last week</div></div>

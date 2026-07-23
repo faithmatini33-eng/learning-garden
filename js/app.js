@@ -280,11 +280,12 @@ function show(view, param) {
   document.body.classList.toggle('easy-font', !!ks.easyFont);
   document.body.classList.toggle('calm-motion', !!ks.calmMotion);
   document.body.classList.toggle('parent-mode', PARENT_VIEWS.includes(view));
-  $('#tabbar').style.display = hasKid && view !== 'kids' && view !== 'garden' && !PARENT_VIEWS.includes(view) ? 'flex' : 'none';
+  $('#tabbar').style.display = hasKid && view !== 'kids' && view !== 'garden' ? 'flex' : 'none';
   // default app bar: brand left, kid chip right — screens may override with their own bar content
   setAppbar(appbarBrand() + '<span class="ab-spacer"></span>' + appbarKidChip());
-  $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  $$('#tabbar button').forEach(b => b.classList.toggle('active', b.dataset.view === view || (b.dataset.view === 'grownups' && PARENT_VIEWS.includes(view))));
   window.scrollTo(0, 0);
+  TT.ctx = null; TT.last = Date.now();
   const views = {
     kids: renderKids, today: renderToday, practice: renderPractice,
     session: () => renderSession(param), plan: renderPlan,
@@ -292,6 +293,7 @@ function show(view, param) {
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
     worksheet: renderWorksheetMaker, garden: renderMyGarden, profile: renderProfile,
     learn: renderMyLearning, learnpath: () => renderLearnPath(param),
+    settings: renderSettingsPage,
   };
   (views[view] || renderKids)();
 }
@@ -453,20 +455,20 @@ function renderToday() {
 
   // 9g: evening mood picker
   const moodCard = offerMood ? `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:26px">🌙</span>
+      <span style="color:var(--purple)">${icon('moon', 24)}</span>
       <span style="flex:1;min-width:160px"><b style="font-family:var(--font-head)">Long day? Pick your size.</b>
       <p class="note">Either way, today still counts.</p></span>
       <button class="btn small ghost" data-mood="5">I have 5 minutes</button>
       <button class="btn small primary" data-mood="15">I have 15</button>
     </div>` : '';
-  const moodNote = moodActive ? `<p class="note" style="margin:0 0 8px 4px">🌙 Quick-day mode: just 1 skill tonight — it still waters the garden.</p>` : '';
+  const moodNote = moodActive ? `<p class="note" style="margin:0 0 8px 4px">${icon('moon', 13)} Quick-day mode: just 1 skill tonight — it still waters the garden.</p>` : '';
 
   // ---- left column ----
   const planCard = isWeekend
     ? `<div class="card plan-card">
         <div class="plan-title-row">
           <span class="subj-ico" style="width:40px;height:40px;background:var(--gold-tint);color:var(--gold)">${icon('calendar', 19)}</span>
-          <h2 style="margin:0">Weekend explore day! 🎈</h2>
+          <h2 style="margin:0">Weekend explore day!</h2>
         </div>
         <p class="note" style="margin-top:8px">No school-day plan — wander the garden, try a Daily Mix, or learn something brand new. Weekends never break your streak.</p>
         <div class="answer-row" style="justify-content:flex-start;margin-top:14px">
@@ -480,14 +482,14 @@ function renderToday() {
           <h2 style="margin:0">Today's plan</h2>
           <span class="done-chip">${doneCount} of ${coreTasks.length} done</span>
         </div>
-        ${allDone ? `<div style="background:var(--green-tint);border-radius:12px;padding:12px 14px;font-weight:700;color:#2E5C3F;margin:10px 0 2px">🎉 Plan complete! Anything more today is pure bonus. Amazing work!</div>` : ''}
+        ${allDone ? `<div style="background:var(--green-tint);border-radius:12px;padding:12px 14px;font-weight:700;color:#2E5C3F;margin:10px 0 2px"><span style="color:var(--gold)">${icon('star', 15)}</span> Plan complete! Anything more today is pure bonus. Amazing work!</div>` : ''}
         ${coreTasks.map(rowFor).join('')}
         ${bonusTasks.length ? `<button class="btn small ghost" id="bonusToggle" style="margin-top:12px">＋ Feeling great? ${bonusTasks.length} bonus skill${bonusTasks.length > 1 ? 's' : ''}</button>
         <div id="bonusWrap" style="display:none;margin-top:6px">${bonusTasks.map(rowFor).join('')}</div>` : ''}
       </div>`;
 
   const owlCard = `<div class="owl-card">
-      <span class="owl-tile">🦉</span>
+      <span class="owl-tile">${owlSVG(36)}</span>
       <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>Snap a photo and the Helper Owl walks you through it, step by step.</p></span>
       <button class="btn sky caps-btn" id="goHelper">${icon('camera', 16)} Open Helper</button>
     </div>`;
@@ -745,54 +747,112 @@ function getBadges(kidId = DB.activeKid) {
   ];
 }
 
-// ---------------- settings modal (theme + sounds) ----------------
-function openSettings() {
+// ---------------- settings — a real page (gear opens it) ----------------
+function openSettings() { show('settings'); }
+function renderSettingsPage() {
   const s = kidSettings();
   const theme = s.theme || 'garden';
-  const wrap = document.createElement('div');
-  wrap.className = 'modal-back';
-  wrap.innerHTML = `<div class="modal">
-    <h2 style="font-family:var(--font-head);font-weight:800;font-size:18px;margin-bottom:4px">Settings</h2>
-    <p class="note">For ${esc(kid().name)}'s garden</p>
-    <div class="eyebrow" style="margin-top:16px">Dashboard theme</div>
-    <div class="theme-cards">
-      <button class="theme-card ${theme === 'garden' ? 'sel' : ''}" data-theme="garden">
-        <div class="prev" style="background:linear-gradient(#CDE8F5, #B7D8A8)"></div>My garden</button>
-      <button class="theme-card ${theme === 'stars' ? 'sel' : ''}" data-theme="stars">
-        <div class="prev" style="background:var(--gold-tint);display:grid;place-items:center;color:var(--gold)">${icon('award', 28)}</div>Stars & badges</button>
+  const vp = DB.settings.voicePref || 'female';
+  setAppbar(`
+    <button class="back" id="setBack" aria-label="Back">${icon('left', 18)}</button>
+    <div class="hero-meta"><div class="hi">Settings</div>
+      <p class="note" style="margin-top:0">For ${esc(kid().name)}'s garden</p></div>
+    <span class="ab-spacer"></span>${appbarKidChip()}`);
+  app.innerHTML = `<div class="reveal" style="max-width:660px;margin:0 auto">
+    <div class="card">
+      <h2><span class="bubble" style="background:var(--gold-tint);color:var(--gold)">${icon('settings', 16)}</span>Dashboard theme</h2>
+      <div class="theme-cards">
+        <button class="theme-card ${theme === 'garden' ? 'sel' : ''}" data-theme="garden">
+          <div class="prev" style="background:linear-gradient(#CDE8F5, #B7D8A8)"></div>My garden</button>
+        <button class="theme-card ${theme === 'stars' ? 'sel' : ''}" data-theme="stars">
+          <div class="prev" style="background:var(--gold-tint);display:grid;place-items:center;color:var(--gold)">${icon('award', 28)}</div>Stars & badges</button>
+      </div>
     </div>
-    <div class="eyebrow" style="margin-top:16px">Sounds</div>
-    <div class="toggle-row">${icon('volume', 17)} Sounds & cheers
-      <button class="tog ${soundsOn() ? 'on' : ''}" id="togSounds" aria-label="Toggle sounds"></button></div>
-    <div class="eyebrow" style="margin-top:16px">Reading & motion</div>
-    <div class="toggle-row">${icon('book', 17)} Easy-read font
-      <button class="tog ${s.easyFont ? 'on' : ''}" id="togFont" aria-label="Toggle easy-read font"></button></div>
-    <div class="toggle-row">${icon('rainbow', 17)} Calm motion (fewer animations)
-      <button class="tog ${s.calmMotion ? 'on' : ''}" id="togMotion" aria-label="Toggle calm motion"></button></div>
-    <div class="answer-row" style="margin-top:16px"><button class="btn primary" id="closeSettings">Done</button></div>
+    <div class="card">
+      <h2><span class="bubble" style="background:var(--teal-tint);color:var(--teal)">${icon('volume', 16)}</span>Sounds & voice</h2>
+      <div class="toggle-row">${icon('volume', 17)} Sounds & cheers
+        <button class="tog ${soundsOn() ? 'on' : ''}" id="togSounds" aria-label="Toggle sounds"></button></div>
+      <div class="toggle-row">${icon('users', 17)} Read-aloud voice
+        <span style="display:inline-flex;gap:7px;margin-left:auto">
+          <button class="btn small ${vp === 'female' ? 'sky' : 'ghost'}" id="setVoiceF">Girl voice</button>
+          <button class="btn small ${vp === 'male' ? 'sky' : 'ghost'}" id="setVoiceM">Boy voice</button>
+          <button class="btn small ghost" id="setVoiceT">${icon('volume', 13)} Test</button>
+        </span></div>
+    </div>
+    <div class="card">
+      <h2><span class="bubble" style="background:var(--green-tint);color:var(--green)">${icon('book', 16)}</span>Reading & motion</h2>
+      <div class="toggle-row">${icon('book', 17)} Easy-read font
+        <button class="tog ${s.easyFont ? 'on' : ''}" id="togFont" aria-label="Toggle easy-read font"></button></div>
+      <div class="toggle-row">${icon('rainbow', 17)} Calm motion (fewer animations)
+        <button class="tog ${s.calmMotion ? 'on' : ''}" id="togMotion" aria-label="Toggle calm motion"></button></div>
+    </div>
+    <div class="card" style="display:flex;align-items:center;gap:14px">
+      <span class="subj-ico" style="width:44px;height:44px;background:var(--teal-tint);color:var(--teal)">${icon('lock', 20)}</span>
+      <span style="flex:1;min-width:0"><b style="font-family:var(--font-head)">Grown-ups corner</b>
+        <p class="note">Reports, school focus, worksheets, and family tools.</p></span>
+      <button class="btn sky caps-btn" id="setGrown">Open</button>
+    </div>
   </div>`;
-  document.body.appendChild(wrap);
-  wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
-  $$('.theme-card', wrap).forEach(b => b.onclick = () => {
+  $('#setBack').onclick = () => show('today');
+  $$('.theme-card').forEach(b => b.onclick = () => {
     s.theme = b.dataset.theme; save();
-    $$('.theme-card', wrap).forEach(x => x.classList.toggle('sel', x === b));
+    $$('.theme-card').forEach(x => x.classList.toggle('sel', x === b));
   });
-  $('#togSounds', wrap).onclick = (e) => {
+  $('#togSounds').onclick = (e) => {
     s.sounds = !soundsOn(); save();
-    e.target.classList.toggle('on', soundsOn());
+    e.currentTarget.classList.toggle('on', soundsOn());
     if (soundsOn()) sfx('correct');
   };
-  $('#togFont', wrap).onclick = (e) => {
+  $('#setVoiceF').onclick = () => { DB.settings.voicePref = 'female'; save(); renderSettingsPage(); };
+  $('#setVoiceM').onclick = () => { DB.settings.voicePref = 'male'; save(); renderSettingsPage(); };
+  $('#setVoiceT').onclick = () => speak(`Hi ${kid().name}! Let's grow something today.`, 'en');
+  $('#togFont').onclick = (e) => {
     s.easyFont = !s.easyFont; save();
-    e.target.classList.toggle('on', !!s.easyFont);
+    e.currentTarget.classList.toggle('on', !!s.easyFont);
     document.body.classList.toggle('easy-font', !!s.easyFont);
   };
-  $('#togMotion', wrap).onclick = (e) => {
+  $('#togMotion').onclick = (e) => {
     s.calmMotion = !s.calmMotion; save();
-    e.target.classList.toggle('on', !!s.calmMotion);
+    e.currentTarget.classList.toggle('on', !!s.calmMotion);
     document.body.classList.toggle('calm-motion', !!s.calmMotion);
   };
-  $('#closeSettings', wrap).onclick = () => { wrap.remove(); if (VIEW === 'today') renderToday(); };
+  $('#setGrown').onclick = () => show('grownups');
+}
+
+// ---------------- time in the garden (Faith 2026-07-23) ----------------
+// Heartbeat: every 15s of VISIBLE app time adds to today's log; when a
+// session or lesson is open, the active skill collects it too
+// (day.per[skill][2] = seconds). Nothing runs while the tab is hidden.
+const TT = { last: Date.now(), ctx: null };
+function timeTick() {
+  const now = Date.now();
+  const dt = Math.min(30, (now - TT.last) / 1000);
+  TT.last = now;
+  if (document.visibilityState !== 'visible' || !kid() || dt <= 0) return;
+  const log = kidLog();
+  const day = log[dstr()] = log[dstr()] || { t: 0, c: 0, per: {} };
+  day.sec = (day.sec || 0) + dt;
+  if (TT.ctx && SKILL_MAP[TT.ctx]) {
+    day.per[TT.ctx] = day.per[TT.ctx] || [0, 0];
+    day.per[TT.ctx][2] = (day.per[TT.ctx][2] || 0) + dt;
+  }
+  save();
+}
+setInterval(timeTick, 15000);
+document.addEventListener('visibilitychange', () => { TT.last = Date.now(); });
+function weekSeconds(kidId) {
+  const log = DB.log[kidId] || {};
+  const mon = mondayOf();
+  let sec = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const e = log[dstr(d)]; if (e) sec += e.sec || 0;
+  }
+  return sec;
+}
+function fmtMins(sec) {
+  const m = Math.round(sec / 60);
+  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
 }
 
 // ============================================================
@@ -968,6 +1028,7 @@ function renderSession(skillId, guided) {
   if (strand.subject === 'typing' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
   if (sk.strand === 'reading' && typeof renderStoryReader === 'function') return renderStoryReader(sk);
   // guided = arriving from a Learn lesson: 2 "Water it" warmups first (nothing recorded)
+  TT.ctx = sk.id;
   SESSION = { skill: sk, streak: 0, answered: false, guidedIntro: guided ? 2 : 0, guidedRun: !!guided };
   const u = subjUI(strand.subject || 'custom');
   sessionShell(`${strand.name ? strand.name + ' · ' : ''}${sk.name}`, 'practice',
@@ -1039,6 +1100,7 @@ function nextQuestion() {
   const lvl = SESSION.diag ? 2 : SESSION.guidedIntro > 0 ? 1 : difficultyFor(SESSION.skill.id);
   const q = SESSION.skill.gen(lvl);
   SESSION.q = q; SESSION.answered = false; SESSION.retried = false;
+  TT.ctx = SESSION.skill.id;
   if (SESSION.guidedRun) {
     const t = $('#sessTitle');
     if (t) t.textContent = `${SESSION.guidedIntro > 0 ? 'Together' : 'On your own'} · ${SESSION.skill.name}`;
@@ -1597,10 +1659,11 @@ function renderGrownups() {
     return `<div class="card">
       <h2><span class="bubble" style="background:var(--sky)">${icon('calendar', 16)}</span>${esc(k.name)} — this week in 10 seconds</h2>
       <div class="stat-row">
+        <div class="stat-tile"><div class="v">${fmtMins(weekSeconds(k.id))}</div><div class="l">time this week</div></div>
         <div class="stat-tile"><div class="v">${wkT}</div><div class="l">questions</div></div>
         <div class="stat-tile"><div class="v">${wkT ? Math.round(wkC / wkT * 100) + '%' : '—'}</div><div class="l">correct</div></div>
         <div class="stat-tile"><div class="v">${days}</div><div class="l">days practiced</div></div>
-        <div class="stat-tile"><div class="v">${lessonsWk}</div><div class="l">lessons watched</div></div>
+        <div class="stat-tile"><div class="v">${lessonsWk}</div><div class="l">lessons learned</div></div>
       </div>
       <p class="eyebrow" style="margin:12px 0 4px">Needs water — one tap adds it to ${esc(k.name)}'s plan</p>
       ${weakRows}

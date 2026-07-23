@@ -219,11 +219,12 @@ function startLesson(lessonId, strandId, opts = {}) {
   const saved = (L.paths[strandId] || {}).current;
   const resumeStep = (!opts.review && saved && saved.lessonId === lessonId) ? saved.step : 0;
   LP = {
-    ls, strandId, steps, review: !!opts.review,
+    ls, strandId, steps, review: !!opts.review, t0: Date.now(),
     step: resumeStep, stars: Math.min(resumeStep, steps.length), tryRight: 0, tryTotal: 0,
     phase: resumeStep > 0 && !opts.review ? 'resume' : 'intro',
   };
   VIEW = 'session';
+  TT.ctx = ls.skillId;
   $('#tabbar').style.display = 'none';
   lpPaint();
 }
@@ -615,7 +616,7 @@ function lpComplete() {
   const wasReview = LP.review;
   const skill = SKILL_MAP[LP.ls.skillId];
   if (!wasReview && !L.learnedLessons.some(x => x.lessonId === LP.ls.id)) {
-    L.learnedLessons.push({ lessonId: LP.ls.id, strand: LP.strandId, subject: subjOfStrand(LP.strandId), skill: LP.ls.skillId, date: dstr(), stars: LP.stars });
+    L.learnedLessons.push({ lessonId: LP.ls.id, strand: LP.strandId, subject: subjOfStrand(LP.strandId), skill: LP.ls.skillId, date: dstr(), stars: LP.stars, mins: Math.max(1, Math.round((Date.now() - LP.t0) / 60000)) });
     // THE handoff: plant the skill in Practice at sprouting — a head start
     const st = kidStats();
     const cur = st[LP.ls.skillId] || { s: 0, a: 0, c: 0 };
