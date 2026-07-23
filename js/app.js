@@ -318,6 +318,7 @@ function show(view, param) {
     worksheet: renderWorksheetMaker, garden: renderMyGarden, profile: renderProfile,
     learn: renderMyLearning, learnpath: () => renderLearnPath(param),
     settings: renderSettingsPage,
+    games: renderGames,
   };
   (views[view] || renderKids)();
 }
@@ -540,6 +541,13 @@ function renderToday() {
         <button class="btn primary caps-btn" id="tlGo">${tl.resume ? 'Keep going' : "Let's learn"}</button>
       </div>`;
 
+  const arcadeCard = (allDone && !isWeekend) ? `<div class="card" style="display:flex;align-items:center;gap:14px;background:var(--gold-tint)">
+      <span class="subj-ico" style="width:44px;height:44px;background:#fff;color:var(--gold)">${icon('puzzle', 20)}</span>
+      <span style="flex:1;min-width:0"><b style="font-family:var(--font-head)">Plan done — the arcade is open!</b>
+      <p class="note">Today's pick is waiting in the Game Corner.</p></span>
+      <button class="btn primary caps-btn" id="goArcade">Play</button>
+    </div>` : '';
+
   const owlCard = `<div class="owl-card">
       <span class="owl-tile">${owlSVG(36)}</span>
       <span style="flex:1;min-width:0"><b>Stuck on homework?</b><p>Snap a photo and the Helper Owl walks you through it, step by step.</p></span>
@@ -602,7 +610,7 @@ function renderToday() {
   app.innerHTML = `<div class="reveal">
     <div class="today-grid">
       <div class="today-left">
-        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${lessonCard}${planCard}`}
+        ${firstDay ? firstDayCard : `${showWelcomeBack ? welcomeCard : ''}${moodCard}${moodNote}${lessonCard}${planCard}${arcadeCard}`}
       </div>
       <div class="today-right">
         ${theme === 'stars' ? trophyPanel : gardenPanel}
@@ -626,6 +634,7 @@ function renderToday() {
   const gh = $('#goHelper'); if (gh) gh.onclick = () => { HELPER_TAB = 'homework'; show('helper'); };
   $('#grownBtnT').onclick = () => show('grownups');
   $('#gearBtn').onclick = openSettings;
+  const gac = $('#goArcade'); if (gac) gac.onclick = () => show('games');
   const tlGo = $('#tlGo'); if (tlGo) tlGo.onclick = () => startLesson(tl.ls.id, tl.strandId, { resume: tl.resume });
   const tlD = $('#tlDash'); if (tlD) tlD.onclick = () => show('learn');
   maybeTour();
@@ -912,6 +921,7 @@ function timeTick() {
   const log = kidLog();
   const day = log[dstr()] = log[dstr()] || { t: 0, c: 0, per: {} };
   day.sec = (day.sec || 0) + dt;
+  if (VIEW === 'games' && typeof kidGames === 'function') kidGames().minutesToday += dt / 60;
   if (TT.ctx && SKILL_MAP[TT.ctx]) {
     day.per[TT.ctx] = day.per[TT.ctx] || [0, 0];
     day.per[TT.ctx][2] = (day.per[TT.ctx][2] || 0) + dt;
@@ -1922,6 +1932,7 @@ function renderGrownups() {
           ${kidRows}
         </div>
         ${glanceCards}
+        ${DB.kids.map(k => typeof gamesRecapHTML === 'function' ? gamesRecapHTML(k.id) : '').join('')}
         ${focusCards}
         <div class="card" style="display:flex;align-items:center;gap:14px">
           <span class="subj-ico" style="width:48px;height:48px;background:var(--gold-tint);color:var(--gold)">${icon('printer', 22)}</span>
@@ -1984,6 +1995,7 @@ function renderGrownups() {
             <button class="tog ${rem.recap ? 'on' : ''}" data-tog="recap"></button></div>
           <p class="note" style="margin-top:8px">Honest fine print: with no servers and no accounts, reminders can only fire while the app (or its tab) is open. On an installed tablet app, the icon also shows a badge with today's tasks left.</p>
         </div>
+        ${typeof gamesSettingsCardHTML === 'function' ? gamesSettingsCardHTML() : ''}
         ${recapCards}
       </div>
     </div>
@@ -2002,6 +2014,7 @@ function renderGrownups() {
     }).catch(() => {});
   }
 
+  if (typeof wireGamesSettingsCard === 'function') wireGamesSettingsCard();
   $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
   const rt = $('#remTime'); if (rt) rt.onchange = () => { remindersCfg().time = rt.value || '15:30'; remindersCfg().lastFired = null; save(); };
   const an = $('#askNotif'); if (an) an.onclick = () => Notification.requestPermission().then(() => renderGrownups());
