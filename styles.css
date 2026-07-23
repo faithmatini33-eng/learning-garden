@@ -1536,3 +1536,36 @@ body.calm-motion *, body.calm-motion *::before, body.calm-motion *::after {
 .tw-chunk { font: inherit; color: inherit; padding: 0 2px; border-radius: 10px; transition: background .15s ease, transform .15s var(--spring); }
 .tw-chunk:hover { background: var(--purple-tint); transform: translateY(-2px); }
 .beat-pill.cur { background: var(--terra); border-color: var(--terra); color: #fff; }
+
+/* worksheet v2: parts + problem-cell grid (education.com pattern) */
+.ws-part { margin-bottom: 20px; break-inside: avoid-page; }
+.ws-part-band {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  border-radius: 10px; padding: 9px 14px; margin-bottom: 12px;
+  font-size: 14.5px;
+}
+.ws-part-band b { font-family: var(--font-head); font-weight: 800; }
+.ws-part-band span { font-weight: 600; font-size: 12.5px; color: var(--soft); }
+.wsq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 12px; }
+.wsq-cell {
+  position: relative; border: 1.5px solid var(--border); border-radius: 14px;
+  padding: 12px 13px 12px 40px; background: #fff; break-inside: avoid;
+  display: flex; gap: 10px;
+}
+.wsq-cell.wide { grid-column: 1 / -1; }
+.wsq-num {
+  position: absolute; left: 9px; top: 10px; width: 24px; height: 24px; border-radius: 8px;
+  display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: 12.5px;
+}
+.wsq-body { flex: 1; min-width: 0; }
+.wsq-prompt { font-weight: 700; font-size: 13.5px; line-height: 1.45; }
+.wsq-visual { margin-top: 8px; text-align: center; }
+.wsq-visual svg { max-width: 100%; height: auto; }
+.wsq-choices { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+.wsq-choice { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+.wsq-choice .cl {
+  width: 20px; height: 20px; border: 2px solid; border-radius: 50%; flex: none;
+  display: inline-grid; place-items: center; font-style: normal; font-weight: 800; font-size: 11px;
+}
+.wsq-blank { border-bottom: 2px solid var(--ink-faint); min-height: 30px; margin-top: 12px; display: flex; align-items: flex-end; justify-content: flex-end; font-weight: 700; }
+.wsq-cell .ws-work { width: 130px; flex: none; }

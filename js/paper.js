@@ -101,44 +101,71 @@ function wsPageFoot(seedKey) {
     </div>`;
 }
 
+function wsInstructionFor(sample) {
+  if (sample.body && sample.body.includes('vertical-math')) return 'Solve each problem — show your work in the box!';
+  if (sample.type === 'mc') return 'Circle the correct answer.';
+  if (sample.body && sample.body.includes('<svg')) return 'Look at each picture, then write your answer on the line.';
+  return 'Write your answer on the line.';
+}
+
 function renderWorksheet(skillIds, count) {
-  const strandSubject = Object.fromEntries(STRANDS.map(s => [s.id, s.subject]));
-  const qs = [];
-  let guard = 0;
-  while (qs.length < count && guard++ < count * 6) {
-    const sk = SKILL_MAP[skillIds[qs.length % skillIds.length]];
-    const q = sk.gen(2);
-    if (q.type === 'trace') continue;
-    q._skill = sk.name;
-    q._subj = strandSubject[sk.strand] || 'custom';
-    qs.push(q);
-  }
+  const strandSubject = Object.fromEntries(STRANDS.map(x => [x.id, x.subject]));
+  // education.com pattern: one PART per skill, each with its own
+  // instruction band and a grid of visual problem cells
+  const perSkill = Math.max(2, Math.ceil(count / skillIds.length));
+  const partsData = skillIds.map(sid => {
+    const sk = SKILL_MAP[sid];
+    const qs = [];
+    let guard = 0;
+    while (qs.length < perSkill && guard++ < perSkill * 8) {
+      const q = sk.gen(2);
+      if (q.type === 'trace') continue;
+      qs.push(q);
+    }
+    return { sk, qs, subj: strandSubject[sk.strand] || 'custom' };
+  }).filter(pt => pt.qs.length);
 
   const LETTERS = ['a', 'b', 'c', 'd', 'e', 'f'];
-  const items = qs.map((q, i) => {
-    const u = subjUI(q._subj);
-    const choices = q.type === 'mc'
-      ? `<div style="font-weight:700;margin-top:6px">${q.choices.map((c, j) => `<span style="margin-right:18px;white-space:nowrap">${LETTERS[j]})&nbsp;${esc(String(c))}</span>`).join('')}</div>`
-      : '';
-    const blank = q.type !== 'mc'
-      ? `<div style="font-weight:800;margin-top:8px">Answer: ______________${q.suffix ? ' ' + q.suffix : ''}</div>` : '';
-    return `<div class="ws-q">
-      <div class="wsn" style="background:${u.tint};color:${u.dark}">${i + 1}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700">${stripButtons(q.prompt)}</div>
-        ${q.body ? `<div style="margin-top:6px">${stripButtons(q.body)}</div>` : ''}
-        ${choices}${blank}
+  let qNum = 0;
+  const keyRows = [];
+  const partsHTML = partsData.map((pt, pi) => {
+    const u = subjUI(pt.subj);
+    const instr = wsInstructionFor(pt.qs[0]);
+    const cells = pt.qs.map(q => {
+      qNum++;
+      const isMath = q.body && q.body.includes('vertical-math');
+      const u2 = subjUI(pt.subj);
+      keyRows.push({ n: qNum, q, color: u2.color, skill: pt.sk.name });
+      const choices = q.type === 'mc'
+        ? `<div class="wsq-choices">${q.choices.map((c, j) =>
+            `<span class="wsq-choice"><i class="cl" style="border-color:${u2.color}">${LETTERS[j]}</i>${esc(String(c))}</span>`).join('')}</div>`
+        : '';
+      const blank = q.type !== 'mc'
+        ? `<div class="wsq-blank">${q.suffix ? `<span>${q.suffix}</span>` : ''}</div>` : '';
+      return `<div class="wsq-cell ${isMath ? 'wide' : ''}">
+        <span class="wsq-num" style="background:${u2.tint};color:${u2.dark}">${qNum}</span>
+        <div class="wsq-body">
+          <div class="wsq-prompt">${stripButtons(q.prompt)}</div>
+          ${q.body ? `<div class="wsq-visual">${stripButtons(q.body)}</div>` : ''}
+          ${choices}${blank}
+        </div>
+        ${isMath ? '<div class="ws-work"><span>show your work</span></div>' : ''}
+      </div>`;
+    }).join('');
+    return `<div class="ws-part">
+      <div class="ws-part-band" style="background:${u.tint};border-left:6px solid ${u.color}">
+        <b style="color:${u.dark}">Part ${pi + 1}: ${esc(pt.sk.name)}</b>
+        <span>${instr}</span>
       </div>
-      <div class="ws-work"><span>show your work</span></div>
+      <div class="wsq-grid">${cells}</div>
     </div>`;
   }).join('');
 
-  const key = qs.map((q, i) => {
-    const u = subjUI(q._subj);
-    const ans = q.type === 'mc'
-      ? `${LETTERS[q.choices.findIndex(c => String(c) === String(q.answer))]}) ${esc(String(q.answer))}`
-      : `${esc(String(q.answer))}${q.suffix || ''}`;
-    return `<div style="font-weight:700;padding:4px 0;break-inside:avoid"><span style="color:${u.color};font-weight:800">${i + 1}.</span> ${ans} <span style="color:var(--ink-faint);font-size:12.5px">(${q._skill})</span></div>`;
+  const key = keyRows.map(r => {
+    const ans = r.q.type === 'mc'
+      ? `${LETTERS[r.q.choices.findIndex(c => String(c) === String(r.q.answer))]}) ${esc(String(r.q.answer))}`
+      : `${esc(String(r.q.answer))}${r.q.suffix || ''}`;
+    return `<div style="font-weight:700;padding:4px 0;break-inside:avoid"><span style="color:${r.color};font-weight:800">${r.n}.</span> ${ans} <span style="color:var(--ink-faint);font-size:12.5px">(${r.skill})</span></div>`;
   }).join('');
 
   app.innerHTML = `<div class="ws-page">
@@ -148,8 +175,8 @@ function renderWorksheet(skillIds, count) {
       <button class="btn ghost" id="wsBack2">${icon('left', 14)} Back</button>
     </div>
     <div class="card wsp-card">
-      ${wsPageHead('Learning Garden worksheet', 'Show your work in the box — the thinking is the important part!')}
-      ${items}
+      ${wsPageHead('Learning Garden worksheet', 'The thinking is the important part — take your time!')}
+      ${partsHTML}
       ${wsPageFoot(skillIds.join(''))}
     </div>
     <div class="card answer-key wsp-card">
