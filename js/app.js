@@ -883,16 +883,17 @@ function renderPractice() {
 // PRACTICE SESSION (the question loop)
 // ============================================================
 let SESSION = null;
-function sessionShell(title, backView) {
+function sessionShell(title, backView, tileHTML = '') {
   $('#tabbar').style.display = 'none'; // focused mode — no bottom nav
   document.body.classList.add('no-brand'); // no brand header either (design 3b)
   app.innerHTML = `
     <div class="practice-top" style="background:#fff;border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:10px 14px">
       <button class="back" id="backBtn" aria-label="Done">${icon('left', 19)}</button>
+      ${tileHTML}
       <div class="title" id="sessTitle">${title}</div>
       <span class="type-progress" style="max-width:240px"><i id="sessBar" style="background:var(--green)"></i></span>
       <span id="sessCount" style="font-weight:700;font-size:12.5px;color:var(--soft);white-space:nowrap"></span>
-      <div class="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
+      <div class="scorebox" id="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
     </div>
     <div class="session-stage"><div class="card qcard" id="qcard"></div></div>
     <div class="mascot" id="mascot"><span class="fox">🦊</span><span class="say" id="mascotSay" style="display:none"></span></div>
@@ -926,11 +927,14 @@ function mascotSay(msg) {
 function renderSession(skillId) {
   const sk = SKILL_MAP[skillId];
   if (!sk) return show('practice');
-  // Computer skills get the full keyboard experience (design 7a)
-  const subj = (STRANDS.find(x => x.id === sk.strand) || {}).subject;
-  if (subj === 'typing' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
+  const strand = STRANDS.find(x => x.id === sk.strand) || {};
+  // Computer skills get the full keyboard experience (7a); reading gets the story reader (6b)
+  if (strand.subject === 'typing' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
+  if (sk.strand === 'reading' && typeof renderStoryReader === 'function') return renderStoryReader(sk);
   SESSION = { skill: sk, streak: 0, answered: false };
-  sessionShell(sk.name, 'practice');
+  const u = subjUI(strand.subject || 'custom');
+  sessionShell(`${strand.name ? strand.name + ' · ' : ''}${sk.name}`, 'practice',
+    `<span class="subj-ico" style="width:34px;height:34px;background:${u.tint};color:${u.color}">${icon(u.icon, 17)}</span>`);
   nextQuestion();
 }
 
@@ -951,9 +955,14 @@ function updateScorebox() {
     $('#scoreNum').textContent = `${Math.min(SESSION.qi, SESSION.queue.length)}/${SESSION.queue.length}`;
     return;
   }
+  // 3b: top-right shows today's water (plan tasks done)
+  const goal = kidSettings().schoolGoal;
+  const dow = (new Date().getDay() + 6) % 7;
+  const planToday = dow > 4 ? [] : (getWeekPlan()[dow] || []).filter(sid => SKILL_MAP[sid]).slice(0, goal);
+  const waterDone = planToday.filter(t => taskDoneToday(t)).length;
+  $('#plantIcon').innerHTML = `<span style="color:var(--water)">${icon('droplet', 17)}</span>`;
+  $('#scoreNum').textContent = waterDone;
   const sc = skillStat(SESSION.skill.id).s;
-  $('#plantIcon').innerHTML = plantSVG(sc, 22);
-  $('#scoreNum').textContent = sc;
   // fox mascot cheers toward today's "done" mark for this skill
   const day = kidLog()[dstr()];
   const doneQ = day && day.per[SESSION.skill.id] ? day.per[SESSION.skill.id][1] : 0;
@@ -1000,7 +1009,16 @@ function nextQuestion() {
         Challenge ${'●'.repeat(lvl)}${'○'.repeat(3 - lvl)} ${lvl === 1 ? 'warming up' : lvl === 2 ? 'on level' : 'stretch!'}</div>`
     : '';
   let answerUI = '';
-  if (q.type === 'mc') {
+  if (q.type === 'picture') {
+    answerUI = `<div class="audio-row">
+      <button class="btn big audio-pill" id="sayBig">${icon('volume', 18)} ${esc(q.say)}</button>
+      <button class="btn small ghost" id="saySlow">${icon('volume', 13)} Slower</button>
+    </div>
+    <div class="pic-cards">${q.cards.map(c =>
+      `<button class="pic-card choice" data-c="${escAttr(c.label)}">
+        <span class="pic">${c.pic}</span><span class="pic-label">${esc(c.label)}</span>
+      </button>`).join('')}</div>`;
+  } else if (q.type === 'mc') {
     // long answers get wider cards (2-up or full-width) so text never crams
     const maxLen = Math.max(...q.choices.map(c => String(c).length));
     const cls = maxLen > 42 ? 'one-col' : maxLen > 11 ? 'two-col' : q.choices.length === 2 ? 'two' : '';
@@ -1040,7 +1058,16 @@ function nextQuestion() {
   };
 
   upgradeSayButtons(card);
-  if (q.type === 'mc') {
+  if (q.type === 'picture') {
+    $$('.pic-card', card).forEach(b => b.onclick = () => grade(b.dataset.c, b));
+    $('#sayBig').onclick = () => speak(q.say);
+    $('#saySlow').onclick = () => {
+      const u = new SpeechSynthesisUtterance(q.say);
+      u.lang = 'es-ES'; const v = pickVoice('es-ES'); if (v) u.voice = v;
+      u.rate = 0.5; speechSynthesis.cancel(); speechSynthesis.speak(u);
+    };
+    setTimeout(() => speak(q.say), 350); // audio-first: hear it right away
+  } else if (q.type === 'mc') {
     $$('.choice', card).forEach(b => b.onclick = () => grade(b.dataset.c, b));
   } else if (q.type === 'num' || q.type === 'text') {
     const inp = $('#numIn');
@@ -1118,7 +1145,7 @@ function grade(given, btn) {
   updateScorebox();
 
   // ---- visual feedback ----
-  if (q.type === 'mc') {
+  if (q.type === 'mc' || q.type === 'picture') {
     $$('.choice').forEach(b => {
       b.disabled = true;
       if (b.dataset.c === String(q.answer)) b.classList.add('right');
@@ -1137,9 +1164,16 @@ function grade(given, btn) {
   fb.innerHTML = `<div class="fb-row ${correct ? 'good' : 'bad'} pop">
       <span class="fb-tile" style="background:${correct ? 'var(--green)' : 'var(--gold)'}">${icon(correct ? 'star' : 'bulb', 17)}</span>
       <span class="fb-text"><b>${correct ? praise : oops + ` The answer is ${answerShown}.`}</b> ${q.explain || ''}</span>
+      ${q.say ? `<button class="btn small ghost" id="sayWithMe" style="flex:none;white-space:nowrap">${icon('volume', 13)} Say it with me</button>` : ''}
       <button class="icon-btn" id="readFb" style="width:34px;height:34px;flex:none" title="Read it out loud">${icon('volume', 15)}</button>
       <button class="btn ${correct ? 'primary' : 'sunny'} caps-btn" id="nextBtn" style="flex:none">Next ${icon('arrowright', 14)}</button>
     </div>`;
+  const swm = $('#sayWithMe');
+  if (swm) swm.onclick = () => {
+    const u = new SpeechSynthesisUtterance(q.say);
+    u.lang = 'es-ES'; const v = pickVoice('es-ES'); if (v) u.voice = v;
+    u.rate = 0.55; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  };
   $('#readFb').onclick = () => {
     if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
     const head = correct ? praise : `Almost! The answer is ${speakableText(String(answerShown))}.`;

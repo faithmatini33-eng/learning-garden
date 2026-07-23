@@ -122,10 +122,24 @@ const SP_DAYS = [
   ['viernes', 'Friday'], ['sábado', 'Saturday'], ['domingo', 'Sunday'],
 ];
 
-// Build a two-direction vocab question from a bank.
+const spShort = (es) => es.replace(/^(el|la|los|las)\s+/i, '');
+
+// Build a vocab question. Banks with unique emoji get the audio-first
+// "Escucha y elige" picture cards (design 6a); otherwise classic MC.
 function spVocabQ(bank, label) {
   const [es, en, emoji] = pick(bank);
+  const uniquePics = emoji && new Set(bank.map(x => x[2])).size === bank.length;
   const toEnglish = pick([true, false]);
+
+  if (uniquePics && toEnglish) {
+    const others = shuffle(bank.filter(x => x[0] !== es)).slice(0, 3);
+    const cards = shuffle([[es, en, emoji], ...others]).map(([e, , pic]) => ({ pic, label: spShort(e) }));
+    return {
+      type: 'picture', say: es, cards, answer: spShort(es),
+      prompt: `<span class="eyebrow" style="color:var(--gold);letter-spacing:.1em">Escucha y elige · Listen and choose</span>`,
+      explain: `<b>¡Muy bien!</b> ${spShort(es)[0].toUpperCase() + spShort(es).slice(1)} means <b>${en}</b>. Now say it out loud!`,
+    };
+  }
   if (toEnglish) {
     const wrongs = shuffle(bank.filter(x => x[1] !== en)).slice(0, 3).map(x => x[1]);
     return {

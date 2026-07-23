@@ -380,83 +380,128 @@ function tutorStepsSub(a, b) {
   return steps;
 }
 
-function startTutor(a, b, op) {
-  TUTOR = { a, b, op, i: 0, tries: 0, hinted: false };
-  TUTOR.steps = op === '+' ? tutorStepsAdd(a, b) : tutorStepsSub(a, b);
-  const box = $('#tutorBox');
-  box.innerHTML = `<p class="note" style="text-align:center;margin-top:10px">📝 <b>Grab your pencil!</b> Copy the problem onto paper and do each step there too — your paper is where the real thinking happens.</p>
-    <div style="margin:10px 0 14px;text-align:center">${verticalMath(a, b, op)}</div>
-    <div class="step-list" id="tutorSteps"></div>`;
-  renderTutorStep();
+// digit-highlighted stacked problem (4a): the current column glows
+function verticalMathHL(a, b, op, col) {
+  const w = Math.max(String(a).length, String(b).length);
+  const colIdx = { ones: 1, tens: 2, hundreds: 3 }[col] || 0;
+  const rowHTML = (n) => {
+    const s = String(n).padStart(w, ' ');
+    return [...s].map((ch, i) => {
+      const place = s.length - i; // 1=ones, 2=tens...
+      const hl = colIdx && place === colIdx && ch !== ' ';
+      return hl ? `<span class="vm-hl">${ch}</span>` : (ch === ' ' ? '&numsp;' : ch);
+    }).join('');
+  };
+  return `<div class="vertical-math" style="font-size:42px">
+    <div>${rowHTML(a)}</div>
+    <div><span class="op">${op}</span>${rowHTML(b)}</div>
+  </div><div style="font-family:var(--font-head);font-weight:800;font-size:30px;color:var(--dashed);margin-top:6px">?</div>`;
 }
 
-function renderTutorStep() {
-  const stp = TUTOR.steps[TUTOR.i];
-  const list = $('#tutorSteps');
-  if (!stp) return;
-  const n = TUTOR.i + 1;
-  let ui;
-  if (stp.kind === 'mc') {
-    ui = `<div class="choices" style="grid-template-columns:1fr;gap:8px;margin-top:10px">${stp.choices.map(c =>
-      `<button class="choice t-choice" style="font-size:17px;padding:11px" data-c="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`;
-  } else {
-    ui = `<div class="answer-row" style="margin-top:10px;justify-content:flex-start">
-      <input class="num-input" id="tutorIn${n}" inputmode="numeric" style="width:120px;font-size:24px;padding:6px">
-      <button class="btn primary" id="tutorCheck${n}">Check ✓</button></div>`;
-  }
-  list.insertAdjacentHTML('beforeend', `<div class="hw-step" id="tstep${n}"><div class="n">${n}</div>
-    <div class="t" style="flex:1"><div>${stp.ask}</div><div id="tui${n}">${ui}</div><div id="thint${n}"></div></div></div>`);
-  list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function startTutor(a, b, op) {
+  TUTOR = { a, b, op, i: 0, tries: 0, answers: [] };
+  TUTOR.steps = op === '+' ? tutorStepsAdd(a, b) : tutorStepsSub(a, b);
+  tutorTrailRender();
+}
 
+// full step trail (4a): done = green, current = active card, locked = dashed
+function tutorTrailRender() {
+  const stack = $('#tutStack');
+  const box = $('#tutorBox');
+  if (!box) return;
+  const cur = TUTOR.steps[TUTOR.i];
+  const askTxt = cur ? cur.ask : '';
+  const col = /hundred/i.test(askTxt) ? 'hundreds' : /tens/i.test(askTxt) ? 'tens' : /ones/i.test(askTxt) ? 'ones' : null;
+  const stackHTML = `<div style="text-align:center;margin:14px 0 6px">${verticalMathHL(TUTOR.a, TUTOR.b, TUTOR.op, col)}</div>`;
+  if (stack) stack.innerHTML = stackHTML;
+
+  const trail = TUTOR.steps.map((stp, j) => {
+    if (j < TUTOR.i) {
+      return `<div class="tstep done"><span class="ts-n done">${icon('check', 13)}</span>
+        <div class="ts-body"><b>${stp.ask}</b>
+          ${TUTOR.answers[j] !== undefined ? `<span class="ts-pill">${esc(String(TUTOR.answers[j]))} ✓</span>` : ''}
+          <p class="note">${stp.why}</p></div></div>`;
+    }
+    if (j === TUTOR.i) {
+      const input = stp.kind === 'mc'
+        ? `<div class="choices" style="grid-template-columns:1fr;gap:8px;margin-top:10px;max-width:none">${stp.choices.map(c =>
+            `<button class="choice t-choice" style="font-size:15.5px;padding:11px;text-align:left" data-c="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`
+        : `<div class="answer-row" style="justify-content:flex-start;margin-top:10px">
+            <input class="num-input" id="tutIn" inputmode="numeric" style="width:110px;font-size:22px;padding:7px;border-color:var(--teal)">
+            <button class="btn sky caps-btn" id="tutCheck">Check</button>
+            <button class="btn small sunny" id="tutHintBtn">${icon('bulb', 13)} Hint</button>
+          </div>`;
+      return `<div class="tstep active"><span class="ts-n">${j + 1}</span>
+        <div class="ts-body"><b>${stp.ask}</b>${input}<div id="tutHint"></div></div></div>`;
+    }
+    return `<div class="tstep locked"><span class="ts-n">${j + 1}</span>
+      <div class="ts-body" style="color:var(--muted)">${stp.ask}</div></div>`;
+  }).join('');
+
+  box.innerHTML = `${stack ? '' : stackHTML}
+    <div id="tutorSteps">${trail}</div>
+    <div style="display:flex;gap:9px;align-items:center;margin-top:12px">
+      <span style="font-size:22px">🦉</span>
+      <span style="background:var(--teal-tint2);border-radius:12px;padding:8px 13px;font-weight:600;font-size:12.5px">You're doing the thinking — I just ask the questions!</span>
+    </div>`;
+
+  if (!cur) { renderTutorSolo(); return; }
+
+  const showHint = () => {
+    $('#tutHint').innerHTML = `<div class="hint-strip">${icon('bulb', 14)} ${cur.hint}</div>`;
+  };
   const wrong = () => {
     TUTOR.tries++;
-    const hintBox = $(`#thint${n}`);
-    if (TUTOR.tries === 1) {
-      hintBox.innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--sun);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">💡 Hint: ${stp.hint} Try again!</div>`;
-    } else {
-      hintBox.innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--bad-bg);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">The answer is <b>${stp.answer}</b>. ${stp.why}</div>`;
-      finishStep(false);
+    sfx('wrong');
+    if (TUTOR.tries === 1) showHint();
+    else {
+      $('#tutHint').innerHTML = `<div class="hint-strip" style="background:var(--terra-tint)">The answer is <b>${esc(String(cur.answer))}</b>. ${cur.why}</div>`;
+      TUTOR.answers[TUTOR.i] = cur.answer;
+      setTimeout(advance, 1100);
     }
   };
-  const right = () => {
-    $(`#thint${n}`).innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--ok-bg);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">🌟 Yes! ${stp.why}</div>`;
-    burst(12);
-    finishStep(true);
-  };
-  const finishStep = () => {
-    $(`#tui${n}`).querySelectorAll('button,input').forEach(el => el.disabled = true);
-    TUTOR.i++; TUTOR.tries = 0;
-    if (TUTOR.i < TUTOR.steps.length) setTimeout(renderTutorStep, 550);
-    else setTimeout(() => { burst(40, true); renderTutorSolo(); }, 600); // I do → we did → now YOU do
-  };
+  const right = (given) => { sfx('correct'); TUTOR.answers[TUTOR.i] = given; advance(); };
+  const advance = () => { TUTOR.i++; TUTOR.tries = 0; tutorTrailRender(); };
 
-  if (stp.kind === 'mc') {
-    $$(`#tui${n} .t-choice`).forEach(btn => btn.onclick = () => {
-      if (btn.dataset.c === String(stp.answer)) { btn.classList.add('right'); right(); }
+  if (cur.kind === 'mc') {
+    $$('.t-choice', box).forEach(btn => btn.onclick = () => {
+      if (btn.dataset.c === String(cur.answer)) { btn.classList.add('right'); setTimeout(() => right(btn.dataset.c), 350); }
       else { btn.classList.add('wrong'); btn.disabled = true; wrong(); }
     });
   } else {
-    const inp = $(`#tutorIn${n}`), check = () => {
+    const inp = $('#tutIn', box);
+    const check = () => {
       if (inp.value.trim() === '') return;
-      if (Number(inp.value.replace(/[,\s]/g, '')) === Number(stp.answer)) { inp.style.background = 'var(--ok-bg)'; right(); }
-      else { inp.style.background = 'var(--bad-bg)'; inp.select(); wrong(); }
+      if (Number(inp.value.replace(/[,\s]/g, '')) === Number(cur.answer)) { inp.style.background = 'var(--green-tint)'; setTimeout(() => right(inp.value.trim()), 300); }
+      else { inp.style.background = 'var(--terra-tint)'; inp.select(); wrong(); }
     };
-    $(`#tutorCheck${n}`).onclick = check;
+    $('#tutCheck', box).onclick = check;
+    $('#tutHintBtn', box).onclick = showHint;
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
     inp.focus();
   }
 }
 
 function renderTutorTab() {
-  $('#helperBody').innerHTML = `
-    <p style="font-weight:800;font-size:17px;text-align:center">Type YOUR homework problem. I won't give the answer —<br>I'll ask you the right questions so YOU find it. 🦉</p>
-    <div class="hw-setup">
-      <input class="num-input" id="hwA" inputmode="numeric" placeholder="52">
-      <select id="hwOp"><option value="+">+</option><option value="−">−</option></select>
-      <input class="num-input" id="hwB" inputmode="numeric" placeholder="27">
-      <button class="btn sky big" id="hwGo">Let's go! 🦉</button>
+  $('#helperBody').innerHTML = `<div class="tutor-grid">
+    <div class="tut-left">
+      <p style="font-family:var(--font-head);font-weight:800;font-size:16px;text-align:center;margin-bottom:10px">Type YOUR homework problem</p>
+      <div class="hw-setup" style="margin:0 0 12px">
+        <input class="num-input" id="hwA" inputmode="numeric" placeholder="34" style="width:86px">
+        <select id="hwOp"><option value="+">+</option><option value="−">−</option></select>
+        <input class="num-input" id="hwB" inputmode="numeric" placeholder="28" style="width:86px">
+        <button class="btn sky caps-btn" id="hwGo">Let's go</button>
+      </div>
+      <div class="pencil-note">${icon('pencil', 15)} Grab your pencil! Copy the problem onto paper and do each step there too — your paper is where the real thinking happens.</div>
+      <div id="tutStack"></div>
     </div>
-    <div id="tutorBox"></div>`;
+    <div class="tut-right" id="tutorBox">
+      <div style="display:flex;gap:9px;align-items:center;margin-top:6px">
+        <span style="font-size:22px">🦉</span>
+        <span style="background:var(--teal-tint2);border-radius:12px;padding:8px 13px;font-weight:600;font-size:12.5px">Type your problem and press Let's go — then I'll ask, you answer!</span>
+      </div>
+    </div>
+  </div>`;
   $('#hwGo').onclick = () => {
     let a = parseInt($('#hwA').value.replace(/[,\s]/g, ''), 10);
     let b = parseInt($('#hwB').value.replace(/[,\s]/g, ''), 10);
