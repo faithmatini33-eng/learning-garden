@@ -1987,7 +1987,20 @@ function renderGrownups() {
         ${recapCards}
       </div>
     </div>
+    <p class="note" id="verNote" style="text-align:center;margin-top:16px">Learning Garden — ${APP_BUILD.label}</p>
   </div>`;
+
+  // quiet update check: does THIS device hold the newest delivery?
+  if ('caches' in window) {
+    caches.keys().then(keys => {
+      const have = keys.filter(k => k.startsWith('lg-v')).sort().pop();
+      const el = $('#verNote');
+      if (!el || !have) return; // no service worker here (dev / file://) — just show the build
+      el.textContent = have === APP_BUILD.cache
+        ? `Learning Garden — ${APP_BUILD.label} — this device is up to date`
+        : `Learning Garden — ${APP_BUILD.label} — a newer version is downloading; close the app and reopen to finish`;
+    }).catch(() => {});
+  }
 
   $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
   const rt = $('#remTime'); if (rt) rt.onchange = () => { remindersCfg().time = rt.value || '15:30'; remindersCfg().lastFired = null; save(); };
