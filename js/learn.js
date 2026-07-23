@@ -268,9 +268,10 @@ function startLesson(lessonId, strandId, opts = {}) {
   const lessons = lessonsForStrand(strandId);
   const ls = lessons.find(x => x.id === lessonId);
   if (!ls) return show('learnpath', strandId);
-  // Turn 22 teaching engine — skills with an authored L2 lesson use it
-  // (pilot: the Spelling path); everything else keeps the classic flow.
-  if (typeof L2_DEFS !== 'undefined' && L2_DEFS[ls.skillId] && typeof l2Start === 'function') {
+  // Turn 22 teaching engine — authored L2 lessons AND auto-adapted ones
+  // (any skill with a renderable generator). Only special-engine strands
+  // (handwriting, story reader) keep the classic flow.
+  if (typeof l2DefFor === 'function' && l2DefFor(ls.skillId) && typeof l2Start === 'function') {
     return l2Start(ls, strandId, opts);
   }
   const steps = ls.def ? ls.def.steps.map(s => ({ ...s })) : autoSteps(ls);

@@ -690,6 +690,176 @@ function l2Validate() {
 try { l2Validate(); } catch (e) { console.warn('lesson2 validator crashed', e); }
 
 /* ============================================================
+   AUTO LESSONS — every other skill gets the SAME teaching arc,
+   powered by its own question generator (`sk.gen(lvl)`).
+   Authored L2_DEFS stay richer (real is/isn't teaching); autos
+   teach with the strand's lesson cards + Pip-solved examples,
+   then run the identical quick-check → worked → first-try →
+   warm-up → cycles → 3-in-a-row mastery machine.
+   ============================================================ */
+const L2_AUTO_CACHE = {};
+
+function l2AutoEligible(sk) {
+  if (!sk || typeof sk.gen !== 'function') return false;
+  const strand = STRANDS.find(x => x.id === sk.strand) || {};
+  if (strand.id === 'handwriting') return false;           // trace engine owns these
+  if (strand.subject === 'ela' && strand.id === 'reading' && sk.id.startsWith('read_')) return false; // story reader owns these
+  try {
+    for (const lvl of [1, 2]) {
+      const q = sk.gen(lvl);
+      if (!q || !['mc', 'num', 'text', 'line', 'picture'].includes(q.type)) return false;
+    }
+  } catch (e) { return false; }
+  return true;
+}
+
+// wrap one generated question into the engine's format
+function l2FromGen(sk, lvl, idea, tag) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const g = sk.gen(lvl);
+    const say = speakableText(g.prompt || '');
+    const base = {
+      key: `ag_${sk.id}_${tag}_${String(say).slice(0, 40)}_${g.answer}`,
+      idea, prompt: g.prompt, say, body: g.body || null,
+      answer: String(g.answer),
+      why: g.explain || `${g.answer} is right!`,
+      hint: `Read it slowly one more time — you've got this!`,
+      exact: !!g.exact,
+    };
+    if (g.type === 'picture') {
+      base.kinds = ['tap_picture'];
+      base.choices = g.cards.map(c => ({ t: String(c.label), pic: c.emoji || c.pic || null }));
+      return base;
+    }
+    if (g.type === 'mc') {
+      base.kinds = ['tap_word', 'listen_pick'];
+      base.choices = g.choices.slice(0, 4).map(c => ({ t: String(c) }));
+      if (!base.choices.some(c => c.t === base.answer)) continue; // safety: answer must be present
+      // listen_pick only when the prompt speaks on its own (no reliance on body visuals)
+      if (g.body) base.kinds = ['tap_word'];
+      return base;
+    }
+    // num / line / text → typed answer
+    base.kinds = ['type_in'];
+    base.numeric = g.type === 'num' || g.type === 'line';
+    return base;
+  }
+  return null;
+}
+
+// 2 tap choices for the training-wheels first try (answer + 1 near-miss)
+function l2AutoTwoChoices(sk) {
+  const g = sk.gen(1);
+  const ans = String(g.answer);
+  let wrong;
+  if (g.type === 'mc' && g.choices) wrong = String(g.choices.find(c => String(c) !== ans) || '');
+  if (!wrong) {
+    const n = Number(String(ans).replace(/[,\s]/g, ''));
+    if (!isNaN(n) && String(n) === String(ans).trim()) wrong = String(n + (n > 2 ? -1 : 1));
+    else { const g2 = sk.gen(1); wrong = String(g2.answer) !== ans ? String(g2.answer) : ans.split('').reverse().join(''); }
+  }
+  return { g, ans, wrong: wrong === ans ? ans + '?' : wrong };
+}
+
+// teach material: strand lesson cards, topped up with Pip-solved examples
+function l2AutoTeachCards(sk, strand) {
+  const chunks = strand.lesson ? lessonChunks(strand.lesson).slice(0, 3) : [];
+  const cards = chunks.map(c => ({
+    html: `<div class="ls-chunk cur" style="font-size:15px">${c}</div>`,
+    say: speakableText(c),
+  }));
+  while (cards.length < 3) {
+    const g = sk.gen(1);
+    cards.push({
+      html: `<div class="l2-solved"><p class="l2-solved-q">${g.prompt}</p>${g.body ? `<div class="qbody">${g.body}</div>` : ''}
+        <div class="l2-solved-a">${icon('arrowright', 14)} <b>${esc(String(g.answer))}</b></div>
+        <p class="sent-note">${g.explain || ''}</p></div>`,
+      say: `Watch me do one! ${speakableText(g.prompt)} … The answer is ${g.answer}. ${speakableText(g.explain || '')}`,
+      solved: true,
+    });
+  }
+  return cards;
+}
+
+function l2AutoDef(sk) {
+  if (L2_AUTO_CACHE[sk.id]) return L2_AUTO_CACHE[sk.id];
+  const strand = STRANDS.find(x => x.id === sk.strand) || {};
+  const lessons = lessonsForStrand(strand.id || sk.strand);
+  const n = Math.max(1, lessons.findIndex(l => l.skillId === sk.id) + 1);
+  const prev = n > 1 ? SKILL_MAP[lessons[n - 2].skillId] : null;
+  const teach = l2AutoTeachCards(sk, strand);
+  const mkQ = (lvl, idea, tag) => (used) => l2FromGen(sk, lvl, idea, tag) || l2FromGen(sk, 1, idea, tag + 'f');
+  const w1 = sk.gen(1), w2 = sk.gen(1);
+  const solvedHTML = (g) => `<span class="l2-worked-line">${g.prompt}${g.body ? `<div class="qbody" style="margin-top:6px">${g.body}</div>` : ''}<span class="l2-solved-a">${icon('arrowright', 14)} <b>${esc(String(g.answer))}</b></span></span>`;
+  const ft = l2AutoTwoChoices(sk);
+  const tg = l2AutoTwoChoices(sk);
+  const tgThird = l2AutoTwoChoices(sk);
+  const name = sk.name;
+  const def = {
+    auto: true,
+    id: 'auto.' + sk.id, n, skill: sk.id, strand: strand.id || sk.strand, subject: strand.subject || 'custom',
+    title: name, term: name.toLowerCase(),
+    teaser: `${name} — let's figure it out together!`,
+    goals: [`Learn how ${name.toLowerCase()} works`, `Try it with Pip helping`, `Show it off — 3 in a row!`],
+    minutes: 12,
+    warmup: prev ? {
+      fromN: n - 1, fromTitle: prev.name,
+      gen: () => l2FromGen(prev, 1, 0, 'wu') || l2FromGen(prev, 1, 0, 'wu2'),
+    } : null,
+    teachCards: teach,
+    idea1: {
+      teachSay: teach[0].say,
+      teachHTML: `<b>${esc(name)}</b> — watch first, then we try together!`,
+      quickGen: () => l2FromGen(sk, 1, 1, 'qc'),
+      worked: [
+        { html: solvedHTML(w1), say: `Watch me do one! ${speakableText(w1.prompt)} … The answer is ${w1.answer}. ${speakableText(w1.explain || '')}`, sayIt: String(w1.answer) },
+        { html: solvedHTML(w2), say: `One more! ${speakableText(w2.prompt)} … It's ${w2.answer}!`, sayIt: String(w2.answer) },
+      ],
+      firstTry: {
+        prompt: ft.g.prompt, say: speakableText(ft.g.prompt), body: ft.g.body || null,
+        answer: ft.ans, choices: l2Shuffle([ft.ans, ft.wrong]),
+        support: `Pip narrowed it to two — pick the one that fits!`,
+      },
+      tryits: [mkQ(1, 1, 't1')],
+    },
+    idea2: {
+      name: 'Try it together',
+      teachSay: teach[1].say, teachHTML: teach[1].html, solvedTeach: !!teach[1].solved,
+      ruleHTML: ``, ruleSay: ``, sayIt: ``,
+      together: [{
+        pipSay: `Let's do this one as a team — I'll read it, you pick!`,
+        prompt: tg.g.prompt, say: speakableText(tg.g.prompt), body: tg.g.body || null,
+        answer: tg.ans, choices: l2Shuffle([...new Set([tg.ans, tg.wrong, tgThird.ans !== tg.ans ? tgThird.ans : tgThird.wrong])]).slice(0, 3),
+        hint: `Take your time — say it out loud first.`,
+        why: tg.g.explain || `${tg.ans} is right!`,
+      }],
+      tryits: [mkQ(2, 2, 't2a'), mkQ(2, 2, 't2b')],
+    },
+    idea3: {
+      name: 'On your own',
+      teachSay: teach[2].say, teachHTML: teach[2].html, solvedTeach: !!teach[2].solved,
+      ruleHTML: ``, ruleSay: ``, sayIt: ``,
+      tryits: [mkQ(2, 3, 't3a'), mkQ(2, 3, 't3b')],
+    },
+    reteachEasy: {
+      line: `Tricky one! Let's watch an easy one together first.`,
+      auto: true, // html generated fresh at reteach time from gen(1)
+    },
+    mastery: Array.from({ length: 12 }, (_, i) => mkQ(2, ((i % 3) + 1), 'm' + i)),
+  };
+  L2_AUTO_CACHE[sk.id] = def;
+  return def;
+}
+
+// authored def OR auto def for a skill (null = keep the classic flow)
+function l2DefFor(skillId) {
+  if (L2_DEFS[skillId]) return L2_DEFS[skillId];
+  const sk = typeof SKILL_MAP !== 'undefined' ? SKILL_MAP[skillId] : null;
+  if (sk && l2AutoEligible(sk)) return l2AutoDef(sk);
+  return null;
+}
+
+/* ============================================================
    ENGINE — state machine + per-kid persistence
    kidLearn().l2[lessonId] = { step, stars, streak, mq, status,
      missQ:{qkey:n}, missKind:{kind:n}, avoidKind, used:[qkeys] }
@@ -709,7 +879,7 @@ function l2Flow(def) {
   return f;
 }
 function l2StepTotal(skillId) {
-  const def = L2_DEFS[skillId];
+  const def = l2DefFor(skillId);
   return def ? l2Flow(def).length : null;
 }
 
@@ -724,7 +894,7 @@ function l2State(lessonId) {
 }
 
 function l2Start(ls, strandId, opts = {}) {
-  const def = L2_DEFS[ls.skillId];
+  const def = l2DefFor(ls.skillId);
   const st = l2State(ls.id);
   if (opts.review && st.status === 'mastered') { st.step = 0; st.streak = 0; st.mq = 0; } // review = walk it again, keep status
   if (st.status === 'not_started') st.status = 'in_progress';
@@ -837,7 +1007,7 @@ function l2Opener() {
         <p class="eyebrow" style="color:var(--teal);margin-top:8px">${icon('volume', 12)} Pip reads everything aloud</p>
       </div>
     </div>
-    <p class="eyebrow" style="color:${u.color};margin-top:16px">Lesson ${d.n} · Spelling path · one skill only</p>
+    <p class="eyebrow" style="color:${u.color};margin-top:16px">Lesson ${d.n} · ${esc((STRANDS.find(x => x.id === d.strand) || {}).name || d.subject)} path · one skill only</p>
     <h1 class="lp-goal">Today you'll learn <span style="color:${u.color}">${esc(d.term)}</span>!</h1>
     <div class="l2-goals card">
       <p class="eyebrow">By the end, you will be able to…</p>
@@ -855,6 +1025,24 @@ function l2Opener() {
 /* ---------------- 22b · the lesson: is / isn't ---------------- */
 function l2IsIsnt() {
   const d = LS2.def, i1 = d.idea1, u = subjUI(d.subject);
+  if (d.auto) {
+    // auto lessons: the strand's own teach card, Pip-narrated
+    l2Bar({ pill: [`THE LESSON · WATCH FIRST`, u.tint, u.color] });
+    app.innerHTML = `<div class="reveal lesson-grid">
+      ${foxPanel(i1.teachHTML)}
+      <div class="teach-panel">
+        <p class="eyebrow" style="color:${u.color};text-align:center">Learn · idea 1 of 3</p>
+        ${d.teachCards[0].html}
+        <div style="text-align:center;margin-top:16px">
+          <button class="btn primary big caps-btn" id="l2Go">Let me try one! ${icon('arrowright', 15)}</button>
+        </div>
+      </div>
+    </div>`;
+    upgradeSayButtons(app);
+    wireFox(i1.teachSay);
+    $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
+    return;
+  }
   l2Bar({ pill: [`THE LESSON · WHAT IT IS — AND WHAT IT ISN'T`, u.tint, u.color] });
   app.innerHTML = `<div class="reveal lesson-grid">
     ${foxPanel(i1.teachHTML)}
@@ -882,6 +1070,7 @@ function l2IsIsnt() {
 /* ---------------- 22c · quick check (ungraded) ---------------- */
 function l2QuickCheck(useFallback) {
   const d = LS2.def, u = subjUI(d.subject);
+  if (d.auto) return l2AutoQuick(!!useFallback);
   const qc = useFallback ? d.idea1.quickCheck.fallback : d.idea1.quickCheck;
   l2Bar({ pill: [`QUICK CHECK · DID IT CLICK? · NOT GRADED`, 'var(--gold-tint)', '#8C5A2B'] });
   app.innerHTML = `<div class="reveal">
@@ -926,6 +1115,37 @@ function l2QuickCheck(useFallback) {
       foxSpeak(speakableText(replay));
       $('#l2Fresh').onclick = () => { lpSpeechStop(); useFallback ? l2Advance() : l2QuickCheck(true); };
     }
+  });
+}
+
+/* auto quick check — one ungraded gen question; wrong = Pip shows it, then a fresh one */
+function l2AutoQuick(isSecond) {
+  const d = LS2.def;
+  l2Bar({ pill: [`QUICK CHECK · DID IT CLICK? · NOT GRADED`, 'var(--gold-tint)', '#8C5A2B'] });
+  const q = d.idea1.quickGen();
+  app.innerHTML = `<div class="reveal">
+    <div class="l2-fox-row" style="margin-bottom:14px">
+      <span class="fox-face">${foxSVG(52, 'talk')}</span>
+      <div class="fox-card"><p class="fox-say" style="font-size:16px">${isSecond ? 'Fresh one — you be the teacher this time!' : 'Now <b>you</b> be the teacher! Try one — no stars, just checking.'}</p></div>
+    </div>
+    <div id="l2QBox"></div>
+  </div>`;
+  l2Question(q, {
+    ungraded: true,
+    onRight: (q2) => {
+      $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
+        <span class="fb-text"><b>It clicked!</b> ${q2.why}</span>
+        <button class="btn primary caps-btn" id="l2On" style="flex:none">On we go</button></div>`;
+      foxSpeak(speakableText(q2.why));
+      $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
+    },
+    onMiss2: (q2) => {
+      $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span>
+        <span class="fb-text"><b>Good try!</b> It was <b>${esc(q2.answer)}</b> — ${q2.why} ${isSecond ? '' : "Let's try a fresh one!"}</span>
+        <button class="btn primary caps-btn" id="l2Fresh" style="flex:none">${isSecond ? 'Keep going' : 'Fresh one!'}</button></div>`;
+      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)}`);
+      $('#l2Fresh').onclick = () => { lpSpeechStop(); isSecond ? l2Advance() : l2AutoQuick(true); };
+    },
   });
 }
 
@@ -980,6 +1200,7 @@ function l2FirstTry() {
     </div>
     <div class="tryit-panel" style="text-align:center">
       <h2 class="tryit-q" style="justify-content:center">${ft.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
+      ${ft.body ? `<div class="qbody">${ft.body}</div>` : ''}
       ${ft.firstPart ? `<div class="l2-build-row"><span class="l2-tile teal big-tile">${esc(ft.firstPart)}</span><span class="l2-plus">+</span><span class="l2-slot" id="l2Slot">pick one!</span></div>` : ''}
       <p class="sent-note">${esc(ft.support)}</p>
       <div class="l2-choice-grid two">
@@ -1020,32 +1241,22 @@ function l2Warmup() {
       <span class="fox-face">${foxSVG(52, 'talk')}</span>
       <div class="fox-card"><p class="fox-say" style="font-size:16px">New seed planted! Quick — let's water yesterday's seeds too.</p></div>
     </div>
-    <div class="tryit-panel" style="text-align:center">
+    <div style="text-align:center;margin-bottom:10px">
       <span class="l2-review-chip">${icon('clock', 12)} Remember this? · from Lesson ${d.warmup.fromN} · ${esc(d.warmup.fromTitle)}</span>
-      <h2 class="tryit-q" style="justify-content:center;margin-top:12px">${q.prompt}</h2>
-      <div class="l2-choice-grid">${q.choices.map(c => `<button class="l2-choice" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>
-      <button class="btn small sky" id="l2Read">${icon('volume', 13)} Hear it again</button>
     </div>
-    <div id="l2Fb"></div>
+    <div id="l2QBox"></div>
   </div>`;
-  wireFox(`New seed planted! Quick — let's water yesterday's seeds too. ${q.say}`);
-  $('#l2Read').onclick = () => foxSpeak(q.say);
-  let missed = false;
-  $$('.l2-choice').forEach(b => b.onclick = () => {
-    if (b.dataset.c === q.answer) {
-      sfx('correct');
-      b.classList.add('right-pick');
-      $$('.l2-choice').forEach(x => x.disabled = true);
-      const bridge = missed ? `You found it! ${q.why} Now — back to today's brand-new skill!` : `Still got it! ${q.why} Now — back to today's brand-new skill!`;
-      $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text">${bridge}</span>
-        <button class="btn primary caps-btn" id="l2On" style="flex:none">Today's skill! ${icon('arrowright', 14)}</button></div>`;
-      foxSpeak(speakableText(bridge));
-      $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
-    } else {
-      sfx('wrong'); missed = true;
-      b.classList.add('no'); b.disabled = true;
-      foxSpeak(q.hint || 'Hmm, look again — you watered this seed before!');
-    }
+  const bridgeOn = (text) => {
+    $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text">${text}</span>
+      <button class="btn primary caps-btn" id="l2On" style="flex:none">Today's skill! ${icon('arrowright', 14)}</button></div>`;
+    foxSpeak(speakableText(text));
+    $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
+  };
+  l2Question(q, {
+    ungraded: true,
+    onRight: (q2, misses) => bridgeOn(`${misses ? 'You found it!' : 'Still got it!'} ${q2.why} Now — back to today's brand-new skill!`),
+    // right or wrong, Pip bridges back to today's skill (review never blocks)
+    onMiss2: (q2) => bridgeOn(`It was <b>${esc(q2.answer)}</b> — ${q2.why} We'll water that seed again soon. Now — today's brand-new skill!`),
   });
 }
 
@@ -1058,14 +1269,15 @@ function l2Teach(idea) {
     <div class="teach-panel">
       <p class="eyebrow" style="color:${u.color};text-align:center">Learn · idea ${idea} of 3 — ${esc(id.name)}</p>
       ${id.teachHTML}
-      <p class="l2-rule-line">${id.ruleHTML}</p>
-      <div class="l2-sayit-band">${icon('volume', 13)} Say it with Pip: "${esc(id.sayIt)}"</div>
+      ${id.ruleHTML ? `<p class="l2-rule-line">${id.ruleHTML}</p>` : ''}
+      ${id.sayIt ? `<div class="l2-sayit-band">${icon('volume', 13)} Say it with Pip: "${esc(id.sayIt)}"</div>` : ''}
       <div style="text-align:center;margin-top:14px">
         <button class="btn primary big caps-btn" id="l2Go">Got it! ${icon('arrowright', 15)}</button>
       </div>
     </div>
   </div>`;
-  wireFox(`${id.teachSay} ${id.ruleSay} Say it with me: ${id.sayIt}`);
+  upgradeSayButtons(app);
+  wireFox(id.sayIt ? `${id.teachSay} ${id.ruleSay} Say it with me: ${id.sayIt}` : id.teachSay);
   $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
 }
 
@@ -1084,7 +1296,7 @@ function l2Together(idea, n) {
           <span class="l2-tile sky big-tile">${esc(tg.firstPart)}<small class="l2-pip-tag">PIP'S PART ${icon('check', 10)}</small></span>
           <span class="l2-plus">+</span><span class="l2-slot" id="l2Slot">your turn!</span>
           ${tg.whole ? `<span class="l2-plus">=</span><span class="l2-tile ghost">${tg.pic || ''} ${esc(tg.whole)}</span>` : ''}
-        </div>` : `<h2 class="tryit-q" style="justify-content:center">${tg.prompt}</h2>`}
+        </div>` : `<h2 class="tryit-q" style="justify-content:center">${tg.prompt}</h2>${tg.body ? `<div class="qbody">${tg.body}</div>` : ''}`}
       <div class="l2-choice-grid">${tg.choices.map((c, i) => `<button class="l2-choice ${i === glowIdx ? 'glow soft' : ''}" data-c="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>
       <p class="sent-note">${icon('bulb', 13)} Pip's hint: ${esc(tg.hint)}</p>
     </div>
@@ -1116,7 +1328,7 @@ function l2Together(idea, n) {
    (stepped down) until the kid wins one; then it can return.
    ============================================================ */
 function l2PickKind(q) {
-  let kinds = q.kinds.filter(k => L2_KIND_ORDER.includes(k));
+  let kinds = (q.kinds || ['tap_word']).filter(k => L2_KIND_ORDER.includes(k) || k === 'type_in');
   if (!kinds.length) kinds = ['tap_word'];
   let pool = kinds.filter(k => k !== LS2.lastKind);
   if (!pool.length) pool = kinds;
@@ -1158,14 +1370,23 @@ function l2Question(q, opts) {
     inner = `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
       <div class="l2-build-row"><span class="l2-tile teal big-tile">${esc(q.parts[0])}</span><span class="l2-plus">+</span><span class="l2-slot" id="l2Slot">___</span></div>
       <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>`;
+  } else if (kind === 'type_in') {
+    inner = `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
+      ${q.body ? `<div class="qbody">${q.body}</div>` : ''}
+      <div class="answer-row" style="justify-content:center;margin-top:14px">
+        <input class="num-input" id="l2In" ${q.numeric ? 'inputmode="numeric"' : ''} autocomplete="off" autocapitalize="none" autocorrect="off">
+        <button class="btn primary big" id="l2Check">Check</button>
+      </div>`;
   } else {
     // tap_word / tap_picture / listen_pick — choice grid (2×2 max)
     const cells = q.choices.slice(0, 4).map(c => `<button class="l2-choice ${c.pic ? 'with-pic' : ''}" data-c="${escAttr(c.t)}">${c.pic ? `<span class="l2-cpic">${c.pic}</span>` : ''}${esc(c.t)}</button>`).join('');
+    const bodyHTML = q.body ? `<div class="qbody">${q.body}</div>` : '';
     inner = listen
       ? `<div class="l2-listen-first"><button class="btn sky big" id="l2Read">${icon('volume', 18)} Listen…</button><p class="sent-note">Ears first — the question is hiding!</p></div><div class="l2-choice-grid">${cells}</div>`
-      : `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2><div class="l2-choice-grid">${cells}</div>`;
+      : `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>${bodyHTML}<div class="l2-choice-grid">${cells}</div>`;
   }
   $('#l2QBox').innerHTML = `<div class="tryit-panel reveal" style="text-align:center">${inner}</div><div id="l2Fb"></div>`;
+  upgradeSayButtons($('#l2QBox'));
   const sayIt = () => { speak(speakableText(sayFull), 'en'); };
   const rb = $('#l2Read'); if (rb) rb.onclick = sayIt;
   sayIt();
@@ -1197,6 +1418,22 @@ function l2Question(q, opts) {
     }
   };
 
+  if (kind === 'type_in') {
+    const matches = (v) => q.numeric
+      ? Number(String(v).replace(/[,\s]/g, '')) === Number(q.answer)
+      : q.exact ? String(v).trim() === String(q.answer).trim()
+        : String(v).trim().toLowerCase() === String(q.answer).trim().toLowerCase();
+    const check = () => {
+      const v = $('#l2In').value;
+      if (v.trim() === '') return;
+      if (matches(v)) right(null);
+      else { wrong(null); const inp = $('#l2In'); if (inp) { inp.select(); } }
+    };
+    $('#l2Check').onclick = check;
+    $('#l2In').addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+    $('#l2In').focus();
+    return;
+  }
   if (kind === 'say_it') {
     const done = () => right(null);
     if (SR_CTOR) {
@@ -1246,15 +1483,26 @@ function l2Question(q, opts) {
 function l2ReteachA(q, thenRetry) {
   const d = LS2.def;
   lpSpeechStop();
+  let html = d.reteachEasy.html, say = d.reteachEasy.say;
+  if (d.reteachEasy.auto) {
+    // auto lessons: Pip solves an easy (level 1) one fresh, out loud
+    const sk = SKILL_MAP[d.skill];
+    const g = sk.gen(1);
+    html = `<div class="l2-solved"><p class="l2-solved-q">${g.prompt}</p>${g.body ? `<div class="qbody">${g.body}</div>` : ''}
+      <div class="l2-solved-a">${icon('arrowright', 14)} <b>${esc(String(g.answer))}</b></div>
+      <p class="sent-note">${g.explain || ''}</p></div>`;
+    say = `Watch me do an easy one. ${speakableText(g.prompt)} … The answer is ${g.answer}. ${speakableText(g.explain || '')} Now try yours again!`;
+  }
   $('#l2QBox').innerHTML = `<div class="tryit-panel reveal" style="text-align:center">
     <div class="l2-fox-row" style="justify-content:center;margin-bottom:10px">
       <span class="fox-face">${foxSVG(56, 'talk')}</span>
       <div class="fox-card"><p class="fox-say" style="font-size:16px">${esc(d.reteachEasy.line)}</p></div>
     </div>
-    ${d.reteachEasy.html}
+    ${html}
     <button class="btn primary big caps-btn" style="margin-top:14px" id="l2Retry">Try mine again ${icon('arrowright', 14)}</button>
   </div><div id="l2Fb"></div>`;
-  foxSpeak(d.reteachEasy.say);
+  upgradeSayButtons($('#l2QBox'));
+  foxSpeak(say);
   $('#l2Retry').onclick = () => { lpSpeechStop(); thenRetry(); };
 }
 

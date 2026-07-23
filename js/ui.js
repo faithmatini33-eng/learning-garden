@@ -6,7 +6,7 @@
    ============================================================ */
 
 // app build stamp — bump together with sw.js CACHE_V on every deploy
-const APP_BUILD = { cache: 'lg-v7', label: 'update 7 · July 23, 2026' };
+const APP_BUILD = { cache: 'lg-v8', label: 'update 8 · July 23, 2026' };
 
 // ---------------- Lucide icons (24×24, stroke currentColor) ----------------
 const ICON_PATHS = {

@@ -1916,3 +1916,10 @@ body.calm-motion .wg-slot.next { animation: none; }
   border-radius: 100px; padding: 3px 10px; font-size: 12px; font-weight: 700; color: var(--green); margin-left: 6px;
 }
 .l2-daisy-row { display: flex; justify-content: center; align-items: flex-end; gap: 8px; }
+
+/* auto lessons — Pip-solved example cards */
+.l2-solved { background: #fff; border: 2px solid var(--teal-tint); border-radius: 18px; padding: 14px 18px; margin: 8px auto; max-width: 640px; text-align: center; }
+.l2-solved-q { font-size: 19px; font-weight: 700; }
+.l2-solved-a { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 24px; font-family: var(--font-head); font-weight: 800; color: var(--teal); }
+.l2-worked-line { display: block; font-size: 17px; font-weight: 700; }
+.l2-worked-line .l2-solved-a { display: flex; justify-content: center; }
