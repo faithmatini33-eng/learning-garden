@@ -467,6 +467,8 @@ nav.tabbar button.active { background: var(--terra-tint); color: var(--terra-dar
 }
 .fb-row.good { background: var(--green-tint); }
 .fb-row.bad { background: var(--gold-tint); }
+.fb-row.hint { background: #fff; border: 2px solid var(--gold); }
+.fb-row .fb-owl { flex: none; display: inline-flex; }
 .fb-row .fb-tile {
   width: 38px; height: 38px; border-radius: 11px; color: #fff;
   display: grid; place-items: center; flex: none;
@@ -708,6 +710,20 @@ nav.tabbar button.active { background: var(--terra-tint); color: var(--terra-dar
   background: var(--bg-parent); border-radius: 4px 14px 14px 14px; padding: 9px 13px;
   font-weight: 600; font-size: 13px; color: var(--soft); line-height: 1.5;
 }
+
+/* guided lessons — Plant it / Water it / Watch it grow */
+.beat-pill {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  border: 1.5px solid var(--border); border-radius: 100px; padding: 6px 12px;
+  font-family: var(--font-head); font-weight: 800; font-size: 11.5px; color: var(--muted);
+}
+.beat-pill.on { background: var(--green-tint); border-color: var(--green); color: var(--green); }
+.ls-chunk {
+  border: 1px solid var(--border); border-radius: 14px; background: #FDF9F2;
+  padding: 13px 16px; margin-bottom: 10px; font-size: 14.5px; line-height: 1.6;
+}
+.ls-chunk:not(.cur) { opacity: .55; }
+.ls-chunk.cur { background: #fff; border: 2px solid var(--teal); }
 
 /* listening ears — mic states (transform-only animation, per the webview rule) */
 @keyframes listenPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }

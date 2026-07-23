@@ -291,6 +291,7 @@ function show(view, param) {
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
     worksheet: renderWorksheetMaker, garden: renderMyGarden, profile: renderProfile,
+    lesson: () => renderGuidedLesson(param),
   };
   (views[view] || renderKids)();
 }
@@ -827,17 +828,13 @@ function renderPractice() {
         <span class="sc">${sc}</span>
       </button>`;
     }).join('');
+    const watched = kidLessons()[strand.id];
     const lessonBtn = strand.lesson
-      ? `<button class="btn small sky" data-lesson="${strand.id}">${icon('bulb', 14)} Learn</button>` : '';
-    const lessonCard = strand.lesson
-      ? `<div class="card lesson-card" id="lesson-${strand.id}" style="display:none">
-          <button class="btn small sunny" data-readlesson="${strand.id}" style="float:right" title="Read it out loud">${icon('volume', 14)} Read it to me</button>
-          ${strand.lesson}</div>` : '';
+      ? `<button class="btn small sky" data-lesson="${strand.id}">${icon('bulb', 14)} Learn${watched ? ` ${icon('check', 12)}` : ''}</button>` : '';
     return `<div class="strand-head">
         <span class="bubble" style="background:${su.tint};color:${su.color}">${strand.emoji}</span>
         <h3>${strand.name}</h3>${lessonBtn}<span class="meter">${avg} avg</span>
       </div>
-      ${lessonCard}
       <div class="skill-list">${rows}</div>`;
   }).join('');
 
@@ -863,15 +860,8 @@ function renderPractice() {
   $$('[data-sprint]').forEach(b => b.onclick = () => startSprint(b.dataset.sprint));
   $$('[data-subj]').forEach(b => b.onclick = () => { PRACTICE_SUBJ = b.dataset.subj; renderPractice(); });
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
-  $$('[data-lesson]').forEach(b => b.onclick = () => {
-    const el = $('#lesson-' + b.dataset.lesson);
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
-  });
-  $$('[data-readlesson]').forEach(b => b.onclick = () => {
-    if ('speechSynthesis' in window && speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
-    const strand = STRANDS.find(x => x.id === b.dataset.readlesson);
-    speak(speakableText(strand.lesson), 'en');
-  });
+  // Learn = guided lesson (owl teaches → together → on your own), not an info card
+  $$('[data-lesson]').forEach(b => b.onclick = () => show('lesson', b.dataset.lesson));
   upgradeSayButtons(app);
 }
 
@@ -918,14 +908,15 @@ function mascotSay(msg) {
   el.textContent = msg;
 }
 
-function renderSession(skillId) {
+function renderSession(skillId, guided) {
   const sk = SKILL_MAP[skillId];
   if (!sk) return show('practice');
   const strand = STRANDS.find(x => x.id === sk.strand) || {};
   // Computer skills get the full keyboard experience (7a); reading gets the story reader (6b)
   if (strand.subject === 'typing' && typeof renderTypingSession === 'function') return renderTypingSession(sk);
   if (sk.strand === 'reading' && typeof renderStoryReader === 'function') return renderStoryReader(sk);
-  SESSION = { skill: sk, streak: 0, answered: false };
+  // guided = arriving from a Learn lesson: 2 "Water it" warmups first (nothing recorded)
+  SESSION = { skill: sk, streak: 0, answered: false, guidedIntro: guided ? 2 : 0, guidedRun: !!guided };
   const u = subjUI(strand.subject || 'custom');
   sessionShell(`${strand.name ? strand.name + ' · ' : ''}${sk.name}`, 'practice',
     `<span class="subj-ico" style="width:34px;height:34px;background:${u.tint};color:${u.color}">${icon(u.icon, 17)}</span>`);
@@ -993,9 +984,13 @@ function nextQuestion() {
     const t = $('#sessTitle');
     if (t) t.textContent = (SESSION.diag ? '🩺 ' : '🌈 ') + SESSION.skill.name;
   }
-  const lvl = SESSION.diag ? 2 : difficultyFor(SESSION.skill.id);
+  const lvl = SESSION.diag ? 2 : SESSION.guidedIntro > 0 ? 1 : difficultyFor(SESSION.skill.id);
   const q = SESSION.skill.gen(lvl);
-  SESSION.q = q; SESSION.answered = false;
+  SESSION.q = q; SESSION.answered = false; SESSION.retried = false;
+  if (SESSION.guidedRun) {
+    const t = $('#sessTitle');
+    if (t) t.textContent = `${SESSION.guidedIntro > 0 ? 'Together' : 'On your own'} · ${SESSION.skill.name}`;
+  }
   updateScorebox();
   const card = $('#qcard');
   const levelPill = (SESSION.skill.adaptive && !SESSION.diag)
@@ -1094,6 +1089,38 @@ function grade(given, btn) {
     correct = String(given) === String(q.answer);
   }
 
+  // ---- hint ladder (Khan-style, practice only): first miss = owl hint +
+  // another try; only the SECOND resolution counts. Checkups measure, so
+  // they skip the ladder entirely — never scaffold during measurement.
+  if (!correct && !SESSION.diag && !SESSION.retried) {
+    SESSION.retried = true;
+    SESSION.answered = false;
+    sfx('wrong');
+    if (q.type === 'mc' || q.type === 'picture') {
+      if (btn) { btn.classList.add('wrong'); btn.disabled = true; }
+    } else if (q.type === 'num' || q.type === 'text') {
+      const inp = $('#numIn');
+      if (inp) { inp.style.background = 'var(--bad-bg)'; inp.select(); }
+    } else if (q.type === 'line') {
+      $$('.nl-tick.picked').forEach(t => t.classList.remove('picked'));
+    }
+    const hint = q.hint || {
+      mc: 'read the question one more time, then try a different answer.',
+      picture: 'listen to the word again, then tap a different card.',
+      num: 'try it on paper first, then type your new answer.',
+      text: 'sound it out slowly, check your spelling, and try again.',
+      line: 'count the ticks one by one, then tap again.',
+    }[q.type] || 'take another look and try once more.';
+    const fbEl = $('#fb');
+    fbEl.innerHTML = `<div class="fb-row hint pop">
+      <span class="fb-owl">${owlSVG(34)}</span>
+      <span class="fb-text"><b>${pick(['Not quite —', 'Almost —', 'Good thinking, but not that one —'])}</b> ${hint}</span>
+      <button class="icon-btn" id="readHint" style="width:34px;height:34px;flex:none" title="Read it out loud">${icon('volume', 15)}</button>
+    </div>`;
+    $('#readHint').onclick = () => speak(speakableText(hint), 'en');
+    return;
+  }
+
   if (SESSION.queue && correct) SESSION.right++;
 
   let cur = { s: 0 }, before = 0;
@@ -1101,6 +1128,11 @@ function grade(given, btn) {
     // checkups measure — they don't move mastery or the daily log
     const r = SESSION.diagResults[sk.strand] = SESSION.diagResults[sk.strand] || [0, 0];
     r[1]++; if (correct) r[0]++;
+  } else if (SESSION.guidedIntro > 0) {
+    // "Water it" warmups after a lesson — mistakes teach, nothing is recorded
+    SESSION.guidedIntro--;
+    if (correct) SESSION.streak++;
+    sfx(correct ? 'correct' : 'wrong');
   } else {
     // ---- update mastery score ----
     const st = kidStats();
@@ -1110,6 +1142,7 @@ function grade(given, btn) {
       SESSION.streak++;
       let delta = cur.s < 50 ? 8 : cur.s < 80 ? 6 : 4;
       if (SESSION.streak >= 3) delta += 1;
+      if (SESSION.retried) delta = Math.max(2, Math.ceil(delta / 2)); // needed a hint → smaller step up
       cur.s = Math.min(100, cur.s + delta);
       cur.c++;
     } else {
@@ -1151,11 +1184,17 @@ function grade(given, btn) {
   }
 
   const fb = $('#fb');
-  const praise = pick(['Way to go!', 'You got it!', 'Super!', 'Amazing!', 'High five! 🖐️', 'Brains blooming! 🌸', 'Nailed it!']);
+  const praise = pick(['Way to go!', 'You got it!', 'Super!', 'Amazing!', 'High five!', 'Brains blooming!', 'Nailed it!']);
   const oops = pick(['Almost!', 'Good try!', 'So close!', 'Keep growing!']);
   const answerShown = q.type === 'num' || q.type === 'line'
     ? `${q.answer}${q.suffix || ''}` : q.answer;
-  fb.innerHTML = `<div class="fb-row ${correct ? 'good' : 'bad'} pop">
+  let guidedNote = '';
+  if (SESSION.guidedRun && SESSION.guidedIntro === 0 && !SESSION.guidedDone) {
+    SESSION.guidedDone = true;
+    guidedNote = `<div class="fb-row hint pop" style="margin-top:8px"><span class="fb-owl">${owlSVG(30)}</span>
+      <span class="fb-text"><b>Warm-ups done!</b> Now you try on your own — these next ones water your garden for real.</span></div>`;
+  }
+  fb.innerHTML = `${guidedNote}<div class="fb-row ${correct ? 'good' : 'bad'} pop">
       <span class="fb-tile" style="background:${correct ? 'var(--green)' : 'var(--gold)'}">${icon(correct ? 'star' : 'bulb', 17)}</span>
       <span class="fb-text"><b>${correct ? praise : oops + ` The answer is ${answerShown}.`}</b> ${q.explain || ''}</span>
       ${q.say ? `<button class="btn small ghost" id="sayWithMe" style="flex:none;white-space:nowrap">${icon('volume', 13)} Say it with me</button>` : ''}
@@ -1479,6 +1518,43 @@ function renderGrownups() {
     </div>`;
   }).join('') || '<p class="note">No kids yet — add one to plant the first garden.</p>';
 
+  // ---- "this week in 10 seconds" — glance stats + one-tap add-to-plan ----
+  const glanceCards = DB.kids.map(k => {
+    const st = kidStats(k.id);
+    const log = DB.log[k.id] || {};
+    let wkT = 0, wkC = 0, days = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + i);
+      const e = log[dstr(d)]; if (e && e.t > 0) { wkT += e.t; wkC += e.c; days++; }
+    }
+    const lessonsWk = Object.values((DB.lessons || {})[k.id] || {}).filter(ds => ds >= dstr(mon)).length;
+    const focusIds = (DB.focus[k.id] && DB.focus[k.id].week === wk) ? DB.focus[k.id].skills : [];
+    const weak = SKILLS
+      .map(s => ({ s, v: st[s.id] || { s: 0, a: 0 } }))
+      .filter(x => x.v.a > 0 && x.v.s < 75)
+      .sort((a, b) => a.v.s - b.v.s)
+      .slice(0, 3);
+    const weakRows = weak.map(x => `
+      <div class="kid-admin-row" style="border-bottom-style:dotted">
+        <span style="display:inline-flex">${plantSVG(x.v.s, 22)}</span>
+        <span class="nm" style="font-size:14px">${x.s.name} <span style="color:var(--ink-soft);font-size:12.5px">· score ${x.v.s}</span></span>
+        ${focusIds.includes(x.s.id)
+          ? `<span class="pill" style="font-size:11.5px;flex:none">${icon('check', 12)} in this week's plan</span>`
+          : `<button class="btn small sky" style="flex:none" data-addweek="${k.id}:${x.s.id}">＋ Add to the week</button>`}
+      </div>`).join('') || '<p class="note">No trouble spots right now — the garden is healthy.</p>';
+    return `<div class="card">
+      <h2><span class="bubble" style="background:var(--sky)">${icon('calendar', 16)}</span>${esc(k.name)} — this week in 10 seconds</h2>
+      <div class="stat-row">
+        <div class="stat-tile"><div class="v">${wkT}</div><div class="l">questions</div></div>
+        <div class="stat-tile"><div class="v">${wkT ? Math.round(wkC / wkT * 100) + '%' : '—'}</div><div class="l">correct</div></div>
+        <div class="stat-tile"><div class="v">${days}</div><div class="l">days practiced</div></div>
+        <div class="stat-tile"><div class="v">${lessonsWk}</div><div class="l">lessons watched</div></div>
+      </div>
+      <p class="eyebrow" style="margin:12px 0 4px">Needs water — one tap adds it to ${esc(k.name)}'s plan</p>
+      ${weakRows}
+    </div>`;
+  }).join('');
+
   // ---- per-kid school focus chips ----
   const focusCards = DB.kids.map(k => {
     const f = DB.focus[k.id];
@@ -1543,6 +1619,7 @@ function renderGrownups() {
           </div>
           ${kidRows}
         </div>
+        ${glanceCards}
         ${focusCards}
         <div class="card" style="display:flex;align-items:center;gap:14px">
           <span class="subj-ico" style="width:48px;height:48px;background:var(--gold-tint);color:var(--gold)">${icon('printer', 22)}</span>
@@ -1610,6 +1687,14 @@ function renderGrownups() {
   });
   $$('[data-report]').forEach(b => b.onclick = () => show('report', b.dataset.report));
   $$('[data-sync]').forEach(b => b.onclick = () => show('schoolsync', b.dataset.sync));
+  $$('[data-addweek]').forEach(b => b.onclick = () => {
+    const [kidId, sid] = b.dataset.addweek.split(':');
+    if (!DB.focus[kidId] || DB.focus[kidId].week !== wk) DB.focus[kidId] = { week: wk, skills: [] };
+    if (!DB.focus[kidId].skills.includes(sid)) DB.focus[kidId].skills.push(sid);
+    if (DB.plans[kidId]) delete DB.plans[kidId][wk]; // plan rebuilds with it in the first slots
+    save(); sfx('water');
+    renderGrownups();
+  });
   $$('[data-unfocus]').forEach(b => b.onclick = () => {
     const [kidId, sid] = b.dataset.unfocus.split(':');
     const f = DB.focus[kidId];
