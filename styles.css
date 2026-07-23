@@ -374,6 +374,26 @@ nav.tabbar button.active { border-color: var(--line); background: var(--sun); co
 .reveal > *:nth-child(5) { animation-delay: .26s; }
 @keyframes rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* ---------- lightning round ---------- */
+.sprint-timer {
+  height: 16px; border: 3px solid var(--line); border-radius: 99px;
+  background: #F1EADB; overflow: hidden;
+}
+.sprint-timer i {
+  display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--coral), var(--sun));
+  border-radius: 99px; transition: width .1s linear;
+}
+
+/* ---------- print (parent report) ---------- */
+@media print {
+  body { background: #fff; padding-bottom: 0; }
+  header.topbar, nav.tabbar, .btn, .answer-row, .no-print, #confetti { display: none !important; }
+  .print-only { display: block !important; }
+  .card { box-shadow: none; break-inside: avoid; margin-bottom: 12px; transform: none !important; }
+  .wrap { max-width: 100%; padding: 0; }
+}
+
 @media (max-width: 560px) {
   .brand h1 { font-size: 24px; }
   .qprompt { font-size: 21px; }

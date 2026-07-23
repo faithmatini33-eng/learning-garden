@@ -19,6 +19,7 @@ DB.focus = DB.focus || {};
 DB.diag = DB.diag || {};
 DB.custom = DB.custom || [];
 DB.settings = DB.settings || {};
+DB.sprint = DB.sprint || {};
 const save = () => localStorage.setItem(DB_KEY, JSON.stringify(DB));
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -97,7 +98,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 4; // bump when the skill catalog or plan logic changes
+const PLAN_VERSION = 5; // bump when the skill catalog or plan logic changes
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};
@@ -129,7 +130,9 @@ function getWeekPlan(kidId = DB.activeKid) {
   focusIds.forEach(id => used.add(id)); // focus skills can't double-book via the pools
 
   const days = [0, 1, 2, 3, 4].map(d => {
-    const daySubj = (d % 2 === 0) ? 'science' : 'spanish'; // M/W/F science, T/Th spanish
+    // rotate the "special" subject: Mon science, Tue spanish, Wed social,
+    // Thu science, Fri spanish (social also shows up via review picks)
+    const daySubj = ['science', 'spanish', 'social', 'science', 'spanish'][d];
     const tasks = focusByDay[d].slice();
     // priority order fills up to 6 slots (Today shows the parent's goal count; rest are bonus)
     const pools = [bySubject.math, bySubject.ela, bySubject[daySubj], bySubject.math, all, all];
@@ -381,6 +384,8 @@ function renderToday() {
       <div class="answer-row" style="justify-content:flex-start"><button class="btn coral big" id="goMix">Start the Mix 🌈</button></div>
     </div>
 
+    ${sprintCardHTML()}
+
     <div class="card">
       <h2><span class="bubble" style="background:var(--sky)">🦉</span>Homework tonight?</h2>
       <p style="font-weight:700">The Tutor Owl doesn't give answers — it asks you the right questions, one step at a time, until YOU find them.</p>
@@ -389,6 +394,7 @@ function renderToday() {
   </div>`;
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
   $$('[data-diag]').forEach(b => b.onclick = () => startDiagnostic(b.dataset.diag));
+  $$('[data-sprint]').forEach(b => b.onclick = () => startSprint(b.dataset.sprint));
   const fp = $('#freePlay'); if (fp) fp.onclick = () => show('practice');
   const bt = $('#bonusToggle'); if (bt) bt.onclick = () => {
     const w = $('#bonusWrap'); w.style.display = w.style.display === 'none' ? 'block' : 'none';
@@ -917,7 +923,9 @@ function renderGrownups() {
     <div class="card tilt-r">
       <h2><span class="bubble" style="background:var(--sun)">💡</span>How Learning Garden works</h2>
       <p class="note">
-        • <b>Five areas</b> — Math, Language, Science, Spanish, and your own "My Lessons" — modeled on IXL's grade-2 skill lists.<br><br>
+        • <b>Six areas</b> — Math, Language, Science, Social Studies, Spanish, and your own "My Lessons" — modeled on IXL's grade-2 skill lists.<br><br>
+        • <b>⚡ Lightning Round</b> builds math-fact fluency: 60-second sprints where kids race their own personal best. Sprints count toward streaks but never lower a garden score, so time pressure stays fun.<br><br>
+        • <b>🖨️ Printable report:</b> each kid's Report page has a Print button — great for sharing with their teacher.<br><br>
         • <b>Questions are made fresh every time</b>, and math questions <b>get harder as a kid improves</b> and ease back after misses, so they're always met where they are and gently stretched.<br><br>
         • <b>The garden score (0–100)</b> works like IXL's SmartScore: right answers grow it, wrong shrink it, 100 = mastered (🌻).<br><br>
         • <b>Lighter school days:</b> each kid does a short set of skills Mon–Fri (you set how many with the slider on their School focus page), with weekends left open for exploring. Bonus skills are always one tap away.<br><br>
@@ -952,7 +960,7 @@ function renderGrownups() {
     if (confirm(`Remove ${k.name} and all their progress? This cannot be undone.`)) {
       DB.kids = DB.kids.filter(x => x.id !== k.id);
       delete DB.stats[k.id]; delete DB.log[k.id]; delete DB.plans[k.id];
-      delete DB.focus[k.id]; delete DB.diag[k.id];
+      delete DB.focus[k.id]; delete DB.diag[k.id]; delete DB.sprint[k.id];
       if (DB.activeKid === k.id) DB.activeKid = null;
       save(); renderGrownups();
     }

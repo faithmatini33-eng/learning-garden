@@ -64,6 +64,21 @@ const SKILL_KEYWORDS = {
   adaptations: ['adaptation'], weather_type: ['weather', 'precipitation', 'storms', 'severe weather'],
   thermometer: ['temperature', 'thermometer'], earth_features: ['landforms', 'bodies of water', 'earth features'],
   earth_changes: ['erosion', 'earthquake', 'volcano', 'earth changes'], rrr: ['recycle', 'recycling', 'earth day', 'conservation'],
+  // social studies
+  soc_compass: ['compass', 'directions', 'north south east west', 'cardinal directions'],
+  soc_mapread: ['map skills', 'map key', 'map legend', 'reading maps', 'maps'],
+  soc_world: ['continents', 'oceans', 'globe', 'geography'],
+  soc_helpers: ['community helpers', 'community workers', 'jobs in our community'],
+  soc_rules: ['rules and laws', 'laws', 'classroom rules'],
+  soc_citizen: ['citizenship', 'good citizen', 'being a good citizen'],
+  soc_leaders: ['government', 'president', 'mayor', 'voting', 'elections', 'leaders'],
+  soc_goods: ['goods and services', 'economics'],
+  soc_needs: ['needs and wants'],
+  soc_money: ['saving and spending', 'earning money', 'economics'],
+  soc_symbols_q: ['american symbols', 'national symbols', 'the flag', 'statue of liberty'],
+  soc_holidays: ['holidays', 'thanksgiving', 'independence day', 'mlk day', 'presidents day'],
+  soc_pastpresent: ['long ago and today', 'past and present', 'then and now', 'history'],
+  soc_famous: ['famous americans', 'historical figures', 'black history', 'george washington', 'abraham lincoln', 'rosa parks', 'martin luther king'],
   // spanish
   sp_greet_q: ['spanish greetings', 'greetings', 'hola'], sp_num_q: ['spanish numbers', 'numbers in spanish'],
   sp_color_q: ['spanish colors', 'colors in spanish', 'colores'], sp_animal_q: ['spanish animals', 'animales'],
@@ -646,9 +661,19 @@ function renderParentReport(kidId) {
     ? focus.map(id => SKILL_MAP[id] ? SKILL_MAP[id].name : '').filter(Boolean).join(' · ')
     : 'None set this week — tap 🎯 School focus to paste the teacher\'s plan.';
 
-  app.innerHTML = `<div class="reveal">
+  // Lightning Round personal bests
+  const sprints = (typeof SPRINT_DRILLS !== 'undefined')
+    ? SPRINT_DRILLS.map(d => {
+        const rec = (DB.sprint && DB.sprint[kidId] && DB.sprint[kidId][d.id]) || { best: 0, plays: 0 };
+        return rec.plays ? `<span style="display:inline-block;border:2.5px solid var(--line);border-radius:99px;padding:4px 12px;font-weight:800;font-size:13.5px;margin:3px">${d.emoji} ${d.name}: 🏆 ${rec.best} in 60s</span>` : '';
+      }).filter(Boolean).join('') || '<p class="note">No Lightning Rounds played yet.</p>'
+    : '';
+
+  app.innerHTML = `<div class="reveal" id="reportPage">
     <div class="card tilt-l">
-      <h2><span class="bubble" style="background:var(--sky)">📊</span>${k.avatar} ${esc(k.name)}'s report</h2>
+      <h2><span class="bubble" style="background:var(--sky)">📊</span>${k.avatar} ${esc(k.name)}'s report
+        <button class="btn small ghost no-print" id="printReport" style="margin-left:auto">🖨️ Print</button></h2>
+      <p class="note print-only" style="display:none">Learning Garden report · printed ${dstr()}</p>
       <div class="stat-row">
         <div class="stat-tile"><div class="v">${tw.t}</div><div class="l">questions this week</div></div>
         <div class="stat-tile"><div class="v">${pct(tw)}%</div><div class="l">correct this week</div></div>
@@ -665,6 +690,10 @@ function renderParentReport(kidId) {
       ${weakest}
     </div>
     <div class="card">
+      <h2><span class="bubble" style="background:var(--coral)">⚡</span>Math-fact fluency</h2>
+      ${sprints}
+    </div>
+    <div class="card">
       <h2><span class="bubble" style="background:var(--sun)">🎯</span>School focus this week</h2>
       <p class="note">${focusLine}</p>
       <div class="field-row"><button class="btn small sunny" id="editFocus">🎯 Edit school focus</button></div>
@@ -679,6 +708,7 @@ function renderParentReport(kidId) {
   </div>`;
   $('#editFocus').onclick = () => show('schoolsync', kidId);
   $('#backGrown').onclick = () => show('grownups');
+  $('#printReport').onclick = () => window.print();
   $$('[data-rundiag]').forEach(b => b.onclick = () => {
     DB.activeKid = kidId; save();
     startDiagnostic(b.dataset.rundiag);

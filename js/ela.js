@@ -572,11 +572,119 @@ SKILLS.push(
   // ----- READING -----
   {
     id: 'read_story', strand: 'reading', name: 'Story time (fiction)',
-    gen: () => readingQ(PASSAGES.slice(0, 2).concat(PASSAGES.slice(3, 4), PASSAGES.slice(5, 8), PASSAGES.slice(9, 10))),
+    gen: () => readingQ(PASSAGES.filter(p => p.kind === 'story')),
   },
   {
     id: 'read_facts', strand: 'reading', name: 'Fact hunt (nonfiction)',
-    gen: () => readingQ([PASSAGES[2], PASSAGES[4], PASSAGES[8]]),
+    gen: () => readingQ(PASSAGES.filter(p => p.kind === 'facts')),
+  },
+);
+
+// tag the original passages, then grow the library
+{
+  const FACT_TITLES = ['Busy Bats', 'Octopus: Ocean Genius', 'Firefly Night'];
+  PASSAGES.forEach(p => { p.kind = FACT_TITLES.includes(p.title) ? 'facts' : 'story'; });
+}
+
+PASSAGES.push(
+  {
+    kind: 'story', title: 'The Rainy Camping Trip',
+    text: `Deja's family drove to the lake to go camping. Just as they set up the tent, big raindrops began to fall. "Our campfire is ruined!" said Deja. But Dad had a surprise: he pulled out a little camp stove and made s'mores INSIDE the tent door. They played cards while the rain drummed on the tent. It turned out to be Deja's favorite trip ever.`,
+    qs: [
+      { q: 'What problem happened on the trip?', a: 'it started to rain', d: ['the tent ripped', 'they forgot the food', 'the car broke down'], why: 'Big raindrops began to fall right after they set up the tent.' },
+      { q: 'How did Dad solve the s\'mores problem?', a: 'he used a little camp stove', d: ['he drove to a store', 'he waited for the sun', 'he skipped dessert'], why: 'Dad\'s surprise camp stove saved the s\'mores!' },
+      { q: 'How did Deja feel at the END of the story?', a: 'happy — it was her favorite trip', d: ['angry about the rain', 'scared of the lake', 'bored of cards'], why: 'The last sentence says it turned out to be her favorite trip ever.' },
+    ],
+  },
+  {
+    kind: 'story', title: 'The Missing Library Book',
+    text: `Omar's library book was due on Friday, but he could not find it anywhere. He checked his backpack. He checked under his bed. Then his little sister walked by, pulling her wagon. Inside the wagon sat the book — with her teddy bear "reading" it! Omar laughed, thanked the bear, and returned the book just in time.`,
+    qs: [
+      { q: 'What was Omar looking for?', a: 'his library book', d: ['his backpack', 'his sister', 'a teddy bear'], why: 'The first sentence says his library book was due Friday and he couldn\'t find it.' },
+      { q: 'Where was the book?', a: 'in his sister\'s wagon', d: ['under his bed', 'in his backpack', 'at the library'], why: 'The book was in the wagon, with the teddy bear "reading" it.' },
+      { q: 'Where did Omar look FIRST?', a: 'in his backpack', d: ['under his bed', 'in the wagon', 'at school'], why: 'The story says he checked his backpack first, THEN under his bed.' },
+    ],
+  },
+  {
+    kind: 'story', title: 'The Big Race',
+    text: `On field day, Kiara lined up for the big race. Halfway to the finish, her friend Tom tripped and fell. Kiara stopped running. She helped Tom up, and they crossed the finish line together — in last place. The whole crowd cheered louder for them than for the winner. "Some things matter more than winning," said her coach with a smile.`,
+    qs: [
+      { q: 'Why did Kiara stop running?', a: 'to help her friend who fell', d: ['she was too tired', 'she lost her shoe', 'the race was canceled'], why: 'Tom tripped and fell, so Kiara stopped to help him up.' },
+      { q: 'Why did the crowd cheer the loudest for Kiara and Tom?', a: 'because being kind mattered more than winning', d: ['because they ran the fastest', 'because the winner left', 'because it started raining'], why: 'The coach explains it: some things matter more than winning.' },
+      { q: 'What is the LESSON of this story?', a: 'kindness is more important than winning', d: ['always run faster', 'never race with friends', 'field day is boring'], why: 'The story teaches that helping someone beats a trophy.' },
+    ],
+  },
+  {
+    kind: 'story', title: 'The Lemonade Stand',
+    text: `Ben and Maya opened a lemonade stand to earn money for a new soccer ball. The ball cost eight dollars. On the first day they earned five dollars. "We're not there yet," said Maya, "so let's save it and try again." The next day they earned four more dollars. They bought the ball and had one dollar left over — which went straight into the piggy bank.`,
+    qs: [
+      { q: 'Why did Ben and Maya open the lemonade stand?', a: 'to earn money for a soccer ball', d: ['to win a contest', 'because they were thirsty', 'to skip chores'], why: 'The first sentence says they wanted to earn money for a new soccer ball.' },
+      { q: 'How much money did they earn IN ALL?', a: 'nine dollars', d: ['five dollars', 'four dollars', 'eight dollars'], why: 'Five dollars + four dollars = nine dollars in all.' },
+      { q: 'What did they do with the extra dollar?', a: 'saved it in the piggy bank', d: ['bought candy', 'lost it', 'gave it away'], why: 'The last sentence says the leftover dollar went straight into the piggy bank.' },
+    ],
+  },
+  {
+    kind: 'story', title: 'The Tomato Mystery',
+    text: `Every morning, a tomato was missing from Grandpa's garden. "A mystery!" said Lena. She hid behind the fence with her notebook and waited. Soon a fat groundhog waddled up, picked a tomato, and hurried away. Lena and Grandpa built a little fence around the plants. The tomatoes were safe — and Lena drew the groundhog a picture of his own tomato, just to be fair.`,
+    qs: [
+      { q: 'What was the mystery in the garden?', a: 'tomatoes kept going missing', d: ['the fence was broken', 'the flowers changed color', 'Grandpa lost his hat'], why: 'Every morning a tomato was missing — that\'s the mystery Lena solved.' },
+      { q: 'Who was taking the tomatoes?', a: 'a groundhog', d: ['a bird', 'a neighbor', 'Grandpa'], why: 'Lena watched a fat groundhog waddle up and take one.' },
+      { q: 'How did they SOLVE the problem?', a: 'they built a little fence around the plants', d: ['they stopped growing tomatoes', 'they yelled at the groundhog', 'they moved the garden inside'], why: 'A small fence kept the tomatoes safe.' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'Honeybees at Work',
+    text: `Honeybees live together in a hive with one queen. Worker bees fly from flower to flower collecting sweet nectar. Back at the hive, they turn the nectar into honey. Bees also do a "waggle dance" to tell other bees where the best flowers are. While they visit flowers, bees spread pollen — which helps plants make seeds and fruit. Without bees, we would have far less food!`,
+    qs: [
+      { q: 'What do worker bees collect from flowers?', a: 'nectar', d: ['honey', 'seeds', 'leaves'], why: 'Bees collect nectar and turn it into honey back at the hive.' },
+      { q: 'Why do bees do the "waggle dance"?', a: 'to tell other bees where the best flowers are', d: ['to stay warm', 'to scare away birds', 'because they are happy'], why: 'The waggle dance is bee language for "flowers, this way!"' },
+      { q: 'How do bees help plants?', a: 'they spread pollen so plants can make seeds', d: ['they water the plants', 'they chase away bugs', 'they dig the soil'], why: 'Spreading pollen helps plants make seeds and fruit — that\'s why bees matter so much.' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'Emperor Penguins',
+    text: `Emperor penguins live in Antarctica, the coldest place on Earth. They cannot fly, but they are excellent swimmers. After the mother lays an egg, the FATHER balances it on his feet under a warm flap of skin for two whole months. Hundreds of fathers huddle together in a big circle to stay warm, taking turns on the freezing outside edge. When the chick hatches, the mother returns from the sea with food.`,
+    qs: [
+      { q: 'Who keeps the egg warm for two months?', a: 'the father penguin', d: ['the mother penguin', 'the chick', 'the sun'], why: 'The father balances the egg on his feet under a warm flap of skin.' },
+      { q: 'How do the penguin fathers stay warm?', a: 'they huddle together in a big circle', d: ['they build fires', 'they fly to warm places', 'they dig into the ice'], why: 'Hundreds huddle together and take turns on the cold outside edge — teamwork!' },
+      { q: 'What CAN\'T emperor penguins do?', a: 'fly', d: ['swim', 'huddle', 'lay eggs'], why: 'Penguins are flightless — but they are amazing swimmers.' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'Our Moon',
+    text: `The Moon is Earth's closest neighbor in space. It has no air, no wind, and no rain. That is why an astronaut's footprint on the Moon can last for millions of years! The Moon does not make its own light — it reflects light from the Sun, like a giant mirror. The Moon seems to change shape during the month, from a thin sliver to a full circle. We call these shapes the Moon's phases.`,
+    qs: [
+      { q: 'Why can a footprint last millions of years on the Moon?', a: 'there is no wind or rain to wipe it away', d: ['the dust is sticky like glue', 'astronauts stomp very hard', 'robots protect it'], why: 'No air, no wind, no rain — nothing to erase the footprint!' },
+      { q: 'Where does the Moon\'s light come from?', a: 'it reflects light from the Sun', d: ['it makes its own light', 'from city lights on Earth', 'from the stars'], why: 'The Moon works like a mirror, bouncing sunlight to us.' },
+      { q: 'What do we call the Moon\'s changing shapes?', a: 'phases', d: ['faces', 'shadows', 'seasons'], why: 'From sliver to full circle — those shapes are the Moon\'s phases.' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'How Rainbows Happen',
+    text: `A rainbow appears when sunlight shines through raindrops. Each tiny drop bends the light and splits it into colors, like a tiny piece of glass. The colors always come in the same order: red, orange, yellow, green, blue, and purple. To see a rainbow, the sun must be BEHIND you and the rain in front of you. That is why rainbows often appear right after a storm, when the sun comes back out.`,
+    qs: [
+      { q: 'What two things make a rainbow?', a: 'sunlight and raindrops', d: ['wind and clouds', 'snow and ice', 'thunder and lightning'], why: 'Sunlight shining through raindrops splits into colors — that\'s the rainbow.' },
+      { q: 'What do the raindrops do to the light?', a: 'bend it and split it into colors', d: ['freeze it', 'make it louder', 'turn it off'], why: 'Each drop works like a tiny piece of glass, bending and splitting the light.' },
+      { q: 'Where must the SUN be for you to see a rainbow?', a: 'behind you', d: ['in front of you', 'straight overhead', 'below the ground'], why: 'Sun behind you, rain in front — that\'s the rainbow recipe.' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'Sea Turtle Journey',
+    text: `A mother sea turtle crawls onto the beach at night and buries her eggs in the warm sand. Weeks later, the tiny hatchlings dig out and race to the ocean, following the light of the moon on the water. Baby sea turtles swim for years across the ocean. When a female grows up, something amazing happens: she swims all the way back to the very same beach where she hatched, to lay her own eggs.`,
+    qs: [
+      { q: 'Where does the mother turtle bury her eggs?', a: 'in the warm beach sand', d: ['under the sea', 'in a nest of sticks', 'in a cave'], why: 'She crawls onto the beach at night and buries them in the sand.' },
+      { q: 'What do hatchlings follow to find the ocean?', a: 'the moonlight on the water', d: ['their mother\'s voice', 'other animals', 'a warm wind'], why: 'The moon\'s light shining on the water shows them the way.' },
+      { q: 'What amazing thing does a grown-up female do?', a: 'returns to the beach where she hatched', d: ['learns to fly', 'sleeps all winter', 'changes color'], why: 'She swims back to her very own hatching beach to lay her eggs — an incredible journey!' },
+    ],
+  },
+  {
+    kind: 'facts', title: 'Amazing Ants',
+    text: `Ants are small, but they are super strong — an ant can lift things many times heavier than its own body. Ants live in big underground families called colonies, with one queen who lays all the eggs. Worker ants have different jobs: some find food, some care for the babies, and some guard the nest. Ants leave an invisible smell trail so other ants can follow them straight to food.`,
+    qs: [
+      { q: 'What makes ants "super strong"?', a: 'they can lift things much heavier than their bodies', d: ['they have big muscles like people', 'they use tiny machines', 'they only lift feathers'], why: 'An ant can carry loads many times its own weight!' },
+      { q: 'What is an ant family called?', a: 'a colony', d: ['a herd', 'a flock', 'a class'], why: 'Ants live in colonies — big underground families with a queen.' },
+      { q: 'How do ants show each other the way to food?', a: 'they leave an invisible smell trail', d: ['they shout directions', 'they draw maps', 'they blink their eyes'], why: 'Other ants follow the smell trail straight to the food. Teamwork!' },
+    ],
   },
 );
 
