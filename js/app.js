@@ -422,8 +422,8 @@ function renderToday() {
   const daySplit = !!kidSettings().daySplit;
   const fullDay = isWeekend ? (daySplit ? weekendTasks() : []) : (plan[dow] || []).filter(sid => SKILL_MAP[sid]);
   let coreTasks = fullDay.slice(0, goal);
-  if (typeof lessonForSkill === 'function') {
-    coreTasks = coreTasks.slice().sort((a, b) => (lessonForSkill(b) ? 1 : 0) - (lessonForSkill(a) ? 1 : 0));
+  if (typeof lessonFirstFor === 'function') {
+    coreTasks = coreTasks.slice().sort((a, b) => (lessonFirstFor(b) ? 1 : 0) - (lessonFirstFor(a) ? 1 : 0));
   }
   const bonusTasks = fullDay.slice(goal);
   const doneCount = coreTasks.filter(t => taskDoneToday(t)).length;
@@ -444,16 +444,18 @@ function renderToday() {
     const subName = (SUBJECTS.find(s => s.id === subjId) || { name: 'Lesson' }).name;
     const mins = sk.strand === 'reading' ? 10 : 5;
     const done = taskDoneToday(sid);
-    // learn before practice: an unlearned lesson turns the row into a Learn task
-    const les = (!done && typeof lessonForSkill === 'function') ? lessonForSkill(sid) : null;
-    return `<button class="plan-task ${done ? 'done' : ''}" ${les ? `data-learnles="${les.id}:${sk.strand}"` : `data-skill="${sid}"`}>
+    // LESSON BEFORE PRACTICE: until understanding is confirmed (or when
+    // practice shows struggle), the row teaches first — practice follows
+    // automatically once the lesson is done.
+    const les = (!done && typeof lessonFirstFor === 'function') ? lessonFirstFor(sid) : null;
+    return `<button class="plan-task ${done ? 'done' : ''}" ${les ? `data-learnles="${les.id}:${sk.strand}${les.review ? ':review' : ''}"` : `data-skill="${sid}"`}>
       <span class="chk">${icon('check', 16)}</span>
       ${subjTile(subjId)}
       <span style="flex:1;min-width:0;text-align:left">
         <span class="t-name">${focus.has(sid) ? '🎯 ' : ''}${sk.name}</span>
-        <span class="eyebrow t-sub" style="color:${u.color}">${les ? `Lesson first · ${subName}` : `${subName} · ${mins} min`}</span>
+        <span class="eyebrow t-sub" style="color:${u.color}">${les ? (les.review ? `Let's review the lesson · then practice` : `Lesson first · then practice`) : `${subName} · ${mins} min`}</span>
       </span>
-      <span class="go" style="background:${les ? 'var(--terra)' : u.tint};color:${les ? '#fff' : u.dark}">${les ? `Let's learn ${icon('bulb', 13)}` : `Start ${icon('arrowright', 13)}`}</span>
+      <span class="go" style="background:${les ? 'var(--terra)' : u.tint};color:${les ? '#fff' : u.dark}">${les ? `${les.review ? 'Review' : "Let's learn"} ${icon('bulb', 13)}` : `Start ${icon('arrowright', 13)}`}</span>
     </button>`;
   };
 
@@ -623,8 +625,8 @@ function renderToday() {
   $$('[data-diag]').forEach(b => b.onclick = () => startDiagnostic(b.dataset.diag));
   const fc = $('#firstCheckup'); if (fc) fc.onclick = startMixedDiagnostic;
   $$('[data-learnles]').forEach(b => b.onclick = () => {
-    const [lid, strandId] = b.dataset.learnles.split(':');
-    startLesson(lid, strandId);
+    const [lid, strandId, review] = b.dataset.learnles.split(':');
+    startLesson(lid, strandId, review ? { review: true } : {});
   });
   const fp = $('#freePlay'); if (fp) fp.onclick = () => show('practice');
   const bt = $('#bonusToggle'); if (bt) bt.onclick = () => {

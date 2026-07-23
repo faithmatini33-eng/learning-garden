@@ -155,6 +155,30 @@ function lessonForSkill(sid) {
 
 function subjOfStrand(strandId) { return (STRANDS.find(x => x.id === strandId) || {}).subject || 'custom'; }
 
+// LESSON BEFORE PRACTICE (Faith's rule, 2026-07-23): a planned skill whose
+// understanding isn't confirmed yet gets its LESSON first — the practice row
+// appears once the lesson is done. Also re-suggests a review lesson when a
+// kid is clearly struggling in practice (never twice in one day).
+function lessonFirstFor(sid) {
+  const sk = SKILL_MAP[sid];
+  if (!sk) return null;
+  const mine = lessonsForStrand(sk.strand).find(l => l.skillId === sid);
+  if (!mine) return null;
+  // the engine must actually be able to teach this skill directly
+  const teachable = (typeof l2DefFor === 'function' && l2DefFor(sid)) || lessonForSkill(sid);
+  if (!teachable) return null;
+  const rec = kidLearn().learnedLessons.find(x => x.lessonId === mine.id);
+  const v = kidStats()[sid] || { s: 0, a: 0, c: 0 };
+  if (!rec) {
+    // never taught: lesson first until understanding is confirmed
+    const confirmed = v.s >= 50 || (v.a >= 4 && v.c / v.a >= 0.6);
+    return confirmed ? null : mine;
+  }
+  // taught before, but practice shows real struggle → gentle review lesson
+  const struggling = v.a >= 6 && v.c / v.a < 0.55 && v.s < 75;
+  return (struggling && rec.date !== dstr()) ? { ...mine, review: true } : null;
+}
+
 // auto-lesson step builder: strand lesson chunks + generated try-its
 function autoSteps(lesson) {
   const strand = STRANDS.find(x => x.id === lesson.strand) || {};
