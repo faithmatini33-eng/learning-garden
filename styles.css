@@ -1940,3 +1940,17 @@ body.calm-motion .wg-slot.next { animation: none; }
   .owl-card.owl-band { flex-wrap: wrap; }
   .owl-card.owl-band .btn { margin: 8px 0 0 auto; }
 }
+
+/* level row never wraps mid-chip: the XP bar shrinks, labels stay whole */
+.level-row { flex-wrap: nowrap; min-width: 0; }
+.level-chip { white-space: nowrap; flex: none; }
+.xp-label { white-space: nowrap; flex: none; }
+.xp-bar { flex: 0 1 140px; min-width: 44px; }
+.appbar-inner .xp-bar { flex-basis: 104px; }
+.appbar-inner .hero-meta { min-width: 0; flex: 1 1 170px; }
+.appbar-inner .hero-meta .hi { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  /* phones: greeting row stays whole; pills wrap to their own line */
+  .appbar-inner .hero-meta { flex: 1 1 200px; }
+  .appbar-inner .ab-spacer { flex: 0 0 0; }
+}
