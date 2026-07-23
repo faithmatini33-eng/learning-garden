@@ -22,6 +22,7 @@ Note (macOS): the system Python can't read `~/Desktop` (TCC). Serve from a copy 
 | `js/coach.js` | school-focus sync (`SKILL_KEYWORDS`), diagnostics ("Garden Checkup"), Daily Mix, Socratic math tutor + solo transfer step, word-problem wizard w/ **listening ears** (free `SpeechRecognition` — the owl hears the kid read & prefills their numbers), Tricky Words (syllable card + say-it-back listening + saved chips), parent report |
 | `js/custom.js` | parent-authored lessons (`DB.custom` → real skills) + homework photo helper |
 | `js/paper.js` | printable worksheet maker (show-your-work boxes + answer key) |
+| `js/art.js` | crafted + generative art: `foxSVG(size,pose)`, `avatarSVG(kind)` ×12, chrome (star/flame/drop/sun/gift/trophy/heart), life-cycle set, and SEEDED generators `flowerSVG/critterSVG/gardenSceneSVG` (same seed = same design forever; no Math.random) |
 | `js/ui.js` | design-system kit: Lucide `icon()`, `plantSVG()` stages, `logoSVG()`, `SUBJECT_UI` colors, XP `levelInfo()`, `sfx()` sound gate, `upgradeSayButtons()` |
 | `js/app.js` | **loads last**: `SKILL_MAP`, router `show()`, all screen renderers, session engine (`SESSION`, `nextQuestion`, `grade`), weekly plan builder, settings/profile/My Garden |
 
