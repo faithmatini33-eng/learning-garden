@@ -38,11 +38,31 @@ function kidSettings(id = DB.activeKid) {
 }
 
 // ---------------- audio (built-in voices, free & offline) ----------------
+// Two reader choices (girl/boy voice) from the voices already on this
+// computer — no accounts or paid services needed.
+const VOICE_NAMES = {
+  female: { en: ['samantha', 'ava', 'allison', 'victoria', 'karen', 'susan', 'zoe', 'moira', 'tessa', 'female'], es: ['mónica', 'monica', 'paulina', 'angélica', 'angelica', 'isabela', 'female'] },
+  male: { en: ['alex', 'daniel', 'tom', 'aaron', 'fred', 'oliver', 'nathan', 'male'], es: ['diego', 'jorge', 'juan', 'carlos', 'reed', 'male'] },
+};
+if ('speechSynthesis' in window) speechSynthesis.getVoices(); // warm the voice list
+
+function pickVoice(lang) {
+  const pref = DB.settings.voicePref || 'female';
+  const voices = speechSynthesis.getVoices();
+  const prefix = String(lang).toLowerCase().startsWith('es') ? 'es' : 'en';
+  const pool = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
+  if (!pool.length) return null;
+  const names = VOICE_NAMES[pref][prefix];
+  return pool.find(v => names.some(n => v.name.toLowerCase().includes(n))) || pool[0];
+}
+
 function speak(text, lang = 'es-ES') {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === 'en' ? 'en-US' : lang;
+  const v = pickVoice(u.lang);
+  if (v) u.voice = v;
   u.rate = 0.82;
   speechSynthesis.speak(u);
 }
@@ -98,7 +118,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 5; // bump when the skill catalog or plan logic changes
+const PLAN_VERSION = 6; // bump when the skill catalog or plan logic changes
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};
@@ -130,9 +150,8 @@ function getWeekPlan(kidId = DB.activeKid) {
   focusIds.forEach(id => used.add(id)); // focus skills can't double-book via the pools
 
   const days = [0, 1, 2, 3, 4].map(d => {
-    // rotate the "special" subject: Mon science, Tue spanish, Wed social,
-    // Thu science, Fri spanish (social also shows up via review picks)
-    const daySubj = ['science', 'spanish', 'social', 'science', 'spanish'][d];
+    // rotate the "special" subject through the week (others appear via review picks)
+    const daySubj = ['science', 'spanish', 'social', 'typing', 'science'][d];
     const tasks = focusByDay[d].slice();
     // priority order fills up to 6 slots (Today shows the parent's goal count; rest are bonus)
     const pools = [bySubject.math, bySubject.ela, bySubject[daySubj], bySubject.math, all, all];
@@ -231,6 +250,7 @@ function show(view, param) {
     session: () => renderSession(param), plan: renderPlan,
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
     schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
+    worksheet: renderWorksheetMaker,
   };
   (views[view] || renderKids)();
 }
@@ -563,6 +583,7 @@ function nextQuestion() {
     </div>
     <div class="qprompt">${q.prompt}</div>
     ${q.body ? `<div class="qbody">${q.body}</div>` : ''}
+    ${q.body && q.body.includes('vertical-math') ? '<p class="note" style="text-align:center;margin-top:6px">📝 Work it out on paper first — then type your answer!</p>' : ''}
     ${answerUI}
     <div id="fb"></div>`;
 
@@ -601,7 +622,9 @@ function grade(given, btn) {
   if (q.type === 'num' || q.type === 'line') {
     correct = Number(String(given).replace(/[,\s]/g, '')) === Number(q.answer);
   } else if (q.type === 'text') {
-    correct = String(given).trim().toLowerCase() === String(q.answer).trim().toLowerCase();
+    correct = q.exact
+      ? String(given).trim() === String(q.answer).trim()
+      : String(given).trim().toLowerCase() === String(q.answer).trim().toLowerCase();
   } else {
     correct = String(given) === String(q.answer);
   }
@@ -851,16 +874,18 @@ function renderProgress() {
 // ============================================================
 // HOMEWORK HELPER
 // ============================================================
-let HELPER_TAB = 'tutor';
+let HELPER_TAB = 'home';
 function renderHelper() {
   app.innerHTML = `<div class="reveal">
     <div class="card tilt-l" style="padding:16px 20px">
       <h2><span class="bubble" style="background:var(--sky)">🦉</span>Tutor Owl</h2>
-      <p class="note">A real tutor doesn't hand you answers — it asks you the right questions. Bring YOUR homework problem here and solve it together, one small step at a time. Wrong answers get a hint first, so you always get a second try.</p>
+      <p class="note">A real tutor doesn't hand you answers — it asks you the right questions. Wrong answers get a hint first, so you always get a second try.</p>
     </div>
     <div class="helper-tabs">
-      <button data-t="tutor">🧮 Math tutor</button>
+      <button data-t="home">🏠 Start</button>
+      <button data-t="tutor">🧮 Math</button>
       <button data-t="wizard">📖 Word problems</button>
+      <button data-t="words">🔤 Tricky words</button>
       <button data-t="homework">📄 My homework</button>
       <button data-t="cheats">🗒️ Cheat sheets</button>
     </div>
@@ -870,7 +895,7 @@ function renderHelper() {
     b.classList.toggle('active', b.dataset.t === HELPER_TAB);
     b.onclick = () => { HELPER_TAB = b.dataset.t; renderHelper(); };
   });
-  ({ tutor: renderTutorTab, wizard: renderWizardTab, homework: renderHomeworkHelper, cheats: renderCheats })[HELPER_TAB]();
+  ({ home: renderTutorHome, tutor: renderTutorTab, wizard: renderWizardTab, words: renderWordHelperTab, homework: renderHomeworkHelper, cheats: renderCheats })[HELPER_TAB]();
 }
 
 function renderCheats() {
@@ -950,6 +975,17 @@ function renderGrownups() {
       <button class="btn ghost" id="backHome">← Back</button></div>
     </div>
     <div class="card">
+      <h2><span class="bubble" style="background:var(--sun)">🛠️</span>Family tools</h2>
+      <div class="field-row" style="align-items:center">
+        <button class="btn sunny" id="wsMaker">🖨️ Worksheet maker</button>
+        <span style="font-weight:800;margin-left:8px">Reading voice:</span>
+        <button class="btn small ${(DB.settings.voicePref || 'female') === 'female' ? 'sky' : 'ghost'}" id="voiceF">👧 Girl voice</button>
+        <button class="btn small ${DB.settings.voicePref === 'male' ? 'sky' : 'ghost'}" id="voiceM">👦 Boy voice</button>
+        <button class="btn small ghost" id="voiceTest">🔊 Test</button>
+      </div>
+      <p class="note" style="margin-top:8px">Worksheets print with show-your-work boxes and an answer key — because pencil-and-paper practice matters as much as screen practice. The reading voice uses the free voices built into this computer.</p>
+    </div>
+    <div class="card">
       <h2><span class="bubble" style="background:var(--berry)">📌</span>My lessons</h2>
       <p class="note">Add your own content — spelling lists, vocabulary, or quizzes. It becomes a skill your kids practice, with its own garden score, and can be added to their weekly focus.</p>
       ${lessons}
@@ -982,6 +1018,10 @@ function renderGrownups() {
     </div>
   </div>`;
   $('#addKid2').onclick = renderAddKid;
+  $('#wsMaker').onclick = () => show('worksheet');
+  $('#voiceF').onclick = () => { DB.settings.voicePref = 'female'; save(); renderGrownups(); };
+  $('#voiceM').onclick = () => { DB.settings.voicePref = 'male'; save(); renderGrownups(); };
+  $('#voiceTest').onclick = () => speak('Hello! I will be your reading buddy in the Learning Garden.', 'en');
   $('#newLesson').onclick = () => renderCreateLesson();
   $$('[data-editles]').forEach(b => b.onclick = () => renderCreateLesson(b.dataset.editles));
   $$('[data-delles]').forEach(b => b.onclick = () => {

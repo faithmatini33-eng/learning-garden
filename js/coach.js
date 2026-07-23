@@ -384,7 +384,8 @@ function startTutor(a, b, op) {
   TUTOR = { a, b, op, i: 0, tries: 0, hinted: false };
   TUTOR.steps = op === '+' ? tutorStepsAdd(a, b) : tutorStepsSub(a, b);
   const box = $('#tutorBox');
-  box.innerHTML = `<div style="margin:10px 0 14px;text-align:center">${verticalMath(a, b, op)}</div>
+  box.innerHTML = `<p class="note" style="text-align:center;margin-top:10px">📝 <b>Grab your pencil!</b> Copy the problem onto paper and do each step there too — your paper is where the real thinking happens.</p>
+    <div style="margin:10px 0 14px;text-align:center">${verticalMath(a, b, op)}</div>
     <div class="step-list" id="tutorSteps"></div>`;
   renderTutorStep();
 }
@@ -426,12 +427,7 @@ function renderTutorStep() {
     $(`#tui${n}`).querySelectorAll('button,input').forEach(el => el.disabled = true);
     TUTOR.i++; TUTOR.tries = 0;
     if (TUTOR.i < TUTOR.steps.length) setTimeout(renderTutorStep, 550);
-    else setTimeout(() => {
-      $('#tutorSteps').insertAdjacentHTML('beforeend',
-        `<div class="answer-row"><button class="btn sunny big" id="tutorAgain">Try another problem 🧮</button></div>`);
-      $('#tutorAgain').onclick = () => renderTutorTab();
-      burst(40, true);
-    }, 600);
+    else setTimeout(() => { burst(40, true); renderTutorSolo(); }, 600); // I do → we did → now YOU do
   };
 
   if (stp.kind === 'mc') {
@@ -713,4 +709,151 @@ function renderParentReport(kidId) {
     DB.activeKid = kidId; save();
     startDiagnostic(b.dataset.rundiag);
   });
+}
+
+// ------------------------------------------------------------
+// TUTOR HOME — a friendly front door (not straight into math)
+// ------------------------------------------------------------
+function renderTutorHome() {
+  $('#helperBody').innerHTML = `
+    <div style="text-align:center">
+      <div style="font-size:64px" class="pop">🦉</div>
+      <p style="font-family:var(--font-display);font-weight:600;font-size:24px;margin:6px 0 2px">Hi! What do you need help with?</p>
+      <p class="note">Pick one — we'll figure it out together, step by step.</p>
+    </div>
+    <div class="tutor-menu">
+      <button class="tutor-door" data-door="tutor"><span>🧮</span><b>A math problem</b><small>adding & subtracting, step by step</small></button>
+      <button class="tutor-door" data-door="wizard"><span>📖</span><b>A word problem</b><small>a story problem from homework</small></button>
+      <button class="tutor-door" data-door="words"><span>🔤</span><b>A tricky word</b><small>reading, meaning & word attack</small></button>
+      <button class="tutor-door" data-door="homework"><span>📄</span><b>My homework sheet</b><small>snap a photo & work through it</small></button>
+      <button class="tutor-door" data-door="cheats"><span>🗒️</span><b>Cheat sheets</b><small>money, clocks, clue words & more</small></button>
+    </div>`;
+  $$('.tutor-door').forEach(b => b.onclick = () => { HELPER_TAB = b.dataset.door; renderHelper(); });
+}
+
+// ------------------------------------------------------------
+// WORD HELPER — vocabulary & word-attack coach
+// ------------------------------------------------------------
+const WH_PREFIXES = [['re', 'again (reread = read again)'], ['un', 'not / opposite of (unhappy = not happy)'], ['pre', 'before (preheat = heat before)'], ['mis', 'wrongly (misplace = put in the wrong spot)'], ['dis', 'not / opposite of (disagree = not agree)']];
+const WH_SUFFIXES = [['ful', 'full of (hopeful = full of hope)'], ['less', 'without (fearless = without fear)'], ['ing', 'happening right now (jumping)'], ['ed', 'already happened (jumped)'], ['est', 'the most (tallest = most tall)'], ['er', 'more, or a person who does it (taller, teacher)'], ['ly', 'in that way (quickly = in a quick way)']];
+
+function syllableGuess(w) {
+  const m = w.toLowerCase().match(/[aeiouy]+/g);
+  let n = m ? m.length : 1;
+  if (/[^aeiou]e$/.test(w.toLowerCase()) && n > 1) n--; // silent e
+  return Math.max(1, n);
+}
+
+function renderWordHelperTab() {
+  $('#helperBody').innerHTML = `
+    <p style="font-weight:800;font-size:17px;text-align:center">Stuck on a word from your book or homework? Type it in! 🔤</p>
+    <div class="hw-setup">
+      <input class="text-input" id="whWord" style="max-width:260px;font-size:22px;font-weight:800;text-align:center" autocapitalize="none" spellcheck="false" placeholder="type the word">
+      <button class="btn sky big" id="whGo">Help me! 🦉</button>
+    </div>
+    <div id="whOut"></div>`;
+  const go = () => {
+    const w = $('#whWord').value.trim().toLowerCase().replace(/[^a-z']/g, '');
+    if (!w) return;
+    wordHelp(w);
+  };
+  $('#whGo').onclick = go;
+  $('#whWord').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('#whWord').focus();
+}
+
+function wordHelp(w) {
+  const parts = [];
+  parts.push(`<div class="hw-step"><div class="n">🔊</div><div class="t"><b>Hear it:</b>
+    <button class="btn small sunny" data-say="${escAttr(w)}" data-lang="en">🔊 ${esc(w)}</button>
+    <button class="btn small ghost" data-say="${escAttr(w.split('').join(' '))}" data-lang="en">🔤 spell it out</button></div></div>`);
+
+  const syl = syllableGuess(w);
+  parts.push(`<div class="hw-step"><div class="n">👏</div><div class="t"><b>Clap it out:</b> "${esc(w)}" has about <b>${syl}</b> beat${syl > 1 ? 's' : ''}. Say it slowly, one chunk at a time.</div></div>`);
+
+  const pre = WH_PREFIXES.find(([p]) => w.startsWith(p) && w.length > p.length + 2);
+  const suf = WH_SUFFIXES.find(([s]) => w.endsWith(s) && w.length > s.length + 2);
+  if (pre) parts.push(`<div class="hw-step"><div class="n">🧩</div><div class="t"><b>Word part spotted!</b> It starts with <b>${pre[0]}-</b>, which means <b>${pre[1]}</b>. Cover it up and read the rest: <b>${esc(w.slice(pre[0].length))}</b>.</div></div>`);
+  if (suf) parts.push(`<div class="hw-step"><div class="n">🧩</div><div class="t"><b>Word part spotted!</b> It ends with <b>-${suf[0]}</b>, which means <b>${suf[1]}</b>. The base word is <b>${esc(w.slice(0, w.length - suf[0].length))}</b>.</div></div>`);
+
+  const comp = (typeof COMPOUND_BANK !== 'undefined') && COMPOUND_BANK.find(c => c[2] === w);
+  if (comp) parts.push(`<div class="hw-step"><div class="n">🤝</div><div class="t"><b>It's a compound word!</b> <b>${comp[0]}</b> + <b>${comp[1]}</b> = ${esc(w)} ${comp[3]}</div></div>`);
+
+  const syn = (typeof SYNONYM_BANK !== 'undefined') && SYNONYM_BANK.find(s => s[0] === w || s[1] === w);
+  if (syn) parts.push(`<div class="hw-step"><div class="n">👯</div><div class="t"><b>Word twin:</b> ${esc(w)} means about the same as <b>${esc(syn[0] === w ? syn[1] : syn[0])}</b>.</div></div>`);
+  const ant = (typeof ANTONYM_BANK !== 'undefined') && ANTONYM_BANK.find(s => s[0] === w || s[1] === w);
+  if (ant) parts.push(`<div class="hw-step"><div class="n">↔️</div><div class="t"><b>Opposite:</b> the opposite of ${esc(w)} is <b>${esc(ant[0] === w ? ant[1] : ant[0])}</b>.</div></div>`);
+
+  parts.push(`<div class="hw-step"><div class="n">🕵️</div><div class="t"><b>Reading-detective moves for ANY word:</b><br>
+    1. Read the whole sentence around it — what would make sense there?<br>
+    2. Look at the picture if there is one.<br>
+    3. Break the word into chunks and sound out each chunk.<br>
+    4. Still stuck? Ask a grown-up — good readers ask questions! And a grown-up can look it up with you in a kids' dictionary.</div></div>`);
+
+  $('#whOut').innerHTML = `<div class="step-list" style="margin-top:14px">${parts.join('')}</div>
+    <div class="answer-row"><button class="btn sunny" id="whAgain">Another word 🔤</button></div>`;
+  $('#whAgain').onclick = renderWordHelperTab;
+}
+
+// ------------------------------------------------------------
+// TUTOR "YOU TRY ONE" — the transfer step (I do → we do → YOU do)
+// ------------------------------------------------------------
+function tutorSimilarProblem() {
+  const { a, b, op } = TUTOR;
+  const wantCarry = op === '+' ? (a % 10 + b % 10 >= 10) : (a % 10 < b % 10);
+  const digits = Math.max(String(a).length, String(b).length);
+  const lo = digits <= 1 ? 2 : digits === 2 ? 11 : 110;
+  const hi = digits <= 1 ? 9 : digits === 2 ? 89 : 789;
+  let a2 = a, b2 = b, guard = 0;
+  while (guard++ < 120) {
+    a2 = ri(lo, hi);
+    b2 = op === '−' ? ri(Math.max(1, lo - 1), a2 - 1) : ri(lo, hi);
+    if (op === '+' && a2 + b2 > 999) continue;
+    if (a2 === a && b2 === b) continue;
+    const carry = op === '+' ? (a2 % 10 + b2 % 10 >= 10) : (a2 % 10 < b2 % 10);
+    if (carry === wantCarry) break;
+  }
+  return { a2, b2 };
+}
+
+function renderTutorSolo() {
+  const { a2, b2 } = tutorSimilarProblem();
+  const op = TUTOR.op;
+  const answer = op === '+' ? a2 + b2 : a2 - b2;
+  $('#tutorSteps').insertAdjacentHTML('beforeend', `
+    <div class="hw-step" style="background:var(--sun)"><div class="n">⭐</div><div class="t" style="flex:1">
+      <b>Now YOU try one all by yourself!</b> Copy it onto your paper, work each column with your pencil, then type your answer.
+      <div style="margin:10px 0">${verticalMath(a2, b2, op)}</div>
+      <div class="answer-row" style="justify-content:flex-start">
+        <input class="num-input" id="soloIn" inputmode="numeric" style="width:140px">
+        <button class="btn primary" id="soloCheck">Check ✓</button>
+      </div>
+      <div id="soloOut"></div>
+    </div></div>`);
+  document.querySelector('#soloIn').focus();
+  let tries = 0;
+  const check = () => {
+    const v = Number($('#soloIn').value.replace(/[,\s]/g, ''));
+    if ($('#soloIn').value.trim() === '') return;
+    if (v === answer) {
+      $('#soloIn').disabled = true; $('#soloCheck').disabled = true;
+      $('#soloIn').style.background = 'var(--ok-bg)';
+      burst(80, true);
+      $('#soloOut').innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--ok-bg);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">
+        🏆 <b>YOU did that one completely alone.</b> That's what mastering it feels like!</div>
+        <div class="answer-row" style="justify-content:flex-start"><button class="btn sunny" id="soloAgain">Another problem 🧮</button></div>`;
+      $('#soloAgain').onclick = renderTutorTab;
+    } else {
+      tries++;
+      $('#soloIn').style.background = 'var(--bad-bg)'; $('#soloIn').select();
+      if (tries === 1) {
+        $('#soloOut').innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--sun);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">💡 Check your paper: did you start with the ones? ${op === '+' ? 'Did anything carry?' : 'Did you need to borrow?'} Try once more!</div>`;
+      } else {
+        $('#soloOut').innerHTML = `<div style="margin-top:8px;font-weight:700;background:var(--bad-bg);border:2.5px solid var(--line);border-radius:10px;padding:8px 10px">No problem — let's build this one together, step by step. 🦉</div>`;
+        setTimeout(() => startTutor(a2, b2, op), 900);
+      }
+    }
+  };
+  $('#soloCheck').onclick = check;
+  $('#soloIn').addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
 }
