@@ -15,6 +15,8 @@ function loadDB() {
   return { kids: [], activeKid: null, stats: {}, log: {}, plans: {} };
 }
 let DB = loadDB();
+DB.focus = DB.focus || {};
+DB.diag = DB.diag || {};
 const save = () => localStorage.setItem(DB_KEY, JSON.stringify(DB));
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -79,7 +81,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 2; // bump when the skill catalog changes shape
+const PLAN_VERSION = 3; // bump when the skill catalog or plan logic changes
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};
@@ -102,12 +104,23 @@ function getWeekPlan(kidId = DB.activeKid) {
     for (const id of list) if (!used.has(id)) { used.add(id); return id; }
     return null;
   };
+  // 🎯 school-focus skills (set by a parent for this week) fill the first
+  // slots each day, spread round-robin; quotas fill the rest.
+  const focus = (DB.focus || {})[kidId];
+  const focusIds = (focus && focus.week === wk ? focus.skills : []).filter(id => SKILL_MAP[id]);
+  const focusByDay = [[], [], [], [], []];
+  focusIds.forEach((id, i) => { if (focusByDay[i % 5].length < 3) focusByDay[i % 5].push(id); });
+  focusIds.forEach(id => used.add(id)); // focus skills can't double-book via the pools
+
   const days = [0, 1, 2, 3, 4].map(d => {
     const daySubj = (d % 2 === 0) ? 'science' : 'spanish'; // M/W/F science, T/Th spanish
-    const tasks = [
-      take(bySubject.math), take(bySubject.math),
-      take(bySubject.ela), take(bySubject[daySubj]), take(all),
-    ].filter(Boolean);
+    const tasks = focusByDay[d].slice();
+    const pools = [bySubject.math, bySubject.math, bySubject.ela, bySubject[daySubj], all];
+    for (const pool of pools) {
+      if (tasks.length >= 5) break;
+      const id = take(pool);
+      if (id) tasks.push(id);
+    }
     return tasks;
   });
   DB.plans[kidId][wk] = { v: PLAN_VERSION, days };
@@ -185,6 +198,7 @@ function show(view, param) {
     kids: renderKids, today: renderToday, practice: renderPractice,
     session: () => renderSession(param), plan: renderPlan,
     progress: renderProgress, helper: renderHelper, grownups: renderGrownups,
+    schoolsync: () => renderSchoolSync(param), report: () => renderParentReport(param),
   };
   (views[view] || renderKids)();
 }
@@ -268,16 +282,26 @@ function renderToday() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
+  const focus = focusSet();
   const taskRows = todayTasks.map(sid => {
     const sk = SKILL_MAP[sid];
     const strand = STRANDS.find(s => s.id === sk.strand);
     const done = taskDoneToday(sid);
     return `<button class="plan-task ${done ? 'done' : ''}" data-skill="${sid}">
       <span class="chk">${done ? '✔' : ''}</span>
-      <span>${strand.emoji} ${sk.name}</span>
+      <span>${focus.has(sid) ? '🎯 ' : ''}${strand.emoji} ${sk.name}</span>
       <span class="go">${done ? '🌟' : 'Go ▸'}</span>
     </button>`;
   }).join('');
+  const hasDiag = (DB.diag[k.id] || []).length > 0;
+  const checkupCard = hasDiag ? '' : `
+    <div class="card"><span class="sticker">5 min</span>
+      <h2><span class="bubble" style="background:var(--leaf)">🩺</span>First time? Garden checkup!</h2>
+      <p style="font-weight:700">A quick quiz that finds what ${esc(k.name)} already knows — then the whole garden plans itself around it.</p>
+      <div class="answer-row" style="justify-content:flex-start;flex-wrap:wrap">
+        ${SUBJECTS.map(s => `<button class="btn ghost" data-diag="${s.id}">${s.emoji} ${s.name}</button>`).join('')}
+      </div>
+    </div>`;
 
   app.innerHTML = `<div class="reveal">
     <div class="card tilt-l">
@@ -304,14 +328,24 @@ function renderToday() {
          ${taskRows}
          </div>`}
 
+    ${checkupCard}
+
+    <div class="card tilt-l">
+      <h2><span class="bubble" style="background:var(--berry)">🌈</span>Daily Mix</h2>
+      <p style="font-weight:700">10 quick questions from every subject — the Mix always picks the skills that need the most sunshine.</p>
+      <div class="answer-row" style="justify-content:flex-start"><button class="btn coral big" id="goMix">Start the Mix 🌈</button></div>
+    </div>
+
     <div class="card">
-      <h2><span class="bubble" style="background:var(--sky)">🦉</span>Homework night?</h2>
-      <p style="font-weight:700">The Helper Owl walks through any problem step by step — without just giving the answer away.</p>
-      <div class="answer-row" style="justify-content:flex-start"><button class="btn sky" id="goHelper">Open the Helper 🦉</button></div>
+      <h2><span class="bubble" style="background:var(--sky)">🦉</span>Homework tonight?</h2>
+      <p style="font-weight:700">The Tutor Owl doesn't give answers — it asks you the right questions, one step at a time, until YOU find them.</p>
+      <div class="answer-row" style="justify-content:flex-start"><button class="btn sky" id="goHelper">Open the Tutor 🦉</button></div>
     </div>
   </div>`;
   $$('[data-skill]').forEach(b => b.onclick = () => show('session', b.dataset.skill));
+  $$('[data-diag]').forEach(b => b.onclick = () => startDiagnostic(b.dataset.diag));
   const fp = $('#freePlay'); if (fp) fp.onclick = () => show('practice');
+  $('#goMix').onclick = startMix;
   $('#goHelper').onclick = () => show('helper');
 }
 
@@ -369,22 +403,43 @@ function renderPractice() {
 // PRACTICE SESSION (the question loop)
 // ============================================================
 let SESSION = null;
+function sessionShell(title, backView) {
+  app.innerHTML = `
+    <div class="practice-top">
+      <button class="btn small ghost back" id="backBtn">← Done</button>
+      <div class="title" id="sessTitle">${title}</div>
+      <div class="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
+    </div>
+    <div class="card qcard pop" id="qcard"></div>`;
+  $('#backBtn').onclick = () => show(backView);
+  window.scrollTo(0, 0);
+}
+
 function renderSession(skillId) {
   const sk = SKILL_MAP[skillId];
   if (!sk) return show('practice');
   SESSION = { skill: sk, streak: 0, answered: false };
-  app.innerHTML = `
-    <div class="practice-top">
-      <button class="btn small ghost back" id="backBtn">← Done</button>
-      <div class="title">${sk.name}</div>
-      <div class="scorebox"><span class="plant" id="plantIcon"></span><span class="num" id="scoreNum"></span></div>
-    </div>
-    <div class="card qcard pop" id="qcard"></div>`;
-  $('#backBtn').onclick = () => show('practice');
+  sessionShell(sk.name, 'practice');
+  nextQuestion();
+}
+
+// shared engine for Daily Mix (mastery ON) and checkups (mastery OFF)
+function startQueueSession(cfg) {
+  SESSION = {
+    queue: cfg.queue, qi: 0, right: 0, diag: !!cfg.diag, subject: cfg.subject,
+    diagResults: {}, streak: 0, answered: false,
+  };
+  VIEW = 'session';
+  sessionShell(cfg.title, cfg.diag ? 'today' : 'today');
   nextQuestion();
 }
 
 function updateScorebox() {
+  if (SESSION.diag) {
+    $('#plantIcon').textContent = '🩺';
+    $('#scoreNum').textContent = `${Math.min(SESSION.qi, SESSION.queue.length)}/${SESSION.queue.length}`;
+    return;
+  }
   const sc = skillStat(SESSION.skill.id).s;
   $('#plantIcon').textContent = plantFor(sc);
   $('#scoreNum').textContent = sc;
@@ -392,6 +447,14 @@ function updateScorebox() {
 
 function nextQuestion() {
   clearTimeout(SESSION.autoT);
+  if (SESSION.queue) {
+    if (SESSION.qi >= SESSION.queue.length) {
+      return SESSION.diag ? renderDiagResults() : renderMixRecap();
+    }
+    SESSION.skill = SKILL_MAP[SESSION.queue[SESSION.qi++]];
+    const t = $('#sessTitle');
+    if (t) t.textContent = (SESSION.diag ? '🩺 ' : '🌈 ') + SESSION.skill.name;
+  }
   const q = SESSION.skill.gen();
   SESSION.q = q; SESSION.answered = false;
   updateScorebox();
@@ -451,32 +514,41 @@ function grade(given, btn) {
     correct = String(given) === String(q.answer);
   }
 
-  // ---- update mastery score ----
-  const st = kidStats();
-  const cur = st[sk.id] || { s: 0, a: 0, c: 0 };
-  const before = cur.s;
-  if (correct) {
-    SESSION.streak++;
-    let delta = cur.s < 50 ? 8 : cur.s < 80 ? 6 : 4;
-    if (SESSION.streak >= 3) delta += 1;
-    cur.s = Math.min(100, cur.s + delta);
-    cur.c++;
-  } else {
-    SESSION.streak = 0;
-    cur.s = Math.max(0, cur.s - Math.min(6, 2 + Math.floor(cur.s / 25)));
-  }
-  cur.a++;
-  st[sk.id] = cur;
+  if (SESSION.queue && correct) SESSION.right++;
 
-  // ---- daily log ----
-  const log = kidLog();
-  const today = dstr();
-  const day = log[today] || { t: 0, c: 0, per: {} };
-  day.t++; if (correct) day.c++;
-  day.per[sk.id] = day.per[sk.id] || [0, 0];
-  day.per[sk.id][1]++; if (correct) day.per[sk.id][0]++;
-  log[today] = day;
-  save();
+  let cur = { s: 0 }, before = 0;
+  if (SESSION.diag) {
+    // checkups measure — they don't move mastery or the daily log
+    const r = SESSION.diagResults[sk.strand] = SESSION.diagResults[sk.strand] || [0, 0];
+    r[1]++; if (correct) r[0]++;
+  } else {
+    // ---- update mastery score ----
+    const st = kidStats();
+    cur = st[sk.id] || { s: 0, a: 0, c: 0 };
+    before = cur.s;
+    if (correct) {
+      SESSION.streak++;
+      let delta = cur.s < 50 ? 8 : cur.s < 80 ? 6 : 4;
+      if (SESSION.streak >= 3) delta += 1;
+      cur.s = Math.min(100, cur.s + delta);
+      cur.c++;
+    } else {
+      SESSION.streak = 0;
+      cur.s = Math.max(0, cur.s - Math.min(6, 2 + Math.floor(cur.s / 25)));
+    }
+    cur.a++;
+    st[sk.id] = cur;
+
+    // ---- daily log ----
+    const log = kidLog();
+    const today = dstr();
+    const day = log[today] || { t: 0, c: 0, per: {} };
+    day.t++; if (correct) day.c++;
+    day.per[sk.id] = day.per[sk.id] || [0, 0];
+    day.per[sk.id][1]++; if (correct) day.per[sk.id][0]++;
+    log[today] = day;
+    save();
+  }
   updateScorebox();
 
   // ---- visual feedback ----
@@ -505,8 +577,8 @@ function grade(given, btn) {
   $('#nextBtn').focus();
 
   if (correct) {
-    burst(SESSION.streak >= 3 ? 34 : 18);
-    if (cur.s >= 100 && before < 100) return masteredBanner();
+    if (!SESSION.diag) burst(SESSION.streak >= 3 ? 34 : 18);
+    if (!SESSION.diag && cur.s >= 100 && before < 100) return masteredBanner();
     // gentle auto-advance so fast kids keep momentum
     const thisQ = q;
     SESSION.autoT = setTimeout(() => { if (SESSION.q === thisQ && SESSION.answered) nextQuestion(); }, 1600);
@@ -545,6 +617,7 @@ function renderPlan() {
       const day = kidLog()[ds];
       return (day && day.per[t] && day.per[t][1] >= 8) || skillStat(t).s >= 100;
     }).length;
+    const focus = focusSet();
     const rows = tasks.map(sid => {
       const sk = SKILL_MAP[sid];
       const strand = STRANDS.find(s => s.id === sk.strand);
@@ -552,7 +625,7 @@ function renderPlan() {
       const isDone = (day && day.per[sid] && day.per[sid][1] >= 8) || skillStat(sid).s >= 100;
       return `<button class="plan-task ${isDone ? 'done' : ''}" data-skill="${sid}">
         <span class="chk">${isDone ? '✔' : ''}</span>
-        <span>${strand.emoji} ${sk.name}</span>
+        <span>${focus.has(sid) ? '🎯 ' : ''}${strand.emoji} ${sk.name}</span>
         <span class="go">${isDone ? '🌟' : (isToday ? 'Go ▸' : '')}</span>
       </button>`;
     }).join('');
@@ -680,16 +753,16 @@ function renderProgress() {
 // ============================================================
 // HOMEWORK HELPER
 // ============================================================
-let HELPER_TAB = 'solve';
+let HELPER_TAB = 'tutor';
 function renderHelper() {
   app.innerHTML = `<div class="reveal">
     <div class="card tilt-l" style="padding:16px 20px">
-      <h2><span class="bubble" style="background:var(--sky)">🦉</span>Helper Owl</h2>
-      <p class="note">Stuck on homework? Type in YOUR problem and the owl shows every step — like a teacher sitting next to you.</p>
+      <h2><span class="bubble" style="background:var(--sky)">🦉</span>Tutor Owl</h2>
+      <p class="note">A real tutor doesn't hand you answers — it asks you the right questions. Bring YOUR homework problem here and solve it together, one small step at a time. Wrong answers get a hint first, so you always get a second try.</p>
     </div>
     <div class="helper-tabs">
-      <button data-t="solve">➕➖ Step-by-step solver</button>
-      <button data-t="word">📖 Word problem coach</button>
+      <button data-t="tutor">🧮 Math tutor</button>
+      <button data-t="wizard">📖 Word problems</button>
       <button data-t="cheats">🗒️ Cheat sheets</button>
     </div>
     <div class="card" id="helperBody"></div>
@@ -698,118 +771,12 @@ function renderHelper() {
     b.classList.toggle('active', b.dataset.t === HELPER_TAB);
     b.onclick = () => { HELPER_TAB = b.dataset.t; renderHelper(); };
   });
-  ({ solve: renderSolver, word: renderWordCoach, cheats: renderCheats })[HELPER_TAB]();
+  ({ tutor: renderTutorTab, wizard: renderWizardTab, cheats: renderCheats })[HELPER_TAB]();
 }
 
-function renderSolver() {
+function renderCheats() {
   $('#helperBody').innerHTML = `
-    <div style="text-align:center">
-      <p style="font-weight:800;font-size:17px">Type the two numbers from your homework:</p>
-      <div class="hw-setup">
-        <input class="num-input" id="hwA" inputmode="numeric" placeholder="47">
-        <select id="hwOp"><option value="+">+</option><option value="−">−</option></select>
-        <input class="num-input" id="hwB" inputmode="numeric" placeholder="38">
-        <button class="btn sky big" id="hwGo">Show me! 🦉</button>
-      </div>
-      <div class="step-list" id="hwSteps"></div>
-    </div>`;
-  $('#hwGo').onclick = () => {
-    let a = parseInt($('#hwA').value.replace(/[,\s]/g, ''), 10);
-    let b = parseInt($('#hwB').value.replace(/[,\s]/g, ''), 10);
-    const op = $('#hwOp').value;
-    const out = $('#hwSteps');
-    if (isNaN(a) || isNaN(b) || a < 0 || b < 0 || a > 999 || b > 999) {
-      out.innerHTML = `<div class="hw-step"><div class="n">!</div><div class="t">Please type two numbers from 0 to 999. 🦉</div></div>`;
-      return;
-    }
-    if (op === '−' && b > a) [a, b] = [b, a]; // keep it kid-positive
-    const steps = op === '+' ? addSteps(a, b) : subSteps(a, b);
-    out.innerHTML = `<div style="margin:14px 0 16px">${verticalMath(a, b, op)}</div>`;
-    let i = 0;
-    const showNext = () => {
-      if (i < steps.length) {
-        out.insertAdjacentHTML('beforeend',
-          `<div class="hw-step"><div class="n">${i + 1}</div><div class="t">${steps[i]}</div></div>`);
-        i++;
-        if (i < steps.length) {
-          out.insertAdjacentHTML('beforeend', `<div class="answer-row" id="moreRow"><button class="btn sunny" id="moreBtn">Next step ▸</button></div>`);
-          $('#moreBtn').onclick = () => { $('#moreRow').remove(); showNext(); };
-        }
-      }
-    };
-    showNext();
-  };
-}
-
-function digitsOf(n) { return [Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10]; }
-
-function addSteps(a, b) {
-  const steps = [];
-  const [ah, at, ao] = digitsOf(a), [bh, bt, bo] = digitsOf(b);
-  steps.push(`Line up the numbers so the <b>ones</b> sit on top of each other. We always start on the RIGHT side.`);
-  const oSum = ao + bo;
-  let carryT = 0;
-  if (oSum >= 10) {
-    carryT = 1;
-    steps.push(`<b>Ones:</b> <span class="mini-math">${ao} + ${bo} = ${oSum}</span>. That's ten or more! Write the <b>${oSum % 10}</b> and carry <b>1 ten</b> to the tens column. 🎒`);
-  } else {
-    steps.push(`<b>Ones:</b> <span class="mini-math">${ao} + ${bo} = ${oSum}</span>. Write the <b>${oSum}</b>.`);
-  }
-  const tSum = at + bt + carryT;
-  let carryH = 0;
-  if (at + bt + carryT > 0 || ah + bh > 0 || a >= 10 || b >= 10) {
-    const carryTxt = carryT ? ` (don't forget the carried 1!)` : '';
-    if (tSum >= 10) {
-      carryH = 1;
-      steps.push(`<b>Tens:</b> <span class="mini-math">${carryT ? '1 + ' : ''}${at} + ${bt} = ${tSum}</span>${carryTxt}. Ten or more again! Write the <b>${tSum % 10}</b> and carry <b>1 hundred</b>. 🎒`);
-    } else {
-      steps.push(`<b>Tens:</b> <span class="mini-math">${carryT ? '1 + ' : ''}${at} + ${bt} = ${tSum}</span>${carryTxt}. Write the <b>${tSum}</b>.`);
-    }
-  }
-  const hSum = ah + bh + carryH;
-  if (hSum > 0) {
-    steps.push(`<b>Hundreds:</b> <span class="mini-math">${carryH ? '1 + ' : ''}${ah} + ${bh} = ${hSum}</span>. Write the <b>${hSum}</b>.`);
-  }
-  steps.push(`🌟 All done! <span class="mini-math">${a} + ${b} = ${a + b}</span>. Check it by adding in your head: does it look about right?`);
-  return steps;
-}
-
-function subSteps(a, b) {
-  const steps = [];
-  let [ah, at, ao] = digitsOf(a);
-  const [bh, bt, bo] = digitsOf(b);
-  steps.push(`Line up the numbers so the <b>ones</b> sit on top of each other. Start on the RIGHT side. The bigger number (${a}) goes on top.`);
-  if (ao < bo) {
-    steps.push(`<b>Ones:</b> ${ao} is smaller than ${bo}, so we <b>borrow</b>! Take 1 ten from the ${at} tens (it becomes ${at - 1}) and give it to the ones: now we have <b>${ao + 10}</b> ones. 🤝`);
-    ao += 10; at -= 1;
-    steps.push(`<b>Ones:</b> <span class="mini-math">${ao} − ${bo} = ${ao - bo}</span>. Write the <b>${ao - bo}</b>.`);
-  } else {
-    steps.push(`<b>Ones:</b> <span class="mini-math">${ao} − ${bo} = ${ao - bo}</span>. Write the <b>${ao - bo}</b>.`);
-  }
-  if (a >= 10 || b >= 10) {
-    if (at < bt) {
-      steps.push(`<b>Tens:</b> ${at} is smaller than ${bt}, so borrow again! Take 1 hundred from the ${ah} hundreds (it becomes ${ah - 1}) and now we have <b>${at + 10}</b> tens. 🤝`);
-      at += 10; ah -= 1;
-    }
-    steps.push(`<b>Tens:</b> <span class="mini-math">${at} − ${bt} = ${at - bt}</span>. Write the <b>${at - bt}</b>.`);
-  }
-  if (ah > 0 || bh > 0) {
-    steps.push(`<b>Hundreds:</b> <span class="mini-math">${ah} − ${bh} = ${ah - bh}</span>.${ah - bh === 0 ? ' Zero in front? We just leave it off!' : ` Write the <b>${ah - bh}</b>.`}`);
-  }
-  steps.push(`🌟 All done! <span class="mini-math">${a} − ${b} = ${a - b}</span>. Check it with addition: <span class="mini-math">${a - b} + ${b} = ${a}</span> ✓`);
-  return steps;
-}
-
-function renderWordCoach() {
-  $('#helperBody').innerHTML = `
-    <p style="font-weight:800;font-size:17px;margin-bottom:12px">Read your word problem out loud, then follow the owl's 4 steps:</p>
-    <div class="step-list">
-      <div class="hw-step"><div class="n">1</div><div class="t"><b>Circle the numbers.</b> What numbers does the story give you?</div></div>
-      <div class="hw-step"><div class="n">2</div><div class="t"><b>Underline the question.</b> What is it really asking? (How many in all? How many are left? How many more?)</div></div>
-      <div class="hw-step"><div class="n">3</div><div class="t"><b>Find the clue words</b> in the chart below to pick + or −.</div></div>
-      <div class="hw-step"><div class="n">4</div><div class="t"><b>Solve and check.</b> Does your answer make sense? (If someone gave cookies away, the number should get SMALLER!)</div></div>
-    </div>
-    <h2 style="margin-top:20px"><span class="bubble" style="background:var(--sun)">🔍</span>Clue words</h2>
+    <h2><span class="bubble" style="background:var(--coral)">🔍</span>Word-problem clue words</h2>
     <table class="cheat-table">
       <tr><th>If the story says…</th><th>Then you…</th></tr>
       <tr><td>in all · altogether · total · both · sum · joined</td><td><b>ADD ➕</b></td></tr>
@@ -817,12 +784,7 @@ function renderWordCoach() {
       <tr><td>how many more · how many fewer · difference</td><td><b>SUBTRACT ➖</b> (compare!)</td></tr>
       <tr><td>each group has · rows of · bags of</td><td><b>ADD the same number again and again</b></td></tr>
     </table>
-    <p class="note" style="margin-top:12px">Grown-up tip: have your child read the problem twice before touching the pencil. Step 2 is where most mistakes happen.</p>`;
-}
-
-function renderCheats() {
-  $('#helperBody').innerHTML = `
-    <h2><span class="bubble" style="background:var(--sun)">🪙</span>Money</h2>
+    <h2 style="margin-top:22px"><span class="bubble" style="background:var(--sun)">🪙</span>Money</h2>
     <table class="cheat-table">
       <tr><th>Coin</th><th>Worth</th><th>Remember it</th></tr>
       <tr><td>Penny</td><td class="c">1¢</td><td>Copper color, smallest value</td></tr>
@@ -863,6 +825,8 @@ function renderGrownups() {
     return `<div class="kid-admin-row">
       <span class="face">${k.avatar}</span>
       <span class="nm">${esc(k.name)} <span style="font-weight:700;color:var(--ink-soft);font-size:13.5px">· ${totalQ} questions · ${totalQ ? Math.round(totalC / totalQ * 100) : 0}% correct · ${flowers} 🌻</span></span>
+      <button class="btn small sky" data-report="${k.id}">📊 Report</button>
+      <button class="btn small sunny" data-sync="${k.id}">🎯 School focus</button>
       <button class="btn small ghost" data-reset="${k.id}">Reset progress</button>
       <button class="btn small ghost" data-del="${k.id}">Remove</button>
     </div>`;
@@ -890,6 +854,8 @@ function renderGrownups() {
   </div>`;
   $('#addKid2').onclick = renderAddKid;
   $('#backHome').onclick = () => show(kid() ? 'today' : 'kids');
+  $$('[data-report]').forEach(b => b.onclick = () => show('report', b.dataset.report));
+  $$('[data-sync]').forEach(b => b.onclick = () => show('schoolsync', b.dataset.sync));
   $$('[data-reset]').forEach(b => b.onclick = () => {
     const k = DB.kids.find(x => x.id === b.dataset.reset);
     if (confirm(`Reset ALL of ${k.name}'s progress? This cannot be undone.`)) {
@@ -902,6 +868,7 @@ function renderGrownups() {
     if (confirm(`Remove ${k.name} and all their progress? This cannot be undone.`)) {
       DB.kids = DB.kids.filter(x => x.id !== k.id);
       delete DB.stats[k.id]; delete DB.log[k.id]; delete DB.plans[k.id];
+      delete DB.focus[k.id]; delete DB.diag[k.id];
       if (DB.activeKid === k.id) DB.activeKid = null;
       save(); renderGrownups();
     }
