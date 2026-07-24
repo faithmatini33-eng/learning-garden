@@ -1,0 +1,96 @@
+/* ============================================================
+   Illustrated characters (Pip, Sage, …)
+
+   Pose swapping, not rigging. Every pose is preloaded and stacked;
+   changing pose flips a class, so there is no network hit, no decode
+   flash, and no layout shift.
+
+   House rules honoured here:
+     - Animations are TRANSFORM-ONLY. Never opacity — that caused the
+       blank-screen bug in stalled webviews (see styles.css:1057).
+     - body.calm-motion switches everything off. That is the per-kid
+       toggle parents actually use; the OS setting is respected too.
+     - The character sits in normal flow. It never overlays answer
+       buttons.
+   ============================================================ */
+
+.lgc {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+  /* height is set inline per use; width follows the art's 214:300 ratio */
+  aspect-ratio: 214 / 300;
+  will-change: transform;
+}
+
+.lgc img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lgc img.is-on { visibility: visible; }
+
+/* ---------------- motion ----------------
+   Each is a transform on the wrapper, so it composites on the GPU and
+   never touches layout. */
+
+@keyframes lgc-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+@keyframes lgc-bob-talk {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%      { transform: translateY(-2.5px) rotate(-.7deg); }
+  75%      { transform: translateY(-2.5px) rotate(.7deg); }
+}
+@keyframes lgc-enter-left {
+  from { transform: translateX(-56px); }
+  to   { transform: translateX(0); }
+}
+@keyframes lgc-hop {
+  0%   { transform: translateY(0) scale(1, 1); }
+  18%  { transform: translateY(0) scale(1.06, .94); }
+  45%  { transform: translateY(-18px) scale(.96, 1.05); }
+  72%  { transform: translateY(0) scale(1.07, .93); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes lgc-lean {
+  from { transform: translateX(0); }
+  to   { transform: translateX(5px); }
+}
+
+.lgc.is-idle      { animation: lgc-bob 3.6s ease-in-out infinite; }
+.lgc.is-talking   { animation: lgc-bob-talk .9s ease-in-out infinite; }
+.lgc.is-entering  { animation: lgc-enter-left .5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.lgc.is-hopping   { animation: lgc-hop .85s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.lgc.is-leaning   { animation: lgc-lean .4s ease-out forwards; }
+
+/* ---------------- calm motion ----------------
+   Both the per-kid toggle and the OS setting. The character still
+   appears and still changes pose — it simply stops moving. */
+
+body.calm-motion .lgc,
+body.calm-motion .lgc.is-idle,
+body.calm-motion .lgc.is-talking,
+body.calm-motion .lgc.is-entering,
+body.calm-motion .lgc.is-hopping,
+body.calm-motion .lgc.is-leaning {
+  animation: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lgc, .lgc.is-idle, .lgc.is-talking,
+  .lgc.is-entering, .lgc.is-hopping, .lgc.is-leaning {
+    animation: none;
+    transform: none;
+  }
+}

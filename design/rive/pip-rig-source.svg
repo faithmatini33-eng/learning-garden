@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="480" height="560">
+  <!-- ============================================================
+       PIP — rig source for Rive
+       Geometry taken directly from foxFullSVG() in js/art.js so the
+       proportions and palette are the ones already proven in the app.
+       Every piece is its own named group. Nothing is flattened.
+
+       Palette (from the ART object in js/art.js):
+         terraSoft #E8845C  body + head
+         terra     #D05C38  ears, tail, feet, brows
+         cream     #FBF0DE  muzzle, belly, ear insides, paws
+         ink       #2A2320  eyes, nose
+         mouth     #8C4A32
+         blush     #F2B8A0
+
+       Paint order is back-to-front and matches the original exactly,
+       so this renders identically to the fox already in the app.
+       ============================================================ -->
+
+  <g id="pip">
+
+    <!--  TAIL 
+         Left as ONE path on purpose. In Rive this gets a 3-bone chain
+         and the vertices bind to the bones. Do not cut it into pieces. -->
+    <g id="tail">
+      <path id="tail_body" d="M90 108 Q114 104 113 86 Q112 74 100 72 Q108 88 86 98 Z" fill="#D05C38"/>
+      <path id="tail_tip" d="M107 80 Q112 78 113 87 Q113 95 103 99 Z" fill="#FBF0DE"/>
+    </g>
+
+    <!--  TORSO  -->
+    <g id="body">
+      <path id="body_shape" d="M60 76 C79 76 88 90 88 106 C88 124 77 134 60 134 C43 134 32 124 32 106 C32 90 41 76 60 76 Z" fill="#E8845C"/>
+    </g>
+
+    <!--  ARMS 
+         Each arm is split into upper + lower at the true curve midpoint
+         (de Casteljau split, so the two halves trace the original curve
+         exactly). Two bones per arm, plus the paw. -->
+    <g id="arm_L">
+      <path id="arm_L_upper" d="M36 100 Q32 104 29.5 108" stroke="#E8845C" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path id="arm_L_lower" d="M29.5 108 Q27 112 26 116" stroke="#E8845C" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <circle id="hand_L" cx="26" cy="118" r="6.5" fill="#FBF0DE"/>
+    </g>
+
+    <g id="arm_R">
+      <path id="arm_R_upper" d="M84 100 Q88 104 90.5 108" stroke="#E8845C" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path id="arm_R_lower" d="M90.5 108 Q93 112 94 116" stroke="#E8845C" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <circle id="hand_R" cx="94" cy="118" r="6.5" fill="#FBF0DE"/>
+    </g>
+
+    <!--  BELLY 
+         Sits in front of the arms, exactly as in the original. -->
+    <g id="belly">
+      <ellipse id="belly_shape" cx="60" cy="108" rx="16" ry="18" fill="#FBF0DE"/>
+    </g>
+
+    <!--  FEET 
+         Pip has no separate legs by design — the feet meet the body.
+         That is how the app's fox is built; keeping it. -->
+    <g id="foot_L">
+      <ellipse id="foot_L_shape" cx="48" cy="133" rx="9.5" ry="5" fill="#D05C38"/>
+    </g>
+    <g id="foot_R">
+      <ellipse id="foot_R_shape" cx="72" cy="133" rx="9.5" ry="5" fill="#D05C38"/>
+    </g>
+
+    <!--  HEAD 
+         The whole head rides one group so it can nod, tilt and turn as a
+         unit. Inner coordinates are the original 64-space; the transform
+         places and scales it, unchanged from the app. -->
+    <g id="head" transform="translate(17, 8) scale(1.34)">
+
+      <g id="ear_L">
+        <path id="ear_L_outer" d="M9.5 21.5 L12.6 3.5 L25 15.5 Z" fill="#D05C38"/>
+        <path id="ear_L_inner" d="M13 18 L14.3 9 L20.6 15.2 Z" fill="#FBF0DE"/>
+      </g>
+      <g id="ear_R">
+        <path id="ear_R_outer" d="M54.5 21.5 L51.4 3.5 L39 15.5 Z" fill="#D05C38"/>
+        <path id="ear_R_inner" d="M51 18 L49.7 9 L43.4 15.2 Z" fill="#FBF0DE"/>
+      </g>
+
+      <g id="head_shape">
+        <path id="head_dome" d="M32 7.5 C43.8 7.5 53 15.2 53 26.8 C53 41 44.3 52 32 52 C19.7 52 11 41 11 26.8 C11 15.2 20.2 7.5 32 7.5 Z" fill="#E8845C"/>
+      </g>
+
+      <g id="cheeks">
+        <path id="cheek_L" d="M12.5 28.5 L3 33.8 L13.4 38.4 Z" fill="#E8845C"/>
+        <path id="cheek_R" d="M51.5 28.5 L61 33.8 L50.6 38.4 Z" fill="#E8845C"/>
+      </g>
+
+      <g id="muzzle">
+        <path id="muzzle_shape" d="M19 38.5 Q19.5 32 26 33 Q30 34 32 37 Q34 34 38 33 Q44.5 32 45 38.5 Q45.3 48.5 32 49.5 Q18.7 48.5 19 38.5 Z" fill="#FBF0DE"/>
+      </g>
+
+      <!-- Brows: new. Short level bars, clear of the eye. These are what
+           give Pip an expression range beyond a permanent smile. -->
+      <g id="brow_L">
+        <path id="brow_L_bar" d="M21 21.4 L27.8 20.8" stroke="#D05C38" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+      </g>
+      <g id="brow_R">
+        <path id="brow_R_bar" d="M43 21.4 L36.2 20.8" stroke="#D05C38" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+      </g>
+
+      <g id="eye_L">
+        <circle id="eye_L_ball" cx="24.5" cy="27.5" r="3.6" fill="#2A2320"/>
+        <circle id="eye_L_glint" cx="25.8" cy="26.3" r="1.2" fill="#FFFFFF"/>
+      </g>
+      <g id="eye_R">
+        <circle id="eye_R_ball" cx="39.5" cy="27.5" r="3.6" fill="#2A2320"/>
+        <circle id="eye_R_glint" cx="40.8" cy="26.3" r="1.2" fill="#FFFFFF"/>
+      </g>
+
+      <!-- Eyelids: new, and deliberately invisible at rest — they are the
+           same colour as the head and parked just above each eye. To blink,
+           translate them DOWN over the eye in Rive. No shape-swapping. -->
+      <g id="eyelid_L">
+        <circle id="eyelid_L_shape" cx="24.5" cy="20.6" r="4.1" fill="#E8845C"/>
+      </g>
+      <g id="eyelid_R">
+        <circle id="eyelid_R_shape" cx="39.5" cy="20.6" r="4.1" fill="#E8845C"/>
+      </g>
+
+      <g id="blush">
+        <circle id="blush_L" cx="18" cy="34" r="3" fill="#F2B8A0" opacity="0.85"/>
+        <circle id="blush_R" cx="46" cy="34" r="3" fill="#F2B8A0" opacity="0.85"/>
+      </g>
+
+      <g id="nose">
+        <path id="nose_shape" d="M32 35.5 L29.4 33 Q32 31.6 34.6 33 Z" fill="#2A2320"/>
+      </g>
+
+      <!--  MOUTH
+           Only the resting mouth lives here, so Pip imports looking right.
+           The four talking shapes are in pip-mouth-chart.svg, already sized
+           to drop into this exact spot (centre x=32, y=43.4 in head space). -->
+      <g id="mouth_set">
+        <path id="mouth_closed" d="M27.5 42.2 Q32 45.2 36.5 42.2" stroke="#8C4A32" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      </g>
+
+    </g><!-- /head -->
+  </g><!-- /pip -->
+</svg>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pip — illustrated character test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/characters.css">
+<style>
+  body { padding: 18px 16px 60px; }
+  .demo-wrap { max-width: 720px; margin: 0 auto; }
+  .demo-h { font-family: var(--font-head); font-weight: 800; font-size: 20px; margin: 0 0 4px; }
+  .demo-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; }
+  .demo-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--r-card);
+    box-shadow: var(--shadow-card); padding: 16px; margin-bottom: 16px;
+  }
+  .demo-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .stage { display: flex; align-items: flex-end; gap: 14px; min-height: 170px; }
+  .bubble {
+    background: var(--teal-tint); border-radius: 14px; padding: 12px 14px; flex: 1;
+    font-size: 15px; line-height: 1.45; align-self: center;
+  }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .dbtn {
+    font-family: var(--font-head); font-weight: 800; font-size: 14px;
+    background: #fff; border: 1px solid var(--border); border-radius: 100px;
+    padding: 9px 16px; cursor: pointer; box-shadow: var(--shadow-card); color: var(--ink);
+  }
+  .dbtn.primary { background: var(--terra); border-color: var(--terra); color: #fff; }
+  .sizes { display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
+  .sizes figure { margin: 0; text-align: center; }
+  .sizes figcaption { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .answers { display: flex; gap: 8px; margin-top: 12px; }
+  .ans {
+    flex: 1; background: #fff; border: 2px solid var(--border); border-radius: var(--r-tile);
+    padding: 14px; text-align: center; font-family: var(--font-head); font-weight: 800; font-size: 18px;
+  }
+</style>
+</head>
+<body>
+<div class="demo-wrap">
+
+  <p class="demo-h">Pip — illustrated character test</p>
+  <p class="demo-sub">The real art, at the real sizes, with the motion the app can do without Rive. Nothing here is wired into lessons.</p>
+
+  <div class="demo-card">
+    <div class="demo-label">In a lesson, at teaching size</div>
+    <div class="stage">
+      <span id="pipStage"></span>
+      <div class="bubble" id="pipSays">Four apples, and three more apples. Let's count them together!</div>
+    </div>
+    <div class="answers">
+      <div class="ans">6</div><div class="ans">7</div><div class="ans">8</div>
+    </div>
+    <div class="btnrow">
+      <button class="dbtn primary" id="btnFlow">Play the whole teaching flow</button>
+      <button class="dbtn" data-act="idle">idle</button>
+      <button class="dbtn" data-act="teach">teach</button>
+      <button class="dbtn" data-act="point">point</button>
+      <button class="dbtn" data-act="celebrate">celebrate</button>
+      <button class="dbtn" data-act="enter">enter</button>
+    </div>
+  </div>
+
+  <div class="demo-card">
+    <div class="demo-label">Every size the app actually uses</div>
+    <div class="sizes" id="sizeRow"></div>
+  </div>
+
+  <div class="demo-card">
+    <div class="demo-label">Calm motion — the toggle parents use</div>
+    <p class="demo-sub" style="margin:0 0 12px">He still appears and still changes pose. He just stops moving.</p>
+    <button class="dbtn" id="btnCalm">Turn calm motion ON</button>
+  </div>
+
+</div>
+
+<script src="js/character.js"></script>
+<script>
+  // teaching size
+  document.getElementById('pipStage').innerHTML = characterHTML('pip', 'idle', 150, { id: 'pip' });
+  const pip = document.getElementById('pip');
+  const says = document.getElementById('pipSays');
+
+  // the sizes the real code renders the fox at
+  document.getElementById('sizeRow').innerHTML = [40, 64, 110, 150]
+    .map(h => `<figure>${characterHTML('pip', 'teach', h, { motion: '' })}<figcaption>${h}px</figcaption></figure>`)
+    .join('');
+
+  document.querySelectorAll('[data-act]').forEach(b => {
+    b.onclick = () => {
+      const a = b.dataset.act;
+      if (a === 'enter') { setCharacterPose(pip, 'idle'); playCharacterMotion(pip, 'is-entering', 'is-idle', 700); }
+      else characterAct(pip, a, a === 'celebrate' ? { once: true, rest: 'is-idle' } : {});
+    };
+  });
+
+  // the vertical slice: enter -> teach -> point -> celebrate -> idle
+  const LINES = {
+    teach: "Four apples, and three more apples. Watch how I count them.",
+    point: "Look here — I start at four, then count on: five, six, seven.",
+    celebrate: "Seven! You've got it. Nice work.",
+    idle: "Ready when you are.",
+  };
+  const step = (ms, fn) => new Promise(r => setTimeout(() => { fn(); r(); }, ms));
+
+  document.getElementById('btnFlow').onclick = async () => {
+    setCharacterPose(pip, 'idle');
+    playCharacterMotion(pip, 'is-entering', 'is-idle', 700);
+    says.textContent = 'Hi! I’m Pip.';
+    await step(900, () => { characterAct(pip, 'teach'); says.textContent = LINES.teach; });
+    await step(2600, () => { characterAct(pip, 'point'); says.textContent = LINES.point; });
+    await step(2600, () => { characterAct(pip, 'celebrate', { once: true, rest: 'is-idle' }); says.textContent = LINES.celebrate; });
+    await step(1600, () => { characterAct(pip, 'idle'); says.textContent = LINES.idle; });
+  };
+
+  document.getElementById('btnCalm').onclick = (e) => {
+    const on = document.body.classList.toggle('calm-motion');
+    e.target.textContent = on ? 'Turn calm motion OFF' : 'Turn calm motion ON';
+  };
+</script>
+</body>
+</html>

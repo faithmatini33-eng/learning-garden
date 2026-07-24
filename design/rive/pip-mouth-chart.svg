@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 90" width="600" height="180">
+  <!-- ============================================================
+       PIP MOUTH CHART  the five lip-sync shapes
+       Each shape is drawn at 4x scale so you can see it, but the
+       numbers in the comments are the TRUE size in Pip's head space
+       (the coordinate space inside the head group of
+       pip-rig-source.svg). Centre point on the face is x=32, y=43.4.
+
+       In Rive: import this, then for each mouth state show exactly
+       ONE of these and hide the rest. mouth_closed is the resting
+       shape and already sits on Pip's face in the rig file.
+       ============================================================ -->
+
+  <rect x="0" y="0" width="300" height="90" fill="#FBF6EF"/>
+
+  <g id="mouth_charts">
+
+    <!-- closed  resting. True: stroke path, width 1.8 -->
+    <g id="chart_mouth_closed" transform="translate(30, 40) scale(4)">
+      <path id="mouth_closed" d="M-4.5 -1.2 Q0 1.8 4.5 -1.2" stroke="#8C4A32" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <!-- tiny o  True: rx 1.3, ry 1.2 -->
+    <g id="chart_mouth_tiny_o" transform="translate(90, 40) scale(4)">
+      <ellipse id="mouth_tiny_o" cx="0" cy="0" rx="1.3" ry="1.2" fill="#8C4A32"/>
+    </g>
+
+    <!-- small o  True: rx 2.2, ry 2.0 -->
+    <g id="chart_mouth_small_o" transform="translate(150, 40) scale(4)">
+      <ellipse id="mouth_small_o" cx="0" cy="0" rx="2.2" ry="2" fill="#8C4A32"/>
+    </g>
+
+    <!-- wide o  True: rx 3.6, ry 3.0 -->
+    <g id="chart_mouth_wide_o" transform="translate(210, 40) scale(4)">
+      <ellipse id="mouth_wide_o" cx="0" cy="0" rx="3.6" ry="3" fill="#8C4A32"/>
+    </g>
+
+    <!-- flat wide  True: filled path about 8 wide, 2.8 tall -->
+    <g id="chart_mouth_flat" transform="translate(270, 40) scale(4)">
+      <path id="mouth_flat" d="M-4 -0.4 Q0 1 4 -0.4 Q0 2.4 -4 -0.4 Z" fill="#8C4A32"/>
+    </g>
+
+  </g>
+
+  <g font-family="system-ui, sans-serif" font-size="7" fill="#8a7e74" text-anchor="middle">
+    <text x="30" y="78">closed</text>
+    <text x="90" y="78">tiny o</text>
+    <text x="150" y="78">small o</text>
+    <text x="210" y="78">wide o</text>
+    <text x="270" y="78">flat</text>
+  </g>
+</svg>
