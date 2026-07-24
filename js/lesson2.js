@@ -44,6 +44,69 @@ function l2PickFresh(arr, used, keyOf) {
   const fresh = arr.filter(x => !used.has(keyOf(x)));
   return fresh.length ? l2Pick(fresh) : l2Pick(arr);
 }
+/* ------------------------------------------------------------
+   PIP'S LINES — small rotating banks so the same sentence never
+   lands twice in a row. Every line is warm, blame-free, and short
+   enough to speak in one breath (kept under ~110 characters).
+   ------------------------------------------------------------ */
+const L2_LINES = {
+  // a graded answer came back right
+  correct: [
+    'Yes!', 'You got it!', 'That\'s it!', 'Nailed it!', 'Right on!',
+    'Beautiful!', 'Spot on!', 'Yes — exactly!', 'You did that!', 'Lovely thinking!',
+  ],
+  // three fresh questions right in a row — the mastery moment
+  streak: [
+    'Three in a row — you really know it!',
+    'Three in a row — that settles it, you know this!',
+    'Three straight! Your brain grew today.',
+    'Three for three — look at you go!',
+    'Three in a row — beautifully done!',
+    'Three in a row! You can teach this one now.',
+    'That\'s three! You really have it.',
+    'Three in a row — I knew you had it in you.',
+  ],
+  // a graded answer came back wrong — nudge, never blame
+  wrong: [
+    'Almost! Let\'s try that one more time.',
+    'Good try — let\'s take another look together.',
+    'So close! One more look and you\'ve got it.',
+    'No worries at all. Let\'s figure this out together.',
+    'Brains grow from tries like that one. Let\'s look again.',
+    'Nearly there! Let\'s slow down and read it together.',
+    'That was a brave try. Now let\'s find it together.',
+    'Hmm — let\'s think this one through together.',
+    'Not yet, and that\'s okay. Try it once more!',
+    'Let\'s read it one more time — you can do this.',
+  ],
+  // moving from one part of the lesson to the next
+  transition: [
+    'You did it! Let\'s keep growing.',
+    'Great work — on to the next one!',
+    'Look at you go! Here we go.',
+    'Nice! Let\'s take the next step.',
+    'You\'re ready for more — let\'s go!',
+    'Wonderful! Onward, gardener.',
+    'That\'s the idea! Let\'s keep it up.',
+    'Brilliant! Let\'s keep going.',
+    'Well done — next up!',
+    'You\'ve got this. Let\'s move on!',
+  ],
+};
+// Rotate, don't randomize blindly: never hand back the line we just used.
+// Safe on a one-line bank (returns it) and on an unknown bank (returns '').
+const L2_LINE_LAST = {};
+function l2Line(bank) {
+  const arr = L2_LINES[bank];
+  if (!arr || !arr.length) return '';
+  if (arr.length === 1) return arr[0];
+  const last = L2_LINE_LAST[bank];
+  let i = Math.floor(Math.random() * arr.length);
+  if (i === last) i = (i + 1) % arr.length; // one nudge is enough — never loops
+  L2_LINE_LAST[bank] = i;
+  return arr[i];
+}
+
 // tiny SVG daisy for the mastery meter + rail (no emoji in chrome)
 function l2DaisySVG(size = 22, on = true) {
   let p = '';
@@ -1260,7 +1323,7 @@ function l2FirstTry() {
         <span class="fb-text"><b>You did it — with your own hands!</b> Training wheels are coming off now.</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
       const g = l2GateBtn($('#l2On'));
-      foxSpeak('You did it! Training wheels are coming off now.', { onDone: g });
+      foxSpeak(`${l2Line('transition')} Training wheels are coming off now.`, { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     } else {
       sfx('wrong');
@@ -1353,7 +1416,7 @@ function l2Together(idea, n) {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>We built it together!</b> ${tg.why}</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Now all by myself! ${icon('arrowright', 14)}</button></div>`;
       const g = l2GateBtn($('#l2On'));
-      foxSpeak('We built it together! Now try one all by yourself.', { onDone: g });
+      foxSpeak(`${l2Line('transition')} Now try one all by yourself.`, { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     } else {
       sfx('wrong');
@@ -1504,9 +1567,12 @@ function l2Question(q, opts) {
       if (fast && LS2.rushStreak >= 3) { LS2.rushStreak = 0; return rushSlowDown(); }
     }
     if (misses.n === 1 && !opts.mastery) {
-      // miss 1: Pip's hint + retry (gentle, nothing blocked)
-      $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span><span class="fb-text"><b>Let's look together.</b> ${esc(q.hint || 'Read it one more time — you\'ve got this!')}</span></div>`;
-      foxSpeak(q.hint || 'Let\'s look together. Try again — you\'ve got this!');
+      // miss 1: Pip's hint + retry (gentle, nothing blocked). A question with no
+      // hint of its own borrows a rotating encouragement, so a kid who misses a
+      // few times in one lesson never hears the same sentence twice running.
+      const enc = q.hint || l2Line('wrong');
+      $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span><span class="fb-text"><b>Let's look together.</b> ${esc(enc)}</span></div>`;
+      foxSpeak(enc);
     } else {
       opts.onMiss2(q);
     }
@@ -1616,7 +1682,7 @@ function l2Tryit(idea, n) {
     onRight: (q2, misses) => {
       LS2.st.stars++; sfx('star');
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
-        <span class="fb-text"><b>${misses ? 'You found it!' : 'Yes!'}</b> ${q2.why} <span class="pill gold" style="margin-left:6px">${icon('star', 12)} +1</span></span>
+        <span class="fb-text"><b>${misses ? 'You found it!' : l2Line('correct')}</b> ${q2.why} <span class="pill gold" style="margin-left:6px">${icon('star', 12)} +1</span></span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
       const g = l2GateBtn($('#l2On'));
       foxSpeak(speakableText(q2.why), { onDone: g });
@@ -1681,10 +1747,10 @@ function l2Mastery() {
     onRight: (q2) => {
       LS2.st.streak++; LS2.st.stars++; sfx('star'); save();
       if (LS2.st.streak >= 3) {
-        $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>Three in a row — you really know it!</b></span></div>`;
+        $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>${l2Line('streak')}</b></span></div>`;
         setTimeout(() => { if (LS2) { LS2.st.status = 'mastered'; l2Advance(); } }, 1200);
       } else {
-        $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>Yes!</b> ${q2.why}</span>
+        $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>${l2Line('correct')}</b> ${q2.why}</span>
           <button class="btn primary caps-btn" id="l2On" style="flex:none">Next one ${icon('arrowright', 14)}</button></div>`;
         const g = l2GateBtn($('#l2On'));
         foxSpeak(speakableText(q2.why), { onDone: g });
@@ -1716,6 +1782,7 @@ function l2Celebrate() {
   lpSpeechStop();
   const d = LS2.def;
   const mastered = LS2.st.status === 'mastered';
+  const streakLine = mastered ? l2Line('streak') : ''; // one variant — shown AND spoken, so they agree
   if (!mastered && LS2.st.status !== 'learned') LS2.st.status = 'learned';
   const L = kidLearn();
   // record + plant (mastered starts one stage ahead)
@@ -1759,9 +1826,11 @@ function l2Celebrate() {
         <button class="btn big" id="l2Path">Back to my path</button>
       </div>
     </div>
-    <div class="fox-note-big"><span>${typeof foxFullSVG === 'function' ? foxFullSVG(96, 'cheer') : foxSVG(42, 'cheer')}</span><span class="say">${mastered ? 'Three in a row — you really know it!' : 'Look how much you learned today!'}</span></div>
+    <div class="fox-note-big"><span>${typeof foxFullSVG === 'function' ? foxFullSVG(96, 'cheer') : foxSVG(42, 'cheer')}</span><span class="say">${mastered ? esc(streakLine) : 'Look how much you learned today!'}</span></div>
   </div>`;
-  foxSpeak(mastered ? `You mastered ${d.term}! Three in a row — you really know it!` : `You learned ${d.term} today! Next time we'll finish the mastery check together.`);
+  // Celebration gets Pip's brighter cheer prosody (app.js loads last, so guard it).
+  const cheer = (typeof VOICE_PROSODY !== 'undefined' && VOICE_PROSODY.pipCheer) ? { ...VOICE_PROSODY.pipCheer } : {};
+  foxSpeak(mastered ? `You mastered ${d.term}! ${streakLine}` : `You learned ${d.term} today! Next time we'll finish the mastery check together.`, cheer);
   if (next) $('#l2Next').onclick = () => { lpSpeechStop(); startLesson(next.id, LS2.strandId); };
   $('#l2Path').onclick = () => { lpSpeechStop(); show('learnpath', LS2.strandId); };
 }

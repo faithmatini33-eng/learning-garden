@@ -519,8 +519,12 @@ function foxSpeak(text, { lang = 'en-US', rate = 0.85, pitch = 1.15, onDone } = 
   let fired = false, spoke = false;
   const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
   const sents = Math.max(1, (String(text || '').match(/[.!?…]/g) || []).length);
+  // Say-it-with-me beats ("sun… flower… sunflower!") pause 520ms instead of
+  // 300ms, which eats into the 350ms-per-sentence allowance. Pay the extra back
+  // per ellipsis so the backstop can never undercut a real spell-it-out line.
+  const ells = (String(text || '').match(/…/g) || []).length;
   const probeMs = 2200;
-  const backstopMs = Math.max(3000, words * 550 + sents * 350 + 1200);
+  const backstopMs = Math.max(3000, words * 550 + sents * 350 + ells * 220 + 1200);
   let probe = null, backstop = null;
   const clearTimers = () => { if (probe) { clearTimeout(probe); probe = null; } if (backstop) { clearTimeout(backstop); backstop = null; } };
   const fireDone = () => {

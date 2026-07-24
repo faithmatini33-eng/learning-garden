@@ -44,19 +44,92 @@ const VOICE_NAMES = {
   female: { en: ['samantha', 'ava', 'allison', 'victoria', 'karen', 'susan', 'zoe', 'moira', 'tessa', 'female'], es: ['mónica', 'monica', 'paulina', 'angélica', 'angelica', 'isabela', 'female'] },
   male: { en: ['alex', 'daniel', 'tom', 'aaron', 'fred', 'oliver', 'nathan', 'male'], es: ['diego', 'jorge', 'juan', 'carlos', 'reed', 'male'] },
 };
+// Tier A — Apple's character voices (iOS 16+ / macOS 13+). These are the ones
+// that actually sound like a person having fun instead of a train station, so
+// they win outright when the tablet has them. Split by gender so the Girl/Boy
+// preference still steers WITHIN the tier.
+const KID_VOICES = {
+  female: ['flo', 'sandy', 'shelley', 'grandma'],
+  male: ['eddy', 'reed', 'rocko', 'grandpa'],
+};
+// Character prosody — one place to keep everyone's voice consistent.
+// Pip (the fox) is brighter and livelier; the Owl is a steadier grown-up.
+const VOICE_PROSODY = {
+  pip: { rate: 0.85, pitch: 1.15 },
+  pipCheer: { rate: 0.95, pitch: 1.25 },
+  owl: { rate: 0.80, pitch: 0.90 },
+  neutral: { rate: 0.82, pitch: 1.0 },
+};
 if ('speechSynthesis' in window) speechSynthesis.getVoices(); // warm the voice list
 
-function pickVoice(lang) {
-  const pref = DB.settings.voicePref || 'female';
-  const voices = speechSynthesis.getVoices();
-  const prefix = String(lang).toLowerCase().startsWith('es') ? 'es' : 'en';
-  const pool = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
-  if (!pool.length) return null;
-  const names = VOICE_NAMES[pref][prefix];
-  return pool.find(v => names.some(n => v.name.toLowerCase().includes(n))) || pool[0];
+// Voice quality tiers, best first:
+//   A ·    100 — character kid voice in the chosen Girl/Boy gender
+//   B ·  80/70 — "Enhanced"/"Premium" download (on the roster / not)
+//   C ·     60 — the VOICE_NAMES roster (what we shipped with)
+//   A' ·    55 — character voice of the OTHER gender: still lovely, but it must
+//                NOT override an explicit Girl/Boy pick, so it sits below the
+//                roster. (A family that picks "Girl voice" and owns only Rocko
+//                hears Samantha, not a boy.)
+//   D ·     10 — any other voice in the right language
+// Spanish skips tier A on purpose (those voices are English-only) and still
+// gets Enhanced → roster → first, so the Spanish flow only gains, never changes.
+function voiceScore(v, pref, prefix) {
+  const nm = String((v && v.name) || '').toLowerCase();
+  const uri = String((v && v.voiceURI) || '').toLowerCase();
+  if (!nm) return 0;
+  const other = pref === 'male' ? 'female' : 'male';
+  const kidPref = prefix === 'en' ? (KID_VOICES[pref] || []) : [];
+  const kidOther = prefix === 'en' ? (KID_VOICES[other] || []) : [];
+  const roster = (VOICE_NAMES[pref] && VOICE_NAMES[pref][prefix]) || [];
+  // iPadOS often swaps an Enhanced download in under the SAME display name
+  // ("Samantha") and only marks it in the voiceURI — check both, or the whole
+  // "download an Enhanced voice" tip in Grown-ups would silently do nothing.
+  const enhanced = /enhanced|premium/i.test(nm) || /enhanced|premium/i.test(uri);
+  // The roster carries a bare 'male' token, and 'female'.includes('male') is
+  // true — without this guard every female voice satisfies the MALE roster and
+  // the Boy/Girl toggle looks broken on non-Apple tablets.
+  const hit = (n) => (n === 'male' ? (nm.includes('male') && !nm.includes('female')) : nm.includes(n));
+  if (kidPref.some(hit)) return 100;
+  const onRoster = roster.some(hit);
+  if (enhanced && onRoster) return 80;
+  if (enhanced) return 70;
+  if (onRoster) return 60;
+  if (kidOther.some(hit)) return 55;
+  return 10;
 }
 
-function speak(text, lang = 'es-ES') {
+function pickVoice(lang) {
+  if (!('speechSynthesis' in window)) return null;
+  const pref = DB.settings.voicePref === 'male' ? 'male' : 'female';
+  let voices = [];
+  try { voices = speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
+  const prefix = String(lang).toLowerCase().startsWith('es') ? 'es' : 'en';
+  const pool = voices.filter(v => v && v.lang && v.lang.toLowerCase().startsWith(prefix));
+  if (!pool.length) return null; // no voices on this device — callers fail open
+  // A grown-up's explicit pick (Grown-ups → Pip's voice) wins, but only inside
+  // its own language: the pool is already filtered, so an English pick simply
+  // isn't in the Spanish pool and the tiering quietly takes over there.
+  const chosen = DB.settings.voicePref2;
+  if (chosen) {
+    const exact = pool.find(v => v.voiceURI === chosen || v.name === chosen);
+    if (exact) return exact;
+  }
+  // Highest score wins; ties keep the earliest voice, which is exactly what the
+  // old find()-then-pool[0] did — a device with no character/Enhanced voices
+  // therefore hears precisely the voice it hears today.
+  let best = pool[0], bestScore = -1;
+  for (const v of pool) {
+    const sc = voiceScore(v, pref, prefix);
+    if (sc > bestScore) { bestScore = sc; best = v; }
+  }
+  return best || pool[0];
+}
+
+function speak(text, lang = 'es-ES', opts) {
+  // opts destructured defensively — `= {}` only covers undefined, and a stray
+  // speak(x, 'en', null) from a future caller would hard-throw on the app's
+  // most-used function.
+  const { rate = 0.82, pitch = 1.0 } = opts || {};
   if (!('speechSynthesis' in window)) return;
   // Safari/iPad swallow an utterance queued in the same tick as cancel() —
   // only cancel when busy, and defer the new speech a beat afterwards.
@@ -66,11 +139,12 @@ function speak(text, lang = 'es-ES') {
   u.lang = lang === 'en' ? 'en-US' : lang;
   const v = pickVoice(u.lang);
   if (v) u.voice = v;
-  u.rate = 0.82;
+  u.rate = rate;
+  u.pitch = pitch;
   window.__lgUtter = u; // iOS GC guard — collected utterances go silent
   if (wasBusy) setTimeout(() => speechSynthesis.speak(u), 80);
   else speechSynthesis.speak(u);
-  return u;
+  return u; // Phase 1's advance gates attach onstart/onend to this — always return it
 }
 // voice list loads async on some browsers — warm it so pickVoice works
 if ('speechSynthesis' in window) {
@@ -81,6 +155,111 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-say]');
   if (btn) { e.stopPropagation(); speak(btn.dataset.say, btn.dataset.lang || 'es-ES'); }
 }, true);
+
+/* ---- Grown-ups → "Pip's voice" -----------------------------------------
+   Lets a grown-up hear every voice this tablet already has and choose the one
+   the kids like. The pick is stored globally as DB.settings.voicePref2 (the
+   voiceURI); the older Girl/Boy voicePref stays exactly as it was and is still
+   what steers the tiering when no explicit pick has been made. Nothing here
+   downloads anything or needs the internet.
+   ------------------------------------------------------------------------ */
+const PIP_SAMPLE = "Hi! I'm Pip. Let's grow something today!";
+
+function enVoices() {
+  if (!('speechSynthesis' in window)) return [];
+  let voices = [];
+  try { voices = speechSynthesis.getVoices() || []; } catch (e) { return []; }
+  return voices.filter(v => v && v.lang && v.lang.toLowerCase().startsWith('en'));
+}
+// Best = tiers A+B (character voice or an Enhanced download) · Good = our
+// roster (tier C) · Basic = everything else (tier D).
+function voiceBand(v) {
+  const sc = voiceScore(v, DB.settings.voicePref === 'male' ? 'male' : 'female', 'en');
+  return sc >= 70 ? 'best' : sc >= 60 ? 'good' : 'basic';
+}
+function previewVoice(id) {
+  if (!('speechSynthesis' in window)) return;
+  const v = enVoices().find(x => x.voiceURI === id || x.name === id) || null;
+  const u = new SpeechSynthesisUtterance(PIP_SAMPLE);
+  u.lang = (v && v.lang) || 'en-US';
+  if (v) u.voice = v;
+  u.rate = VOICE_PROSODY.pip.rate;   // preview in Pip's real prosody — an honest sample
+  u.pitch = VOICE_PROSODY.pip.pitch;
+  speechSynthesis.cancel();
+  window.__lgUtter = u;              // iOS GC guard
+  setTimeout(() => speechSynthesis.speak(u), 80); // Safari swallows same-tick queues
+}
+function pipVoiceRowsHTML() {
+  const en = enVoices();
+  if (!en.length) {
+    return `<p class="note" style="margin-top:10px">No voices found on this device yet — they usually arrive a few seconds after the app opens, and this list fills itself in when they do. The tip below adds the good ones.</p>`;
+  }
+  const chosen = DB.settings.voicePref2 || '';
+  const bands = [['best', 'Best', 'var(--green)'], ['good', 'Good', 'var(--teal)'], ['basic', 'Basic', 'var(--muted)']];
+  return bands.map(([key, label, color]) => {
+    const rows = en.filter(v => voiceBand(v) === key);
+    if (!rows.length) return '';
+    const body = rows.map(v => {
+      const id = v.voiceURI || v.name;
+      const on = !!chosen && (chosen === v.voiceURI || chosen === v.name);
+      return `<div class="toggle-row">
+        <span style="flex:1;min-width:0"><b>${esc(v.name)}</b><br><small class="note">${esc(v.lang)}</small></span>
+        <span style="display:inline-flex;gap:7px;margin-left:auto">
+          <button class="btn small ghost" data-vprev="${escAttr(id)}" aria-label="Play a sample in ${escAttr(v.name)}">${icon('volume', 13)} Play</button>
+          <button class="btn small ${on ? 'sky' : 'ghost'}" data-vpick="${escAttr(id)}" aria-pressed="${on ? 'true' : 'false'}">${on ? `${icon('check', 13)} Pip's voice` : 'Use this'}</button>
+        </span></div>`;
+    }).join('');
+    // A tablet can list 40-60 English voices. Best/Good stay open; the long
+    // Basic tail folds away so it doesn't bury the rest of Grown-ups.
+    if (key === 'basic') {
+      return `<details style="margin-top:12px"><summary style="font-weight:700;cursor:pointer;color:${color}">All other device voices (${rows.length})</summary>${body}</details>`;
+    }
+    return `<p class="eyebrow" style="margin-top:12px;color:${color}">${label}</p>` + body;
+  }).join('');
+}
+function pipVoiceCardHTML() {
+  const chosen = DB.settings.voicePref2 || '';
+  return `<div class="card">
+    <h2><span class="bubble" style="background:var(--gold-tint);color:var(--gold)">${icon('volume', 16)}</span>Pip's voice</h2>
+    <p class="note">These are the <b>English</b> voices already installed on this device — all free, all offline. Tap <b>Play</b> to hear Pip say hello, then pick the one your kids like best. It's used for every English read-aloud; Spanish words still use a Spanish voice.</p>
+    <div id="pipVoiceList">${pipVoiceRowsHTML()}</div>
+    <div class="field-row">
+      ${chosen
+        ? `<button class="btn small ghost" id="pipVoiceAuto">Let the app choose again</button>`
+        : `<p class="note" style="margin:0">${icon('check', 13)} The app is choosing the best voice on its own.</p>`}
+    </div>
+    <p class="note" style="margin-top:10px">${icon('bulb', 13)} <b>For the best voice, download an Enhanced voice on the tablet:</b> Settings → Accessibility → Spoken Content → Voices → English. Free, one-time, works offline.</p>
+  </div>`;
+}
+function wirePipVoiceRows() {
+  $$('[data-vprev]').forEach(b => b.onclick = () => previewVoice(b.dataset.vprev));
+  $$('[data-vpick]').forEach(b => b.onclick = () => {
+    DB.settings.voicePref2 = b.dataset.vpick; save();
+    previewVoice(b.dataset.vpick); // hear the choice land
+    renderGrownups();
+  });
+}
+function wirePipVoiceCard() {
+  wirePipVoiceRows();
+  const auto = $('#pipVoiceAuto');
+  if (auto) auto.onclick = () => { delete DB.settings.voicePref2; save(); renderGrownups(); };
+  // Voices load async on iOS/Safari. If the list came up empty, refill just this
+  // card the moment they arrive — no full re-render, so nothing jumps.
+  const list = $('#pipVoiceList');
+  if (list && 'speechSynthesis' in window && !list.querySelector('[data-vpick]')) {
+    // NOT { once: true }: Chrome/Android often fire voiceschanged first with a
+    // still-empty list, which would consume a one-shot listener and leave the
+    // card stuck on "No voices found". Keep listening until rows actually land.
+    const refill = () => {
+      const el = $('#pipVoiceList');
+      if (!el) { speechSynthesis.removeEventListener('voiceschanged', refill); return; }
+      el.innerHTML = pipVoiceRowsHTML();
+      wirePipVoiceRows();
+      if (el.querySelector('[data-vpick]')) speechSynthesis.removeEventListener('voiceschanged', refill);
+    };
+    speechSynthesis.addEventListener('voiceschanged', refill);
+  }
+}
 
 // ---------------- date helpers ----------------
 const dstr = (d = new Date()) =>
@@ -1290,7 +1469,7 @@ function nextQuestion() {
       const L = SESSION.queue.length;
       if (SESSION.qi === Math.ceil(L / 3)) diagCheer = "You're doing great — keep going!";
       else if (SESSION.qi === Math.ceil(2 * L / 3)) diagCheer = 'Almost there — home stretch!';
-      if (diagCheer) speak(diagCheer, 'en');
+      if (diagCheer) speak(diagCheer, 'en', VOICE_PROSODY.owl); // the owl says this one
     }
     SESSION.skill = SKILL_MAP[SESSION.queue[SESSION.qi++]];
     const t = $('#sessTitle');
@@ -1999,7 +2178,9 @@ function renderGrownups() {
             <button class="btn small ${DB.settings.voicePref === 'male' ? 'sky' : 'ghost'}" id="voiceM">Boy voice</button>
             <button class="btn small ghost" id="voiceTest">${icon('volume', 14)} Test</button>
           </div>
+          <p class="note" style="margin-top:8px">Girl or boy is the quick preference. To choose an exact voice, use <b>Pip's voice</b> just below.</p>
         </div>
+        ${pipVoiceCardHTML()}
         <div class="card">
           <h2><span class="bubble" style="background:var(--purple-tint);color:var(--purple)">${icon('pin', 16)}</span>My lessons</h2>
           <p class="note">Add your own content — spelling lists, vocabulary, or quizzes. It becomes a real skill your kids practice.</p>
@@ -2074,6 +2255,7 @@ function renderGrownups() {
   $('#voiceF').onclick = () => { DB.settings.voicePref = 'female'; save(); renderGrownups(); };
   $('#voiceM').onclick = () => { DB.settings.voicePref = 'male'; save(); renderGrownups(); };
   $('#voiceTest').onclick = () => speak('Hello! I will be your reading buddy in the Learning Garden.', 'en');
+  wirePipVoiceCard();
   $('#newLesson').onclick = () => renderCreateLesson();
   $$('[data-tog]').forEach(b => b.onclick = () => {
     rem[b.dataset.tog] = !rem[b.dataset.tog]; save();
