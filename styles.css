@@ -2051,3 +2051,102 @@ body.calm-motion .l2-break-choice:hover { transform: none; }
 .rm-subj-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12.5px; }
 .rm-subj-top b { font-family: var(--font-head); font-size: 12.5px; flex: 1; }
 .rm-subj-top .note { font-weight: 700; font-size: 11.5px; }
+
+/* ============================================================
+   PHASE 5 · HANDS-ON QUESTION KINDS (turn 22.5)
+   ten-frame · number-line hops · coin tray · clap drum · bin sort.
+   Appended, never interleaved — another session edits this file live.
+   Every target is 44px+, every motion is transform-only, and nothing
+   here paints a wrong answer red: a miss returns the pieces and nudges.
+   ============================================================ */
+
+/* the manipulative sits centred under the question, and scales down on a
+   phone instead of pushing the page sideways */
+.l2-manip { display: flex; justify-content: center; margin: 16px auto 6px; max-width: 660px; }
+.l2-manip svg { max-width: 100%; height: auto; }
+
+/* running count / total — the kid's answer, always readable */
+.l2-count-chip {
+  display: inline-flex; align-items: center; gap: 6px; margin: 4px auto 0;
+  background: var(--teal-tint); color: var(--teal); border-radius: 100px;
+  padding: 8px 20px; font-size: 15px; font-weight: 700;
+}
+.l2-count-chip b { font-family: var(--font-head); font-size: 24px; font-weight: 800; }
+
+/* every build kind commits with a real tap — a kid is never stuck holding
+   a finished answer with nowhere to put it */
+.l2-commit-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.l2-hop-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ---- ten-frame ---- */
+.tf-cell[data-i] { cursor: pointer; }
+.tf-cell[data-i] rect { transition: fill .12s ease; }
+/* hover tint must never be `none`: an SVG rect with no fill stops hit-testing,
+   which would make a filled cell flicker in and out of reach under a mouse. */
+.tf-cell[data-i]:hover rect { fill: var(--gold-tint); }
+
+/* ---- coin tray ---- */
+.l2-purse {
+  min-height: 92px; align-items: center; border: 2.5px dashed var(--dashed);
+  border-radius: 18px; background: var(--bg); padding: 8px 14px;
+}
+.l2-purse-empty { color: var(--muted); font-weight: 700; font-size: 13.5px; }
+.l2-coin-tray { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.l2-coin-add {
+  border: 2px solid var(--border); border-radius: 100px; background: #fff; cursor: pointer;
+  min-width: 76px; min-height: 76px; display: inline-grid; place-items: center; padding: 4px;
+  box-shadow: 0 2px 0 var(--border); transition: transform .15s var(--spring);
+}
+.l2-coin-add svg { width: 62px; height: auto; }
+.l2-coin-add:hover { transform: translateY(-2px); }
+
+/* ---- clap drum ---- */
+.l2-drum {
+  display: inline-grid; place-items: center; margin: 10px auto 0; padding: 10px 18px;
+  border: 0; background: none; cursor: pointer; min-height: 120px;
+  transition: transform .12s var(--spring);
+}
+.l2-drum:active { transform: scale(.94); }
+.l2-beat-dots { display: flex; justify-content: center; gap: 9px; min-height: 22px; margin: 8px 0 4px; }
+.l2-beat { width: 18px; height: 18px; border-radius: 100px; background: var(--terra); display: inline-block; }
+
+/* ---- bin sort (frames 22p/22q) ---- */
+.l2-card-tray {
+  display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;
+  min-height: 74px; margin: 14px auto 16px; padding: 10px;
+  border: 2.5px dashed var(--dashed); border-radius: 18px; background: var(--bg);
+}
+.l2-sort-card {
+  border: 2px solid var(--border); border-radius: 14px; background: #fff; cursor: grab;
+  padding: 12px 18px; min-height: 48px; font-size: 17px; font-weight: 800; font-family: var(--font-head);
+  box-shadow: 0 2px 0 var(--border); transition: transform .15s var(--spring), border-color .15s ease;
+}
+.l2-sort-card.picked { border-color: var(--terra); background: var(--terra-tint); color: var(--terra-dark); transform: translateY(-3px); }
+.l2-sort-card.dragging { transform: rotate(-4deg); }
+.l2-sort-card.right-pick { border-color: var(--green); background: #F2F8EE; color: var(--green); }
+.l2-sort-card.no { animation: nudge .32s ease; border-color: var(--gold); }
+.l2-bins { display: grid; grid-template-columns: repeat(2, minmax(150px, 300px)); gap: 14px; justify-content: center; }
+.l2-bin {
+  border: 2.5px dashed var(--terra); border-radius: 18px; background: var(--terra-tint);
+  padding: 12px; min-height: 130px; display: flex; flex-direction: column; gap: 8px;
+  align-items: center; cursor: pointer; transition: transform .15s var(--spring);
+}
+.l2-bin.over { transform: scale(1.03); background: #F6D9CB; }
+.l2-bin-label {
+  font-family: var(--font-head); font-weight: 800; font-size: 12.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--terra-dark);
+}
+.l2-bin-drop { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: flex-start; flex: 1; width: 100%; }
+@media (max-width: 620px) { .l2-bins { grid-template-columns: 1fr; } }
+
+/* ---- generic build slot (mc answers with no compound parts) ---- */
+.l2-slot.wide { min-width: 210px; }
+.l2-word-tile.picked { border-color: var(--terra); background: var(--terra-tint); color: var(--terra-dark); }
+
+/* Phase 1's invisible lockout reaches the new targets too: these are SVG
+   groups and divs, which the button/input rule can't see. Pointer-events
+   only — nothing dims, and the lock lifts on its own after the beat. */
+.l2-answers-locked .tf-cell,
+.l2-answers-locked .nl-tick,
+.l2-answers-locked .l2-bin,
+.l2-answers-locked .l2-drum { pointer-events: none; }

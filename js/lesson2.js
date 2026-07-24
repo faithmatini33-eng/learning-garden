@@ -29,16 +29,45 @@
    INPUT TYPES — easiest → hardest (Option C steps DOWN this list)
    trace_it ships in a later batch (handwriting engine hookup).
    ------------------------------------------------------------ */
-const L2_KIND_ORDER = ['tap_picture', 'tap_word', 'listen_pick', 'word_tiles', 'drag_drop', 'say_it'];
+/* Phase 5 — the ladder now carries five hands-on kinds. Position = how much a
+   kid has to do UNAIDED, because Option C steps DOWN this list when a kind is
+   missed twice: a struggling child must land on something MORE concrete, never
+   something harder. The manipulatives sit below the reading-based taps because
+   they show the quantity instead of asking a kid to hold it in their head.
+     0 tap_picture      · recognize one picture — no reading, no counting
+     1 clap_syllables   · one huge pad, one beat per tap; nothing to read at all
+     2 ten_frame        · build the answer in ones; the frame does the counting
+     3 number_line_hop  · same building, but on a scale you have to read
+     4 coin_tap         · building with mixed values (unitizing) — hardest manipulative
+     5 tap_word         · read four choices, pick one
+     6 listen_pick      · same, with the prompt held in memory (audio only)
+     7 word_tiles       · build into a slot, then commit
+     8 drag_drop        · same, with a drag (tap always works too)
+     9 bin_sort         · FOUR decisions that must ALL be right, rule held throughout
+    10 type_in          · free recall — no choices to lean on
+    11 say_it           · produce it out loud
+   (type_in used to sit outside the array, which made indexOf() return -1 and
+   quietly rank it "easier than everything" for the step-down. It is ranked now.) */
+const L2_KIND_ORDER = [
+  'tap_picture', 'clap_syllables', 'ten_frame', 'number_line_hop', 'coin_tap',
+  'tap_word', 'listen_pick', 'word_tiles', 'drag_drop', 'bin_sort', 'type_in', 'say_it',
+];
 const L2_KIND_LABEL = {
   tap_picture: 'tap the picture', tap_word: 'tap the word', listen_pick: 'listen & pick',
   word_tiles: 'word tiles', drag_drop: 'drag & drop', say_it: 'say it',
+  clap_syllables: 'clap the beats', ten_frame: 'build it in the ten-frame',
+  number_line_hop: 'hop the number line', coin_tap: 'tap the coins',
+  bin_sort: 'sort into bins', type_in: 'type it in',
 };
 
 // ------------------------------------------------------------
 // small shared helpers
 // ------------------------------------------------------------
 function l2Shuffle(a) { return shuffle(a.slice()); }
+/* what Pip SAYS the answer was. Most kinds answer with one thing, so it's just
+   q.answer — but a bin sort answers with a whole arrangement, and l2Question
+   hangs that readable version on the question as `answerShown`. */
+function l2Ans(q) { return (q && q.answerShown) ? q.answerShown : (q ? q.answer : ''); }
 function l2Pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 function l2PickFresh(arr, used, keyOf) {
   const fresh = arr.filter(x => !used.has(keyOf(x)));
@@ -794,6 +823,188 @@ function l2AutoEligible(sk) {
   return true;
 }
 
+/* ============================================================
+   PHASE 5 · MANIPULATIVE DERIVATION
+   Auto lessons used to offer taps and typing only, so every lesson felt the
+   same. These helpers read a generator's OUTPUT (never its source) and widen
+   the input kinds — but every check below is a HARD GATE. If the data can't
+   genuinely hold the answer (a ten-frame that can't show 47, a coin tray that
+   can't build "$1.05", a bin sort with only one card), we add nothing and the
+   question keeps the kind it already had. A manipulative must never render
+   broken, and it must never quietly change what the question is asking.
+   ============================================================ */
+
+function l2SubjectOf(sk) {
+  const st = (typeof STRANDS !== 'undefined' ? STRANDS.find(x => x.id === sk.strand) : null) || {};
+  return st.subject || '';
+}
+// prompt/body HTML → plain speakable text (buttons + svg stripped)
+function l2Plain(html) {
+  try { return speakableText(html || ''); }
+  catch (e) { return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+}
+function l2Int(v) {
+  const n = Number(String(v == null ? '' : v).replace(/[,\s]/g, ''));
+  return Number.isInteger(n) ? n : null;
+}
+
+/* count-on / count-back plan for the number line.
+   We only hop when the question's OWN text contains an "a + b" / "a − b" that
+   actually reproduces the answer — that check is the safety net, so a stray
+   number in a story problem can never build a wrong number line. Only the
+   prompt and body are read (never `explain`, which usually states the answer). */
+function l2HopPlan(text, ans) {
+  if (ans === null) return null;
+  const re = /(\d+)\s*([+−–‐-])\s*(\d+)/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const a = Number(m[1]), b = Number(m[3]), plus = m[2] === '+';
+    if (!(plus ? a + b === ans : a - b === ans)) continue;
+    if (a < 0 || a > 120 || ans < 0 || ans > 120) continue;
+    // Hop size, best first: a line whose ticks land on round numbers reads
+    // easiest, then single steps (capped at 8 taps — more than that is a chore,
+    // not a manipulative), then tens/fives off a non-round start.
+    let step = 0;
+    if (b % 10 === 0 && b / 10 <= 8 && a % 10 === 0) step = 10;
+    else if (b % 5 === 0 && b / 5 <= 8 && a % 5 === 0) step = 5;
+    else if (b >= 1 && b <= 8) step = 1;
+    else if (b % 10 === 0 && b / 10 <= 8) step = 10;
+    else if (b % 5 === 0 && b / 5 <= 8) step = 5;
+    if (!step) continue;
+    const hops = b / step;
+    const lo = Math.min(a, ans), hi = Math.max(a, ans);
+    const min = Math.max(0, lo - 2 * step);
+    if ((lo - min) % step !== 0 || (hi - min) % step !== 0) continue;    // both ends must sit on a tick
+    const max = min + step * (hops + 4);
+    if (max > 130) continue;
+    const ticks = (max - min) / step + 1;
+    return { start: a, step, hops, dir: plus ? 1 : -1, min, max, labelEvery: ticks > 13 ? 2 : 1 };
+  }
+  return null;
+}
+
+/* how many cents the kid should build. Three shapes qualify:
+   a coin-combo answer ("25¢ + 5¢" → 30), a bare "NN¢", or a numeric answer in
+   a money question. Anything already SHOWING the coins is refused — copying a
+   pile coin-for-coin would let a kid skip the counting the question is about. */
+function l2CoinCents(g) {
+  const ans = String(g.answer == null ? '' : g.answer).trim();
+  if (/^\d+¢(\s*\+\s*\d+¢)+$/.test(ans)) {
+    const c = ans.split('+').reduce((s, p) => s + Number(p.replace(/\D/g, '') || 0), 0);
+    return c >= 1 && c <= 200 ? c : null;
+  }
+  if (g.body) return null;
+  if (/^\d+¢$/.test(ans)) { const c = Number(ans.replace(/\D/g, '')); return c >= 1 && c <= 200 ? c : null; }
+  const n = l2Int(ans);
+  if (n === null || n < 1 || n > 200) return null;
+  return (g.suffix === '¢' || /¢/.test(String(g.prompt || ''))) ? n : null;
+}
+
+// syllable/beat counting questions: numeric choices + a "clap it out" prompt
+function l2ClapBeats(g) {
+  if (!Array.isArray(g.choices) || !g.choices.length) return null;
+  if (!/syllab|beat|clap/i.test(l2Plain(g.prompt))) return null;
+  if (!g.choices.every(c => /^\d+$/.test(String(c).trim()))) return null;
+  const n = l2Int(g.answer);
+  return (n !== null && n >= 1 && n <= 6) ? n : null;
+}
+
+/* the label that goes ON a sort card. This codebase bolds the thing being
+   asked about ("Is <b>a rock</b> living or nonliving?"), so a prompt with
+   exactly ONE bold span hands us the item. Two bold spans is ambiguous
+   ("Does the <b>a</b> in <b>cat</b>…") — we refuse rather than guess. A short
+   plain body (the big number in "Is this number even or odd?") also works. */
+function l2SortLabel(g) {
+  const bolds = String(g.prompt || '').match(/<b>[\s\S]*?<\/b>/g) || [];
+  if (bolds.length === 1) {
+    const t = l2Plain(bolds[0]);
+    return (t && t.length <= 28) ? t : null;
+  }
+  if (!bolds.length && g.body && !/<svg/i.test(String(g.body))) {
+    const t = l2Plain(g.body);
+    if (t && t.length <= 14) return t;
+  }
+  return null;
+}
+
+/* two bins + four cards, drawn fresh from the same generator. Every extra draw
+   must offer the SAME two choices and a NEW label, and both bins must end up
+   with at least one card — otherwise there is nothing to sort and we bail. */
+function l2SortPlan(sk, lvl, g) {
+  if (!Array.isArray(g.choices) || g.choices.length !== 2) return null;
+  const bins = g.choices.map(c => String(c));
+  if (bins.some(b => !b || b.length > 24)) return null;
+  // A bin has to say what it holds. "yes"/"no" bins only make sense next to the
+  // question they came from, and a sort screen replaces that question.
+  if (bins.some(b => /^(yes|no|true|false)$/i.test(b.trim()))) return null;
+  const key = bins.slice().sort().join('|');
+  const first = l2SortLabel(g);
+  if (!first) return null;
+  const firstBin = bins.indexOf(String(g.answer));
+  if (firstBin < 0) return null;
+  const cards = [{ t: first, bin: firstBin }];
+  const seen = new Set([first.toLowerCase()]);
+  for (let i = 0; i < 16 && cards.length < 4; i++) {
+    let g2 = null;
+    try { g2 = sk.gen(lvl); } catch (e) { break; }
+    if (!g2 || g2.type !== 'mc' || !Array.isArray(g2.choices) || g2.choices.length !== 2) continue;
+    if (g2.choices.map(c => String(c)).slice().sort().join('|') !== key) continue;
+    const t = l2SortLabel(g2);
+    if (!t || seen.has(t.toLowerCase())) continue;
+    const bin = bins.indexOf(String(g2.answer));
+    if (bin < 0) continue;
+    seen.add(t.toLowerCase());
+    cards.push({ t, bin });
+  }
+  if (cards.length < 4) return null;
+  if (!cards.some(c => c.bin === 0) || !cards.some(c => c.bin === 1)) return null;
+  return { bins, cards: l2Shuffle(cards) };
+}
+
+// word tiles / drag-drop only suit short, single-token choices — a sentence
+// makes a terrible tile, so those questions stay on the choice grid.
+function l2TileFriendly(base) {
+  if (!Array.isArray(base.choices) || base.choices.length < 2 || base.choices.length > 4) return false;
+  return base.choices.every(c => {
+    const t = String(c.t == null ? '' : c.t);
+    return t.length > 0 && t.length <= 14 && !/\s/.test(t);
+  });
+}
+
+// the one place that widens a question's kinds. Never throws: a derivation
+// failing must leave the question exactly as it was.
+function l2GenExtras(sk, g, base) {
+  try {
+    const strand = String(sk.strand || '');
+    if (g.type === 'mc') {
+      if (l2TileFriendly(base)) base.kinds.push('word_tiles', 'drag_drop');
+      const beats = l2ClapBeats(g);
+      if (beats) { base.clapTarget = beats; base.kinds.push('clap_syllables'); }
+      const cents = l2CoinCents(g);
+      if (cents) { base.centsTarget = cents; base.kinds.push('coin_tap'); }
+      const sort = l2SortPlan(sk, base.lvl || 1, g);
+      if (sort) { base.bins = sort.bins; base.sortCards = sort.cards; base.kinds.push('bin_sort'); }
+      return;
+    }
+    // typed answers (num / line / text) — math manipulatives only
+    if (l2SubjectOf(sk) !== 'math') return;
+    const cents = strand === 'money' ? l2CoinCents(g) : null;
+    if (cents) { base.centsTarget = cents; base.kinds.push('coin_tap'); return; }
+    if (strand === 'money' || strand === 'time') return; // amounts and clock faces aren't counters
+    // Questions that are ALREADY about a number line answer themselves on one —
+    // a second, different manipulative would just contradict the prompt.
+    const ptext = l2Plain(g.prompt);
+    if (g.type === 'line' || /number line|\bhops?\b/i.test(ptext)) return;
+    const n = l2Int(base.answer);
+    if (n !== null && n >= 1 && n <= 20) {
+      base.tfTarget = n; base.tfCells = n <= 10 ? 10 : 20;
+      base.kinds.push('ten_frame');
+    }
+    const hop = l2HopPlan(`${ptext} ${l2Plain(g.body)}`, n);
+    if (hop) { base.nlHop = hop; base.kinds.push('number_line_hop'); }
+  } catch (e) { /* a derivation must never break a question */ }
+}
+
 // wrap one generated question into the engine's format
 function l2FromGen(sk, lvl, idea, tag) {
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -801,7 +1012,7 @@ function l2FromGen(sk, lvl, idea, tag) {
     const say = speakableText(g.prompt || '');
     const base = {
       key: `ag_${sk.id}_${tag}_${String(say).slice(0, 40)}_${g.answer}`,
-      idea, prompt: g.prompt, say, body: g.body || null,
+      idea, lvl, prompt: g.prompt, say, body: g.body || null,
       answer: String(g.answer),
       why: g.explain || `${g.answer} is right!`,
       hint: `Read it slowly one more time — you've got this!`,
@@ -818,11 +1029,13 @@ function l2FromGen(sk, lvl, idea, tag) {
       if (!base.choices.some(c => c.t === base.answer)) continue; // safety: answer must be present
       // listen_pick only when the prompt speaks on its own (no reliance on body visuals)
       if (g.body) base.kinds = ['tap_word'];
+      l2GenExtras(sk, g, base); // Phase 5 — tiles, drag, clap, coins, bins
       return base;
     }
     // num / line / text → typed answer
     base.kinds = ['type_in'];
     base.numeric = g.type === 'num' || g.type === 'line';
+    l2GenExtras(sk, g, base); // Phase 5 — ten-frame, number-line hops, coins
     return base;
   }
   return null;
@@ -1019,7 +1232,7 @@ function l2Start(ls, strandId, opts = {}) {
   if (st.step >= flow.length) st.step = flow.length - 2; // safety: land on mastery
   LS2 = {
     ls, def, strandId, flow, review: !!opts.review, t0: Date.now(),
-    st, lastKind: null, q: null, mastQueue: null, resumed: st.step > 0 && !opts.review,
+    st, lastKind: null, kindUse: {}, q: null, mastQueue: null, resumed: st.step > 0 && !opts.review,
     qStart: 0, rushStreak: 0, // Phase 1 rush detection — session-only, never persisted
     // Phase 3 break clock — ACTIVE lesson time only, paused while the tab hides
     activeMs: 0, activeSince: 0, inBreak: false, breakReason: null,
@@ -1602,10 +1815,10 @@ function l2AutoQuick(isSecond) {
     },
     onMiss2: (q2) => {
       $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span>
-        <span class="fb-text"><b>Good try!</b> It was <b>${esc(q2.answer)}</b> — ${q2.why} ${isSecond ? '' : "Let's try a fresh one!"}</span>
+        <span class="fb-text"><b>Good try!</b> It was <b>${esc(l2Ans(q2))}</b> — ${q2.why} ${isSecond ? '' : "Let's try a fresh one!"}</span>
         <button class="btn primary caps-btn" id="l2Fresh" style="flex:none">${isSecond ? 'Keep going' : 'Fresh one!'}</button></div>`;
       const g = l2GateBtn($('#l2Fresh'));
-      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)}`, { onDone: g });
+      foxSpeak(`It was ${l2Ans(q2)}. ${speakableText(q2.why)}`, { onDone: g });
       $('#l2Fresh').onclick = () => { lpSpeechStop(); isSecond ? l2Advance() : l2AutoQuick(true); };
     },
   });
@@ -1722,7 +1935,7 @@ function l2Warmup() {
     ungraded: true,
     onRight: (q2, misses) => bridgeOn(`${misses ? 'You found it!' : 'Still got it!'} ${q2.why} Now — back to today's brand-new skill!`),
     // right or wrong, Pip bridges back to today's skill (review never blocks)
-    onMiss2: (q2) => bridgeOn(`It was <b>${esc(q2.answer)}</b> — ${q2.why} We'll water that seed again soon. Now — today's brand-new skill!`),
+    onMiss2: (q2) => bridgeOn(`It was <b>${esc(l2Ans(q2))}</b> — ${q2.why} We'll water that seed again soon. Now — today's brand-new skill!`),
   });
 }
 
@@ -1796,7 +2009,7 @@ function l2Together(idea, n) {
    (stepped down) until the kid wins one; then it can return.
    ============================================================ */
 function l2PickKind(q) {
-  let kinds = (q.kinds || ['tap_word']).filter(k => L2_KIND_ORDER.includes(k) || k === 'type_in');
+  let kinds = (q.kinds || ['tap_word']).filter(k => L2_KIND_ORDER.includes(k));
   if (!kinds.length) kinds = ['tap_word'];
   let pool = kinds.filter(k => k !== LS2.lastKind);
   if (!pool.length) pool = kinds;
@@ -1805,20 +2018,46 @@ function l2PickKind(q) {
     if (stepped.length) pool = stepped;
     else if (pool.length > 1) pool = pool.filter(k => k !== LS2.st.avoidKind);
   }
-  // prefer the declared order (authors put the intended kind first)
-  const chosen = kinds.find(k => pool.includes(k)) || pool[0];
+  /* Phase 5 — least-used-first, declared order as the tiebreak. With only two
+     kinds this is exactly the old alternation. With the widened set it stops a
+     question's first two kinds from ping-ponging forever while a third kind
+     never appears — which is the whole point: no two lessons in a row should
+     feel the same. The author's/derivation's first kind still wins the opening
+     question, because every count starts at zero. */
+  const use = LS2.kindUse || (LS2.kindUse = {});
+  let chosen = null, best = Infinity;
+  for (const k of kinds) {
+    if (!pool.includes(k)) continue;
+    const n = use[k] || 0;
+    if (n < best) { best = n; chosen = k; }
+  }
+  if (!chosen) chosen = pool[0];
+  use[chosen] = (use[chosen] || 0) + 1;
   LS2.lastKind = chosen;
   return chosen;
 }
 
 // render one question into #l2QBox; opts: {starred, mastery, onRight, onMiss2}
 function l2Question(q, opts) {
-  const kind = opts.kind || l2PickKind(q);
+  let kind = opts.kind || l2PickKind(q);
+  /* Last line of defence: a hands-on kind can only draw itself if it was handed
+     the numbers to draw. If a payload ever goes missing (a forced kind on a
+     replayed question, a future author writing `kinds` by hand), fall back to a
+     kind that always works rather than render an empty frame at a child. */
+  const payloadOK = { ten_frame: !!q.tfTarget, number_line_hop: !!q.nlHop, coin_tap: !!q.centsTarget,
+    clap_syllables: !!q.clapTarget, bin_sort: !!(q.bins && q.sortCards && q.sortCards.length) };
+  if (kind in payloadOK && !payloadOK[kind]) kind = (q.choices && q.choices.length) ? 'tap_word' : 'type_in';
   q.kindUsed = kind;
+  if (kind !== 'bin_sort') q.answerShown = null; // only a sort answers with an arrangement
   LS2.q = q;
   LS2.qStart = Date.now(); // rush-detection clock (reset when listen_pick audio unlocks)
   const listen = kind === 'listen_pick';
-  const sayFull = q.sayFirst ? `${q.say} ${q.sayFirst}` : q.say;
+  let sayFull = q.sayFirst ? `${q.say} ${q.sayFirst}` : q.say;
+  // Phase 5 — a sort asks something the original prompt never asked, so it
+  // brings its own words (spoken AND shown) instead of borrowing them.
+  if (kind === 'bin_sort' && q.bins) sayFull = `Sort each card into the right bin. Is it ${q.bins[0]}, or ${q.bins[1]}?`;
+  const head = (extra) => `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>${q.body ? `<div class="qbody">${q.body}</div>` : ''}${extra || ''}`;
+  const commitRow = (label, extras) => `<div class="l2-commit-row">${extras || ''}<button class="btn primary big caps-btn" id="l2Commit">${label}</button></div>`;
   let inner = '';
   if (kind === 'say_it') {
     inner = `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
@@ -1826,19 +2065,68 @@ function l2Question(q, opts) {
       ${SR_CTOR ? `<button class="btn primary big" id="l2Mic">${icon('mic', 16)} I'll say it — listen!</button>
         <p class="sent-note" id="l2MicNote">Tap, then say it out loud.</p>`
         : `<p class="sent-note">Say it out loud — big and proud!</p><button class="btn primary big" id="l2Said">I said it!</button>`}`;
-  } else if (kind === 'drag_drop' && q.parts) {
-    inner = `<h2 class="tryit-q" style="justify-content:center">${listen ? '' : q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
+  } else if (kind === 'drag_drop') {
+    inner = q.parts
+      ? `<h2 class="tryit-q" style="justify-content:center">${listen ? '' : q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
       <div class="l2-build-row">
         <span class="l2-tile teal big-tile">${esc(q.parts[0])}</span><span class="l2-plus">+</span>
         <span class="l2-slot drop" id="l2Slot">drop here</span>
         <span class="l2-plus">=</span><span class="l2-tile ghost">${q.pic || ''} ${esc(q.whole)}</span>
       </div>
       <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" draggable="true" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>
-      <p class="sent-note">Drag a word into the box — or tap it!</p>`;
-  } else if (kind === 'word_tiles' && q.parts) {
-    inner = `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
+      <p class="sent-note">Drag a word into the box — or tap it!</p>`
+      // no build parts to scaffold: drag your answer straight into the box
+      : head(`<div class="l2-build-row"><span class="l2-slot drop wide" id="l2Slot">drop your answer here</span></div>
+      <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" draggable="true" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>
+      <p class="sent-note">Drag one into the box — or just tap it!</p>`);
+  } else if (kind === 'word_tiles') {
+    inner = q.parts
+      ? `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
       <div class="l2-build-row"><span class="l2-tile teal big-tile">${esc(q.parts[0])}</span><span class="l2-plus">+</span><span class="l2-slot" id="l2Slot">___</span></div>
-      <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>`;
+      <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>`
+      // generic: build the answer into the slot first, THEN say you're ready
+      : head(`<div class="l2-build-row"><span class="l2-slot wide" id="l2Slot">___</span></div>
+      <div class="l2-tiles" id="l2Tiles">${q.choices.map(c => `<button class="l2-word-tile" data-c="${escAttr(c.t)}">${esc(c.t)}</button>`).join('')}</div>
+      <p class="sent-note">Tap a tile to put it in the box. You can change your mind!</p>`
+        + commitRow(`That's my answer! ${icon('check', 15)}`));
+  } else if (kind === 'ten_frame') {
+    inner = head(`<p class="sent-note">Tap the boxes to put in that many counters.</p>
+      <div class="l2-manip" id="l2TF">${tenFrameSVG(0, { cells: q.tfCells || 10, clickable: true })}</div>
+      <div class="l2-count-chip" id="l2Count"><b>0</b> counters</div>`
+      + commitRow(`That's my answer! ${icon('check', 15)}`,
+        `<button class="btn ghost" id="l2Clear">${icon('swap', 14)} Start over</button>`));
+  } else if (kind === 'number_line_hop') {
+    const h = q.nlHop;
+    inner = head(`<p class="sent-note">Start on <b>${h.start}</b>, then hop ${h.dir > 0 ? 'forward' : 'back'} one at a time.</p>
+      <div class="l2-manip" id="l2NL">${numberLineSVG(h.min, h.max, h.step, { labelEvery: h.labelEvery, point: h.start })}</div>
+      <div class="l2-hop-row">
+        <button class="btn ghost" id="l2Undo">take one back</button>
+        <button class="btn sky big" id="l2Hop">${h.dir > 0 ? `Hop! ${icon('arrowright', 15)}` : `${icon('left', 15)} Hop back!`}</button>
+      </div>
+      <div class="l2-count-chip" id="l2Land">the frog is on <b>${h.start}</b></div>`
+      + commitRow(`That's where I land! ${icon('check', 15)}`));
+  } else if (kind === 'coin_tap') {
+    inner = head(`<p class="sent-note">Tap coins to build the answer. Watch your total grow!</p>
+      <div class="l2-manip l2-purse" id="l2Purse"><span class="l2-purse-empty">your coins go here</span></div>
+      <div class="l2-count-chip" id="l2Total"><b>0¢</b></div>
+      <div class="l2-coin-tray" id="l2Coins">
+        ${[25, 10, 5, 1].map(v => `<button class="l2-coin-add" data-v="${v}" aria-label="add ${v} cents">${coinsSVG([v])}</button>`).join('')}
+      </div>`
+      + commitRow(`That's my amount! ${icon('check', 15)}`,
+        `<button class="btn ghost" id="l2Undo">take one back</button><button class="btn ghost" id="l2Clear">${icon('swap', 14)} Start over</button>`));
+  } else if (kind === 'clap_syllables') {
+    inner = head(`<p class="sent-note">Tap the drum once for every beat you hear.</p>
+      <button class="l2-drum" id="l2Drum" aria-label="tap once for each beat">${l2DrumSVG(150)}</button>
+      <div class="l2-beat-dots" id="l2Beats"></div>
+      <div class="l2-count-chip" id="l2Count"><b>0</b> beats</div>`
+      + commitRow(`Done — that's my beats! ${icon('check', 15)}`,
+        `<button class="btn ghost" id="l2Clear">${icon('swap', 14)} Start over</button>`));
+  } else if (kind === 'bin_sort') {
+    inner = `<h2 class="tryit-q" style="justify-content:center">Sort each card into the right bin! <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
+      <p class="sent-note">Tap a card, then tap its bin — or drag it over.</p>
+      <div class="l2-card-tray" id="l2Tray">${q.sortCards.map((c, i) => `<button class="l2-sort-card" draggable="true" data-i="${i}">${esc(c.t)}</button>`).join('')}</div>
+      <div class="l2-bins">${q.bins.map((b, bi) => `<div class="l2-bin" data-b="${bi}"><span class="l2-bin-label">${esc(b)}</span><span class="l2-bin-drop" id="l2Bin${bi}"></span></div>`).join('')}</div>`
+      + commitRow(`Check my sorting ${icon('check', 15)}`);
   } else if (kind === 'type_in') {
     inner = `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>
       ${q.body ? `<div class="qbody">${q.body}</div>` : ''}
@@ -1979,7 +2267,7 @@ function l2Question(q, opts) {
     } else { $('#l2Said').onclick = () => done(); }
     return;
   }
-  if (kind === 'drag_drop' && q.parts) {
+  if (kind === 'drag_drop') {
     const slot = $('#l2Slot');
     const place = (t, tileBtn) => { t === q.answer ? right(tileBtn) : wrong(tileBtn); };
     $$('.l2-word-tile').forEach(t => {
@@ -1997,9 +2285,207 @@ function l2Question(q, opts) {
     });
     return;
   }
+  /* ---- Phase 5 · hands-on kinds ------------------------------------------
+     Each one BUILDS the answer instead of picking it, so each needs an
+     explicit "I'm done" tap. Every commit routes into the same right()/wrong()
+     the taps use, so stars, the hint ladder, the Option C step-down, rush
+     detection and mastery all behave exactly as before. A half-built answer
+     never blocks: the commit button always responds, and a gentle note (never
+     a locked button) says what's still missing. */
+  if (kind === 'word_tiles' && !q.parts) {
+    const slot = $('#l2Slot');
+    let picked = null;
+    $$('#l2QBox .l2-word-tile').forEach(t => t.onclick = () => {
+      picked = t.dataset.c;
+      $$('#l2QBox .l2-word-tile').forEach(x => x.classList.toggle('picked', x === t));
+      slot.textContent = picked; slot.classList.add('filled');
+      l2Pulse(slot);
+    });
+    $('#l2Commit').onclick = () => {
+      if (picked === null) return l2Nudge('Pop a tile in the box first — then I\'ll check it!');
+      const tile = $$('#l2QBox .l2-word-tile').find(x => x.dataset.c === picked);
+      picked === q.answer ? right(tile) : wrong(tile);
+    };
+    return;
+  }
+  if (kind === 'ten_frame') {
+    const cells = q.tfCells || 10;
+    let count = 0;
+    const paint = () => {
+      $('#l2TF').innerHTML = tenFrameSVG(count, { cells, clickable: true });
+      $('#l2Count').innerHTML = `<b>${count}</b> counter${count === 1 ? '' : 's'}`;
+      l2Pulse($('#l2Count'));
+    };
+    // tap a cell to fill up to it; tap a filled one to clear it and the rest.
+    // Counters stay left-packed, so the frame always reads "five and n more".
+    $('#l2TF').addEventListener('click', (e) => {
+      const g = e.target.closest ? e.target.closest('.tf-cell') : null;
+      if (!g || g.dataset.i === undefined) return;
+      const i = Number(g.dataset.i);
+      count = i < count ? i : i + 1;
+      paint();
+      speak(String(count), 'en');
+    });
+    $('#l2Clear').onclick = () => { count = 0; paint(); };
+    $('#l2Commit').onclick = () => {
+      // an empty frame means "I haven't started", not a wrong answer — the
+      // target is never 0, so nudging here can only ever be the kind reading
+      if (!count) return l2Nudge('Pop some counters in the frame first — then I\'ll check!');
+      count === q.tfTarget ? right(null) : wrong(null);
+    };
+    return;
+  }
+  if (kind === 'number_line_hop') {
+    const h = q.nlHop;
+    let taken = 0;
+    const at = () => h.start + h.dir * h.step * taken;
+    const paint = () => {
+      const cur = at();
+      const arcs = taken ? { start: h.dir > 0 ? h.start : cur, count: taken, size: h.step, back: h.dir < 0 } : undefined;
+      $('#l2NL').innerHTML = numberLineSVG(h.min, h.max, h.step, { labelEvery: h.labelEvery, point: cur, hops: arcs });
+      $('#l2Land').innerHTML = `the frog is on <b>${cur}</b>`;
+      l2Pulse($('#l2Land'));
+    };
+    $('#l2Hop').onclick = () => {
+      const next = h.start + h.dir * h.step * (taken + 1);
+      if (next < h.min || next > h.max) return l2Nudge('That\'s the end of the line! Take one back if you hopped too far.');
+      taken++; paint(); speak(String(at()), 'en'); // Pip counts along with the hops
+    };
+    $('#l2Undo').onclick = () => { if (taken > 0) { taken--; paint(); } };
+    $('#l2Commit').onclick = () => {
+      if (!taken) return l2Nudge('Take at least one hop first — I want to see where you land!');
+      at() === Number(q.answer) ? right(null) : wrong(null);
+    };
+    return;
+  }
+  if (kind === 'coin_tap') {
+    const coins = [];
+    const fmt = (c) => c >= 100 ? `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, '0')}` : `${c}¢`;
+    const total = () => coins.reduce((s, v) => s + v, 0);
+    const paint = () => {
+      $('#l2Purse').innerHTML = coins.length ? coinsSVG(coins) : `<span class="l2-purse-empty">your coins go here</span>`;
+      $('#l2Total').innerHTML = `<b>${fmt(total())}</b>`;
+      l2Pulse($('#l2Total'));
+    };
+    $$('#l2QBox .l2-coin-add').forEach(b => b.onclick = () => {
+      if (coins.length >= 24) return l2Nudge('That\'s a very full purse! Try taking some back.');
+      coins.push(Number(b.dataset.v)); paint(); speak(fmt(total()), 'en');
+    });
+    $('#l2Undo').onclick = () => { if (coins.length) { coins.pop(); paint(); } };
+    $('#l2Clear').onclick = () => { coins.length = 0; paint(); };
+    $('#l2Commit').onclick = () => {
+      if (!coins.length) return l2Nudge('Tap some coins into the purse first!');
+      total() === q.centsTarget ? right(null) : wrong(null);
+    };
+    return;
+  }
+  if (kind === 'clap_syllables') {
+    let beats = 0;
+    const paint = () => {
+      $('#l2Beats').innerHTML = Array.from({ length: beats }, () => `<span class="l2-beat pop"></span>`).join('');
+      $('#l2Count').innerHTML = `<b>${beats}</b> beat${beats === 1 ? '' : 's'}`;
+    };
+    $('#l2Drum').onclick = () => {
+      if (beats >= 8) return l2Nudge('That\'s a LOT of beats! Tap "Start over" and listen once more.');
+      beats++; paint();
+      const d = $('#l2Drum'); if (d) l2Pulse(d);
+      speak(String(beats), 'en'); // Pip counts the beats out loud with them
+    };
+    $('#l2Clear').onclick = () => { beats = 0; paint(); };
+    $('#l2Commit').onclick = () => {
+      if (!beats) return l2Nudge('Give the drum a tap for each beat first!');
+      beats === q.clapTarget ? right(null) : wrong(null);
+    };
+    return;
+  }
+  if (kind === 'bin_sort') {
+    // spoken/shown answer for the feedback strips — the single-answer string
+    // the generator gave us would make no sense for a four-card sort.
+    q.answerShown = q.sortCards.map(c => `${c.t} → ${q.bins[c.bin]}`).join(' · ');
+    const tray = $('#l2Tray');
+    let picked = null;
+    const setPicked = (card) => {
+      picked = card;
+      $$('#l2QBox .l2-sort-card').forEach(x => x.classList.toggle('picked', x === card));
+    };
+    const drop = (card, bi) => {
+      if (!card) return;
+      const box = $('#l2Bin' + bi);
+      if (!box) return;
+      card.classList.remove('no');
+      box.appendChild(card);
+      setPicked(null);
+      l2Pulse(card);
+    };
+    const toTray = (card) => { tray.appendChild(card); setPicked(null); };
+    const wire = (card) => {
+      card.onclick = () => {
+        if (card.parentElement !== tray) return toTray(card); // tap a binned card to take it back
+        setPicked(picked === card ? null : card);
+      };
+      card.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', card.dataset.i); card.classList.add('dragging'); setPicked(card); });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    };
+    $$('#l2QBox .l2-sort-card').forEach(wire);
+    $$('#l2QBox .l2-bin').forEach(bin => {
+      const bi = Number(bin.dataset.b);
+      bin.onclick = (e) => {
+        if (e.target.closest && e.target.closest('.l2-sort-card')) return; // the card's own handler owns that tap
+        if (!picked) return l2Nudge('Tap a card first, then tap the bin it belongs in.');
+        drop(picked, bi);
+      };
+      bin.addEventListener('dragover', (e) => { e.preventDefault(); bin.classList.add('over'); });
+      bin.addEventListener('dragleave', () => bin.classList.remove('over'));
+      bin.addEventListener('drop', (e) => {
+        e.preventDefault(); bin.classList.remove('over');
+        const card = $$('#l2QBox .l2-sort-card').find(x => x.dataset.i === e.dataTransfer.getData('text/plain'));
+        drop(card, bi);
+      });
+    });
+    $('#l2Commit').onclick = () => {
+      const left = tray.querySelectorAll('.l2-sort-card').length;
+      if (left) return l2Nudge(left === 1 ? 'One card still needs a bin!' : `${left} cards still need a bin!`);
+      let bad = 0;
+      $$('#l2QBox .l2-sort-card').forEach(card => {
+        const want = q.sortCards[Number(card.dataset.i)].bin;
+        const inBin = Number(card.closest('.l2-bin').dataset.b);
+        if (inBin !== want) { bad++; card.classList.add('no'); toTray(card); }
+      });
+      if (!bad) {
+        $$('#l2QBox .l2-sort-card').forEach(c => c.classList.add('right-pick'));
+        const p = $('#l2QBox .tryit-panel'); if (p) p.classList.add('l2-answers-locked'); // bins are divs — freeze them too
+        right(null);
+      } else wrong(null);
+    };
+    return;
+  }
   $$('#l2QBox .l2-choice, #l2QBox .l2-word-tile').forEach(b => b.onclick = () => {
     b.dataset.c === q.answer ? right(b) : wrong(b);
   });
+}
+
+/* a soft "not yet" for the hands-on kinds: says what's missing, costs nothing,
+   never blocks a button. Not a wrong answer — no sound, no miss, no star lost. */
+function l2Nudge(text) {
+  const fb = $('#l2Fb');
+  if (fb) fb.innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span><span class="fb-text">${esc(text)}</span></div>`;
+}
+// transform-only tick of life on a just-changed chip (calm-motion kills it)
+function l2Pulse(el) {
+  if (!el || document.body.classList.contains('calm-motion')) return;
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+}
+/* Pip's drum for the clap kind — a crafted SVG, never an emoji (Faith's rule).
+   Themed with the app's own tokens so it belongs in all nine skins. */
+function l2DrumSVG(size = 150) {
+  return `<svg width="${size}" height="${Math.round(size * 0.72)}" viewBox="0 0 150 108" fill="none" aria-hidden="true">
+    <ellipse cx="75" cy="86" rx="52" ry="11" fill="rgba(43,33,28,.10)"/>
+    <path d="M27 34 L33 78 Q75 92 117 78 L123 34 Z" fill="var(--terra)"/>
+    <path d="M27 34 L33 78 Q54 85 60 86 L52 34 Z" fill="var(--terra-dark)" opacity=".28"/>
+    <path d="M36 40 L64 74 M114 40 L86 74 M75 42 L75 80" stroke="var(--gold-tint)" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="75" cy="34" rx="48" ry="17" fill="var(--gold-tint)" stroke="var(--terra-dark)" stroke-width="4"/>
+    <ellipse cx="75" cy="34" rx="36" ry="11" fill="none" stroke="var(--gold)" stroke-width="2.5" opacity=".55"/>
+  </svg>`;
 }
 
 /* ---------------- Option A · Pip re-teaches with the simplest example ---------------- */
@@ -2067,10 +2553,10 @@ function l2Tryit(idea, n) {
         onMiss2: () => {
           // still stuck: show it kindly and move on (never blocked)
           $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'talk')}</span>
-            <span class="fb-text">It was <b>${esc(q2.answer)}</b> — ${q2.why} We'll see one like it again soon.</span>
+            <span class="fb-text">It was <b>${esc(l2Ans(q2))}</b> — ${q2.why} We'll see one like it again soon.</span>
             <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
           const g = l2GateBtn($('#l2On'));
-          foxSpeak(`It was ${q2.answer}. We'll see one like it again soon.`, { onDone: g });
+          foxSpeak(`It was ${l2Ans(q2)}. We'll see one like it again soon.`, { onDone: g });
           $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
         },
       });
@@ -2124,10 +2610,10 @@ function l2Mastery() {
       // Option B — reveal & replant: explain, streak resets, fresh variant returns later
       LS2.st.streak = 0; save();
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'talk')}</span>
-        <span class="fb-text">It was <b>${esc(q2.answer)}</b> — ${q2.why} <span class="l2-replant">${icon('sprout', 12)} replanted — we'll see it again soon</span></span>
+        <span class="fb-text">It was <b>${esc(l2Ans(q2))}</b> — ${q2.why} <span class="l2-replant">${icon('sprout', 12)} replanted — we'll see it again soon</span></span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Next one ${icon('arrowright', 14)}</button></div>`;
       const g = l2GateBtn($('#l2On'));
-      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)} We'll see one like it again soon.`, { onDone: g });
+      foxSpeak(`It was ${l2Ans(q2)}. ${speakableText(q2.why)} We'll see one like it again soon.`, { onDone: g });
       // replant a fresh variant of the same maker 2 questions later
       const maker = d.mastery.find(mk => { try { return mk(new Set()).key.split('_').slice(0, 3).join('_') === q2.key.split('_').slice(0, 3).join('_'); } catch (e) { return false; } });
       if (maker) LS2.mastQueue.splice(Math.min(2, LS2.mastQueue.length), 0, maker);

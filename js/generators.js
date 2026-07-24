@@ -71,14 +71,18 @@ function numberLineSVG(min, max, step, opts = {}) {
     s += `<text x="${x(opts.point)}" y="${y - 22}" text-anchor="middle" font-size="22">🐸</text>`;
   }
   if (opts.hops) {
-    // draw hop arcs from opts.hops.start, opts.hops.count hops of opts.hops.size
-    const { start, count, size } = opts.hops;
+    // draw hop arcs from opts.hops.start, opts.hops.count hops of opts.hops.size.
+    // opts.hops.back mirrors the arrowheads so a count-BACK reads right-to-left
+    // (the arcs still span the same ground — only the pointy end moves).
+    const { start, count, size, back } = opts.hops;
     for (let i = 0; i < count; i++) {
       const x1 = x(start + i * size), x2 = x(start + (i + 1) * size);
       s += `<path d="M ${x1} ${y - 6} Q ${(x1 + x2) / 2} ${y - 44} ${x2} ${y - 6}" fill="none" stroke="#4A9DE0" stroke-width="3.5" stroke-linecap="round"/>`;
-      s += `<path d="M ${x2} ${y - 6} l -7 -8 M ${x2} ${y - 6} l -10 1" stroke="#4A9DE0" stroke-width="3.5" stroke-linecap="round" fill="none"/>`;
+      s += back
+        ? `<path d="M ${x1} ${y - 6} l 7 -8 M ${x1} ${y - 6} l 10 1" stroke="#4A9DE0" stroke-width="3.5" stroke-linecap="round" fill="none"/>`
+        : `<path d="M ${x2} ${y - 6} l -7 -8 M ${x2} ${y - 6} l -10 1" stroke="#4A9DE0" stroke-width="3.5" stroke-linecap="round" fill="none"/>`;
     }
-    s += `<circle cx="${x(start)}" cy="${y}" r="9" fill="#4CAE6B" stroke="#33302B" stroke-width="3"/>`;
+    s += `<circle cx="${x(back ? start + count * size : start)}" cy="${y}" r="9" fill="#4CAE6B" stroke="#33302B" stroke-width="3"/>`;
   }
   return s + `</svg>`;
 }
@@ -204,6 +208,37 @@ function arraySVG(rows, cols) {
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
       s += `<circle cx="${8 + c * cell + cell / 2}" cy="${8 + r * cell + cell / 2}" r="14" fill="#FF6B57" stroke="#33302B" stroke-width="3"/>`;
+  return s + `</svg>`;
+}
+
+// Ten-frame — the one manipulative this file was missing. Two rows of five, so
+// a 7-year-old SEES "five and two more" without counting one by one. `filled`
+// is a count OR an array of booleans; `cells` 10 or 20 (20 stacks two frames so
+// the counters stay finger-sized on a tablet). `clickable` wraps every cell in
+// a <g class="tf-cell" data-i> hit target, the same pattern numberLineSVG uses
+// for .nl-tick, so the lesson engine can wire taps with event delegation.
+function tenFrameSVG(filled, opts = {}) {
+  const cells = (opts.cells || 10) > 10 ? 20 : 10;
+  const frames = cells / 10;
+  const cw = 62, pad = 8, gapY = 16;
+  const W = pad * 2 + 5 * cw;
+  const H = pad * 2 + frames * 2 * cw + (frames - 1) * gapY;
+  const on = (i) => Array.isArray(filled) ? !!filled[i] : i < Number(filled || 0);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" role="img" class="tf-svg">`;
+  for (let f = 0; f < frames; f++) {
+    const top = pad + f * (2 * cw + gapY);
+    s += `<rect x="${pad}" y="${top}" width="${5 * cw}" height="${2 * cw}" rx="12" fill="#FFFDF4" stroke="#33302B" stroke-width="4.5"/>`;
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 5; c++) {
+        const i = f * 10 + r * 5 + c;
+        const x = pad + c * cw, y = top + r * cw;
+        s += `<g class="tf-cell${on(i) ? ' on' : ''}"${opts.clickable ? ` data-i="${i}"` : ''}>`;
+        s += `<rect x="${x}" y="${y}" width="${cw}" height="${cw}" fill="${opts.clickable ? 'transparent' : 'none'}" stroke="#33302B" stroke-width="2"/>`;
+        if (on(i)) s += `<circle cx="${x + cw / 2}" cy="${y + cw / 2}" r="${Math.round(cw * 0.33)}" fill="#FF6B57" stroke="#33302B" stroke-width="3"/>`;
+        s += `</g>`;
+      }
+    }
+  }
   return s + `</svg>`;
 }
 
