@@ -308,7 +308,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const PLAN_VERSION = 9; // bump when the skill catalog or plan logic changes (9 = handwriting, 175 skills)
+const PLAN_VERSION = 10; // bump when the skill catalog or plan logic changes (10 = content4, 241 skills)
 function getWeekPlan(kidId = DB.activeKid) {
   const wk = weekKey();
   DB.plans[kidId] = DB.plans[kidId] || {};

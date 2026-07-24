@@ -1,7 +1,7 @@
 /* Learning Garden service worker — the app works fully offline after
    the first visit. Bump CACHE_V on every deploy so tablets pick up
    the new version on their next open. */
-const CACHE_V = 'lg-v17';
+const CACHE_V = 'lg-v18';
 const SHELL = [
   './',
   'index.html',
@@ -18,6 +18,7 @@ const SHELL = [
   'js/typing.js',
   'js/content2.js',
   'js/content3.js',
+  'js/content4.js',
   'js/handwriting.js',
   'js/sprint.js',
   'js/coach.js',
