@@ -445,20 +445,49 @@ function foxTalking(on) {
   const f = document.querySelector('.fox-col .fox-full, .fox-col svg.fox-svg');
   if (f) f.classList.toggle('talking', !!on);
 }
-function foxSpeak(text, { lang = 'en-US', rate = 0.8 } = {}) {
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
+function foxSpeak(text, { lang = 'en-US', rate = 0.8, onDone } = {}) {
+  // Bump the token FIRST (even when speech is unavailable) so a fail-open
+  // watchdog can be aborted by lpSpeechStop() the same way real speech is.
   const token = ++FOX_TALK_TOKEN;
+  // Fail-open completion: onDone MUST fire even when speech never really runs,
+  // but it must NOT fire EARLY when speech IS working (that would open the
+  // advance gate mid-sentence — the whole point is that Pip finishes first).
+  // We tell "no voices" from "slow voices" apart with the utterance `onstart`:
+  //   • probe (~2.2s): if speech never STARTED, open the gate — the preview
+  //     pane and first-load devices genuinely report zero voices.
+  //   • backstop (generous, > real narration time): if speech started but
+  //     `onend` silently never arrives (a real Web Speech bug), open anyway.
+  //   • the real `done()` opens it on time on the happy path.
+  // Fires at most once.
+  let fired = false, spoke = false;
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+  const sents = Math.max(1, (String(text || '').match(/[.!?…]/g) || []).length);
+  const probeMs = 2200;
+  const backstopMs = Math.max(3000, words * 550 + sents * 350 + 1200);
+  let probe = null, backstop = null;
+  const clearTimers = () => { if (probe) { clearTimeout(probe); probe = null; } if (backstop) { clearTimeout(backstop); backstop = null; } };
+  const fireDone = () => {
+    clearTimers();
+    if (fired) return; fired = true;
+    if (typeof onDone === 'function') onDone();
+  };
+  if (onDone) {
+    probe = setTimeout(() => { if (token === FOX_TALK_TOKEN && !spoke) fireDone(); }, probeMs);
+    backstop = setTimeout(() => { if (token === FOX_TALK_TOKEN) fireDone(); }, backstopMs);
+  }
+  if (!('speechSynthesis' in window)) return; // no engine → the probe opens the gate
+  speechSynthesis.cancel();
   const sentences = (String(text).match(/[^.!?…]+[.!?…]*/g) || [String(text)]).map(t => t.trim()).filter(Boolean);
   const l = $('#foxPlayLbl'); if (l) l.textContent = 'Playing…';
   foxTalking(true);
-  const done = () => { if (token !== FOX_TALK_TOKEN) return; foxTalking(false); const l2 = $('#foxPlayLbl'); if (l2) l2.textContent = 'Play'; };
+  const done = () => { if (token !== FOX_TALK_TOKEN) return; foxTalking(false); const l2 = $('#foxPlayLbl'); if (l2) l2.textContent = 'Play'; fireDone(); };
   const speakNext = (i) => {
     if (token !== FOX_TALK_TOKEN) return;
     if (i >= sentences.length) return done();
     const u = new SpeechSynthesisUtterance(sentences[i]);
     u.lang = lang; const v = pickVoice(lang); if (v) u.voice = v;
     u.rate = rate;
+    u.onstart = () => { spoke = true; }; // proves voices work → let the real onend drive the gate
     u.onend = () => setTimeout(() => speakNext(i + 1), 320);
     u.onerror = done;
     speechSynthesis.speak(u);
@@ -466,11 +495,16 @@ function foxSpeak(text, { lang = 'en-US', rate = 0.8 } = {}) {
   speakNext(0);
 }
 function wireFox(text, opts = {}) {
+  // Replays (Play/Again/Slower) carry the SAME opts (incl. onDone): a child who
+  // taps "Again" mid-narration bumps the speech token and orphans the first
+  // call's watchdog, so the replay MUST re-arm its own fail-open path or the
+  // advance gate would stay stuck forever. Re-firing onDone is a harmless no-op
+  // (foxSpeak's `fired` guard + the gate release's own idempotency guard).
   const play = $('#foxPlay');
   if (play) play.onclick = () => foxSpeak(text, opts);
   const again = $('#foxAgain');
   if (again) again.onclick = () => foxSpeak(text, { ...opts, rate: opts.slower ? 0.55 : (opts.rate || 0.95) });
-  foxSpeak(text, opts);
+  foxSpeak(text, opts); // initial auto-play carries onDone → opens the gate when Pip finishes
 }
 
 function lpPaint() {

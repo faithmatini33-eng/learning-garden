@@ -903,6 +903,7 @@ function l2Start(ls, strandId, opts = {}) {
   LS2 = {
     ls, def, strandId, flow, review: !!opts.review, t0: Date.now(),
     st, lastKind: null, q: null, mastQueue: null, resumed: st.step > 0 && !opts.review,
+    qStart: 0, rushStreak: 0, // Phase 1 rush detection — session-only, never persisted
   };
   VIEW = 'session';
   TT.ctx = ls.skillId;
@@ -921,6 +922,34 @@ function l2Advance(n = 1) {
   LS2.st.step += n;
   l2SaveStep();
   l2Paint();
+}
+
+/* ---------------- Phase 1 · pacing gate ----------------
+   Advance buttons wait until Pip finishes talking. The button renders muted +
+   disabled with "Pip is talking…" (a neutral token, never the wrong-answer
+   amber/red). Pass the returned release() as the narration's onDone — foxSpeak's
+   fail-open watchdog guarantees it eventually runs even with no voices. After an
+   800ms settle the real label returns with a transform-only pop (skipped under
+   calm-motion). Exit (X), Play/Again/Slower and replay are NEVER gated. */
+function l2GateBtn(btn) {
+  if (!btn) return () => {};
+  const real = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('l2-talking');
+  btn.innerHTML = `${icon('volume', 13)} <span>Pip is talking…</span>`;
+  let released = false;
+  return () => {
+    if (released) return; released = true;
+    setTimeout(() => {
+      if (!btn.isConnected) return;
+      btn.disabled = false;
+      btn.classList.remove('l2-talking');
+      btn.innerHTML = real;
+      if (!document.body.classList.contains('calm-motion')) {
+        btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+      }
+    }, 800);
+  };
 }
 
 /* ---------------- app bar: phase pill or grouped rail ---------------- */
@@ -1018,7 +1047,8 @@ function l2Opener() {
       <span class="note">about ${d.minutes} minutes · master it with 3 in a row</span>
     </div>
   </div>`;
-  wireFox(`${d.teaser} Today you'll learn ${d.term}! By the end you will be able to: ${d.goals.join('. ')}.`);
+  const g = l2GateBtn($('#l2Go'));
+  wireFox(`${d.teaser} Today you'll learn ${d.term}! By the end you will be able to: ${d.goals.join('. ')}.`, { onDone: g });
   $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
 }
 
@@ -1039,7 +1069,8 @@ function l2IsIsnt() {
       </div>
     </div>`;
     upgradeSayButtons(app);
-    wireFox(i1.teachSay);
+    const g = l2GateBtn($('#l2Go'));
+    wireFox(i1.teachSay, { onDone: g });
     $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
     return;
   }
@@ -1063,7 +1094,8 @@ function l2IsIsnt() {
       </div>
     </div>
   </div>`;
-  wireFox(`${i1.teachSay} ${i1.ruleSay}`);
+  const g = l2GateBtn($('#l2Go'));
+  wireFox(`${i1.teachSay} ${i1.ruleSay}`, { onDone: g });
   $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
 }
 
@@ -1102,7 +1134,8 @@ function l2QuickCheck(useFallback) {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
         <span class="fb-text">${reinforce}</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">On we go</button></div>`;
-      foxSpeak(speakableText(reinforce));
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak(speakableText(reinforce), { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     } else {
       sfx('wrong');
@@ -1112,7 +1145,8 @@ function l2QuickCheck(useFallback) {
       $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span>
         <span class="fb-text"><b>Good try!</b> ${replay}</span>
         <button class="btn primary caps-btn" id="l2Fresh" style="flex:none">Fresh one!</button></div>`;
-      foxSpeak(speakableText(replay));
+      const g = l2GateBtn($('#l2Fresh'));
+      foxSpeak(speakableText(replay), { onDone: g });
       $('#l2Fresh').onclick = () => { lpSpeechStop(); useFallback ? l2Advance() : l2QuickCheck(true); };
     }
   });
@@ -1136,14 +1170,16 @@ function l2AutoQuick(isSecond) {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
         <span class="fb-text"><b>It clicked!</b> ${q2.why}</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">On we go</button></div>`;
-      foxSpeak(speakableText(q2.why));
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak(speakableText(q2.why), { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     },
     onMiss2: (q2) => {
       $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span>
         <span class="fb-text"><b>Good try!</b> It was <b>${esc(q2.answer)}</b> — ${q2.why} ${isSecond ? '' : "Let's try a fresh one!"}</span>
         <button class="btn primary caps-btn" id="l2Fresh" style="flex:none">${isSecond ? 'Keep going' : 'Fresh one!'}</button></div>`;
-      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)}`);
+      const g = l2GateBtn($('#l2Fresh'));
+      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)}`, { onDone: g });
       $('#l2Fresh').onclick = () => { lpSpeechStop(); isSecond ? l2Advance() : l2AutoQuick(true); };
     },
   });
@@ -1172,20 +1208,22 @@ function l2Worked() {
       </div>
     </div>
   </div>`;
-  // Pip narrates example 1, then example 2 lights up and he narrates it
+  // Pip narrates example 1; when he finishes (or the fail-open watchdog fires),
+  // example 2 lights up and he narrates it. The advance button stays gated
+  // ("Pip is talking…") until the SECOND example's narration completes.
+  const release = l2GateBtn($('#l2Go'));
+  let did2 = false;
   const step2 = () => {
+    if (did2) return; did2 = true; // tap + onDone can both call this — narrate ex2 once
     const w2 = $('#l2W2'); if (!w2) return;
     w2.style.opacity = 1; w2.classList.add('pop');
     const say2 = $('.fox-say'); if (say2) say2.innerHTML = e2.say;
-    foxSpeak(speakableText(e2.say) + ' Say it with me: ' + e2.sayIt);
-    const go = $('#l2Go'); if (go) go.disabled = false;
+    foxSpeak(speakableText(e2.say) + ' Say it with me: ' + e2.sayIt, { onDone: release });
   };
-  wireFox(speakableText(e1.say) + ' Say it with me: ' + e1.sayIt);
-  const t = setTimeout(step2, 7000);
-  // replay buttons keep working; the CTA enables after the tour (or instantly on tap)
-  setTimeout(() => { const go = $('#l2Go'); if (go) go.disabled = false; }, 9000);
-  $('#l2Go').onclick = () => { clearTimeout(t); lpSpeechStop(); l2Advance(); };
-  $('#l2W2').onclick = () => { clearTimeout(t); step2(); };
+  wireFox(speakableText(e1.say) + ' Say it with me: ' + e1.sayIt, { onDone: () => { if ($('#l2W2')) step2(); } });
+  // tapping example 2 reveals it early; the gate still waits for its narration
+  $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
+  $('#l2W2').onclick = () => { step2(); };
 }
 
 /* ---------------- 22e · first try with Pip (training wheels, ungraded) ---------------- */
@@ -1221,7 +1259,8 @@ function l2FirstTry() {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
         <span class="fb-text"><b>You did it — with your own hands!</b> Training wheels are coming off now.</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
-      foxSpeak('You did it! Training wheels are coming off now.');
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak('You did it! Training wheels are coming off now.', { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     } else {
       sfx('wrong');
@@ -1249,7 +1288,8 @@ function l2Warmup() {
   const bridgeOn = (text) => {
     $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text">${text}</span>
       <button class="btn primary caps-btn" id="l2On" style="flex:none">Today's skill! ${icon('arrowright', 14)}</button></div>`;
-    foxSpeak(speakableText(text));
+    const g = l2GateBtn($('#l2On'));
+    foxSpeak(speakableText(text), { onDone: g });
     $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
   };
   l2Question(q, {
@@ -1277,7 +1317,8 @@ function l2Teach(idea) {
     </div>
   </div>`;
   upgradeSayButtons(app);
-  wireFox(id.sayIt ? `${id.teachSay} ${id.ruleSay} Say it with me: ${id.sayIt}` : id.teachSay);
+  const g = l2GateBtn($('#l2Go'));
+  wireFox(id.sayIt ? `${id.teachSay} ${id.ruleSay} Say it with me: ${id.sayIt}` : id.teachSay, { onDone: g });
   $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
 }
 
@@ -1311,7 +1352,8 @@ function l2Together(idea, n) {
       if ($('#l2Slot')) { $('#l2Slot').textContent = tg.answer; $('#l2Slot').classList.add('filled'); }
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>We built it together!</b> ${tg.why}</span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Now all by myself! ${icon('arrowright', 14)}</button></div>`;
-      foxSpeak('We built it together! Now try one all by yourself.');
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak('We built it together! Now try one all by yourself.', { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     } else {
       sfx('wrong');
@@ -1348,6 +1390,7 @@ function l2Question(q, opts) {
   const kind = opts.kind || l2PickKind(q);
   q.kindUsed = kind;
   LS2.q = q;
+  LS2.qStart = Date.now(); // rush-detection clock (reset when listen_pick audio unlocks)
   const listen = kind === 'listen_pick';
   const sayFull = q.sayFirst ? `${q.say} ${q.sayFirst}` : q.say;
   let inner = '';
@@ -1385,15 +1428,59 @@ function l2Question(q, opts) {
       ? `<div class="l2-listen-first"><button class="btn sky big" id="l2Read">${icon('volume', 18)} Listen…</button><p class="sent-note">Ears first — the question is hiding!</p></div><div class="l2-choice-grid">${cells}</div>`
       : `<h2 class="tryit-q" style="justify-content:center">${q.prompt} <button class="icon-btn l2-hear" id="l2Read">${icon('volume', 15)}</button></h2>${bodyHTML}<div class="l2-choice-grid">${cells}</div>`;
   }
-  $('#l2QBox').innerHTML = `<div class="tryit-panel reveal" style="text-align:center">${inner}</div><div id="l2Fb"></div>`;
+  $('#l2QBox').innerHTML = `<div class="tryit-panel reveal l2-answers-locked" style="text-align:center">${inner}</div><div id="l2Fb"></div>`;
   upgradeSayButtons($('#l2QBox'));
-  const sayIt = () => { speak(speakableText(sayFull), 'en'); };
+  // Answer lockout (invisible — pointer-events only, no dim): choices are inert
+  // for the first 700ms after render (stops random-tap rushing), and — for
+  // listen_pick — until the prompt audio finishes. Fail-open: a word-count timer
+  // always unlocks, so a missing/broken voice never leaves a kid unable to answer.
+  const panel = $('#l2QBox .tryit-panel');
+  let base700 = false;
+  let audioGate = !listen; // non-listen kinds have no audio gate
+  const tryUnlock = () => { if (base700 && audioGate && panel) panel.classList.remove('l2-answers-locked'); };
+  setTimeout(() => { base700 = true; tryUnlock(); }, 700);
+  const sayIt = () => speak(speakableText(sayFull), 'en');
   const rb = $('#l2Read'); if (rb) rb.onclick = sayIt;
-  sayIt();
+  const u0 = sayIt();
+  if (listen) {
+    const pw = speakableText(sayFull).split(/\s+/).filter(Boolean).length;
+    let opened = false, spoke = false;
+    const openAudio = () => {
+      if (opened) return; opened = true;
+      audioGate = true;
+      LS2.qStart = Date.now(); // start the rush clock when choices actually unlock
+      tryUnlock();
+    };
+    if (u0) { u0.onstart = () => { spoke = true; }; u0.onend = openAudio; u0.onerror = openAudio; }
+    setTimeout(() => { if (!spoke) openAudio(); }, 2200); // no-voices fail-open only
+    setTimeout(openAudio, Math.max(3000, pw * 550 + 1200)); // backstop if onend never fires
+  }
+
+  // Rush intervention: after 3 fast graded misses in a row, Pip re-reads the
+  // question and holds the choices until he's done. Gentle — no red, no penalty,
+  // never blocked; fail-open so audio trouble can't lock the kid out.
+  const rushSlowDown = () => {
+    if (panel) panel.classList.add('l2-answers-locked');
+    const fb = $('#l2Fb');
+    if (fb) fb.innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span><span class="fb-text"><b>Whoa, speedy!</b> Let's slow down and think together. Listen again…</span></div>`;
+    const line = "Whoa, speedy! Let's slow down and think together. " + speakableText(sayFull);
+    const rw = line.split(/\s+/).filter(Boolean).length;
+    let done = false, spoke = false;
+    const release = () => {
+      if (done) return; done = true;
+      if (panel) panel.classList.remove('l2-answers-locked');
+      LS2.qStart = Date.now(); // retry clock starts when choices unlock again
+    };
+    const u = speak(line, 'en');
+    if (u) { u.onstart = () => { spoke = true; }; u.onend = release; u.onerror = release; }
+    setTimeout(() => { if (!spoke) release(); }, 2200); // no-voices fail-open only
+    setTimeout(release, Math.max(3000, rw * 550 + 1200)); // backstop if onend never fires
+  };
 
   const misses = { n: 0 };
   const right = (btn) => {
     sfx('correct');
+    LS2.rushStreak = 0; // any correct answer clears the rush streak
     if (btn) btn.classList.add('right-pick');
     $$('#l2QBox button').forEach(b => b.disabled = true);
     if ($('#l2Slot') && (kind === 'drag_drop' || kind === 'word_tiles')) { $('#l2Slot').textContent = q.answer; $('#l2Slot').classList.add('filled'); }
@@ -1409,6 +1496,13 @@ function l2Question(q, opts) {
     LS2.st.missKind[kind] = (LS2.st.missKind[kind] || 0) + 1;
     if (LS2.st.missKind[kind] >= 2 && L2_KIND_ORDER.indexOf(kind) > 0) LS2.st.avoidKind = kind;
     save();
+    // Rush detection (session-only, not persisted): 3 graded wrongs in a row,
+    // each answered in under 2.5s → Pip gently slows the kid down and re-reads.
+    if (opts.starred || opts.mastery) {
+      const fast = (Date.now() - (LS2.qStart || 0)) < 2500;
+      LS2.rushStreak = fast ? (LS2.rushStreak || 0) + 1 : 0;
+      if (fast && LS2.rushStreak >= 3) { LS2.rushStreak = 0; return rushSlowDown(); }
+    }
     if (misses.n === 1 && !opts.mastery) {
       // miss 1: Pip's hint + retry (gentle, nothing blocked)
       $('#l2Fb').innerHTML = `<div class="try-strip hint pop"><span>${foxSVG(30, 'talk')}</span><span class="fb-text"><b>Let's look together.</b> ${esc(q.hint || 'Read it one more time — you\'ve got this!')}</span></div>`;
@@ -1502,7 +1596,8 @@ function l2ReteachA(q, thenRetry) {
     <button class="btn primary big caps-btn" style="margin-top:14px" id="l2Retry">Try mine again ${icon('arrowright', 14)}</button>
   </div><div id="l2Fb"></div>`;
   upgradeSayButtons($('#l2QBox'));
-  foxSpeak(say);
+  const g = l2GateBtn($('#l2Retry'));
+  foxSpeak(say, { onDone: g });
   $('#l2Retry').onclick = () => { lpSpeechStop(); thenRetry(); };
 }
 
@@ -1523,7 +1618,8 @@ function l2Tryit(idea, n) {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
         <span class="fb-text"><b>${misses ? 'You found it!' : 'Yes!'}</b> ${q2.why} <span class="pill gold" style="margin-left:6px">${icon('star', 12)} +1</span></span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
-      foxSpeak(speakableText(q2.why));
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak(speakableText(q2.why), { onDone: g });
       $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
     },
     onMiss2: (q2) => l2ReteachA(q2, () => {
@@ -1535,7 +1631,8 @@ function l2Tryit(idea, n) {
           $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span>
             <span class="fb-text"><b>There it is!</b> ${q3.why} <span class="pill gold" style="margin-left:6px">${icon('star', 12)} +1</span></span>
             <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
-          foxSpeak(speakableText(q3.why));
+          const g = l2GateBtn($('#l2On'));
+          foxSpeak(speakableText(q3.why), { onDone: g });
           $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
         },
         onMiss2: () => {
@@ -1543,7 +1640,8 @@ function l2Tryit(idea, n) {
           $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'talk')}</span>
             <span class="fb-text">It was <b>${esc(q2.answer)}</b> — ${q2.why} We'll see one like it again soon.</span>
             <button class="btn primary caps-btn" id="l2On" style="flex:none">Keep going ${icon('arrowright', 14)}</button></div>`;
-          foxSpeak(`It was ${q2.answer}. We'll see one like it again soon.`);
+          const g = l2GateBtn($('#l2On'));
+          foxSpeak(`It was ${q2.answer}. We'll see one like it again soon.`, { onDone: g });
           $('#l2On').onclick = () => { lpSpeechStop(); l2Advance(); };
         },
       });
@@ -1588,7 +1686,8 @@ function l2Mastery() {
       } else {
         $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'cheer')}</span><span class="fb-text"><b>Yes!</b> ${q2.why}</span>
           <button class="btn primary caps-btn" id="l2On" style="flex:none">Next one ${icon('arrowright', 14)}</button></div>`;
-        foxSpeak(speakableText(q2.why));
+        const g = l2GateBtn($('#l2On'));
+        foxSpeak(speakableText(q2.why), { onDone: g });
         $('#l2On').onclick = () => { lpSpeechStop(); l2Mastery(); };
       }
     },
@@ -1598,7 +1697,8 @@ function l2Mastery() {
       $('#l2Fb').innerHTML = `<div class="try-strip pop"><span>${foxSVG(30, 'talk')}</span>
         <span class="fb-text">It was <b>${esc(q2.answer)}</b> — ${q2.why} <span class="l2-replant">${icon('sprout', 12)} replanted — we'll see it again soon</span></span>
         <button class="btn primary caps-btn" id="l2On" style="flex:none">Next one ${icon('arrowright', 14)}</button></div>`;
-      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)} We'll see one like it again soon.`);
+      const g = l2GateBtn($('#l2On'));
+      foxSpeak(`It was ${q2.answer}. ${speakableText(q2.why)} We'll see one like it again soon.`, { onDone: g });
       // replant a fresh variant of the same maker 2 questions later
       const maker = d.mastery.find(mk => { try { return mk(new Set()).key.split('_').slice(0, 3).join('_') === q2.key.split('_').slice(0, 3).join('_'); } catch (e) { return false; } });
       if (maker) LS2.mastQueue.splice(Math.min(2, LS2.mastQueue.length), 0, maker);

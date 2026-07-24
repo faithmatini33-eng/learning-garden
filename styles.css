@@ -165,6 +165,18 @@ body.parent-mode .appbar-inner .btn.caps-btn { background: #fff; border-color: #
 .btn.big    { font-size: 15.5px; padding: 13px 26px; }
 .btn.small  { font-size: 12.5px; padding: 7px 14px; min-height: 34px; box-shadow: none; }
 .btn:disabled { opacity: .45; cursor: default; }
+/* Phase 1 — advance button rests while Pip talks (neutral/muted token, never the
+   wrong-answer amber; no opacity dim so it reads "waiting", not "broken"). */
+.btn.l2-talking, .btn.primary.l2-talking, .btn.sky.l2-talking, .btn.coral.l2-talking {
+  background: var(--divider); border-color: var(--border); color: var(--muted);
+  box-shadow: none; opacity: 1; pointer-events: none; cursor: default;
+}
+/* Phase 1 — invisible answer lockout: choices/inputs inert for a beat after a
+   question renders. Pointer-events only — no dim, no visual change. The replay
+   speaker (#l2Read / .l2-hear) always stays live so a kid can re-listen. */
+.l2-answers-locked button:not(#l2Read):not(.l2-hear),
+.l2-answers-locked input,
+.l2-answers-locked .l2-slot { pointer-events: none; }
 .pressed-anim { animation: press .23s var(--spring); }
 @keyframes press { 0% { transform: none; } 35% { transform: translateY(2px) scale(.97); } 100% { transform: none; } }
 
