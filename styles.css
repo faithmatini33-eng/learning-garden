@@ -1993,3 +1993,21 @@ body.calm-motion .wg-slot.next { animation: none; }
 .wp-chip b { color: var(--ink); margin-left: 2px; }
 .wp-chip.active { border-color: var(--terra); color: var(--terra-dark); }
 .wp-chip.full { border-color: var(--green-tint); background: var(--green-tint); color: var(--green); }
+
+/* ---- Grown-ups: the learning roadmap ---- */
+.rm-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 6px 0 10px; }
+.rm-ring {
+  width: 82px; height: 82px; border-radius: 100px; flex: none;
+  display: grid; place-content: center; text-align: center;
+  background: var(--teal-tint); border: 3px solid var(--teal);
+}
+.rm-ring b { font-family: var(--font-head); font-weight: 800; font-size: 21px; color: var(--teal); display: block; line-height: 1; }
+.rm-ring small { font-size: 9.5px; font-weight: 700; color: var(--teal); letter-spacing: .04em; }
+.rm-week { font-family: var(--font-head); font-size: 16.5px; display: block; }
+.rm-bar { display: block; height: 8px; background: var(--bg); border-radius: 100px; overflow: hidden; }
+.rm-bar.big { height: 12px; }
+.rm-bar i { display: block; height: 100%; border-radius: 100px; background: var(--teal); transition: width .6s ease-out; }
+.rm-subjects { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; margin-top: 14px; }
+.rm-subj-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12.5px; }
+.rm-subj-top b { font-family: var(--font-head); font-size: 12.5px; flex: 1; }
+.rm-subj-top .note { font-weight: 700; font-size: 11.5px; }

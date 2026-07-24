@@ -126,6 +126,48 @@ function learnPathState(strandId) {
 // ------------------------------------------------------------
 const WEEK_PATH_SIZE = 10; // ~2 lessons a day across a school week
 
+// ---- curriculum progress: where is this child in the year? ----
+// A skill counts as DONE when its lesson is learned OR the child has
+// already shown they know it (checkup/practice) — so a kid who tests
+// out isn't re-taught, and a kid who's behind isn't rushed.
+function curriculumConfirmed(skillId, kidId = DB.activeKid) {
+  const v = kidStats(kidId)[skillId] || { s: 0, a: 0, c: 0 };
+  return v.s >= 50 || (v.a >= 4 && v.c / v.a >= 0.6);
+}
+function curriculumDone(skillId, learnedSkills, kidId = DB.activeKid) {
+  return learnedSkills.has(skillId) || curriculumConfirmed(skillId, kidId);
+}
+function curriculumProgress(kidId = DB.activeKid) {
+  if (typeof CURRICULUM === 'undefined') return null;
+  const L = kidLearn(kidId);
+  const learnedSkills = new Set(L.learnedLessons.map(x => x.skill).filter(Boolean));
+  const order = CURRICULUM_ORDER.filter(id => SKILL_MAP[id]);
+  const done = order.filter(id => curriculumDone(id, learnedSkills, kidId));
+  const nextId = order.find(id => !curriculumDone(id, learnedSkills, kidId)) || null;
+  const currentWeek = nextId ? curriculumWeekOf(nextId) : CURRICULUM.totalWeeks;
+  // pace = lessons finished per active week, from real history
+  const dates = L.learnedLessons.map(x => x.date).filter(Boolean).sort();
+  let perWeek = 0;
+  if (dates.length >= 2) {
+    const first = new Date(dates[0] + 'T12:00'), last = new Date(dates[dates.length - 1] + 'T12:00');
+    const spanWeeks = Math.max(1, (last - first) / (7 * 86400000));
+    perWeek = L.learnedLessons.length / spanWeeks;
+  }
+  const remaining = order.length - done.length;
+  const weeksLeft = perWeek > 0.2 ? Math.ceil(remaining / perWeek) : null;
+  let finishDate = null;
+  if (weeksLeft !== null && weeksLeft < 520) {
+    const d = new Date(); d.setDate(d.getDate() + weeksLeft * 7); finishDate = d;
+  }
+  return {
+    total: order.length, done: done.length, remaining,
+    pct: order.length ? Math.round(done.length / order.length * 100) : 0,
+    currentWeek, totalWeeks: CURRICULUM.totalWeeks,
+    weekInfo: CURRICULUM.weeks.find(w => w.w === currentWeek) || null,
+    perWeek: Math.round(perWeek * 10) / 10, weeksLeft, finishDate,
+  };
+}
+
 function weekPathCandidates(exclude = new Set()) {
   const L = kidLearn();
   const st = kidStats();
@@ -152,39 +194,52 @@ function weekPathCandidates(exclude = new Set()) {
   return cands.sort((a, b) => b.score - a.score);
 }
 
+// THE WEEK'S PATH — now driven by the researched curriculum (js/curriculum.js)
+// rather than a scoring heuristic: the child simply walks the year in the
+// order real 2nd-grade standards build, skipping anything they've already
+// shown they know. School-focus skills a grown-up flagged jump the queue.
 function buildWeekLearnPath() {
   const L = kidLearn();
-  const wk = weekKey();
-  if (!L.weekPath || L.weekPath.week !== wk) {
-    // fresh week: subject-balanced pick — best candidate per subject,
-    // round-robin, so the week isn't ten math lessons in a row
-    const cands = weekPathCandidates();
-    const bySubject = {};
-    cands.forEach(c => { (bySubject[c.subject] = bySubject[c.subject] || []).push(c); });
-    const subjects = Object.keys(bySubject).sort((a, b) => bySubject[b][0].score - bySubject[a][0].score);
-    const picked = [];
-    let round = 0;
-    while (picked.length < WEEK_PATH_SIZE && round < 12) {
-      let took = false;
-      for (const s of subjects) {
-        const c = (bySubject[s] || [])[round];
-        if (c && picked.length < WEEK_PATH_SIZE) { picked.push({ id: c.id, strand: c.strand, subject: c.subject }); took = true; }
-      }
-      if (!took) break;
-      round++;
-    }
-    L.weekPath = { week: wk, items: picked };
-    save();
+  if (typeof CURRICULUM === 'undefined') return buildWeekLearnPathLegacy();
+  const learnedLessonIds = new Set(L.learnedLessons.map(x => x.lessonId));
+  const learnedSkills = new Set(L.learnedLessons.map(x => x.skill).filter(Boolean));
+  const focus = typeof focusSet === 'function' ? focusSet() : new Set();
+
+  const lessonFor = (skillId) => {
+    const sk = SKILL_MAP[skillId];
+    if (!sk) return null;
+    const ls = lessonsForStrand(sk.strand).find(l => l.skillId === skillId);
+    if (!ls || learnedLessonIds.has(ls.id)) return null;
+    return { id: ls.id, strand: sk.strand, subject: subjOfStrand(sk.strand), skillId, week: curriculumWeekOf(skillId) };
+  };
+
+  const items = [];
+  const taken = new Set();
+  // 1) school focus first — a grown-up asked for these
+  for (const skillId of CURRICULUM_ORDER) {
+    if (items.length >= WEEK_PATH_SIZE) break;
+    if (!focus.has(skillId) || taken.has(skillId)) continue;
+    const it = lessonFor(skillId);
+    if (it) { items.push({ ...it, focus: true }); taken.add(skillId); }
   }
-  // refill: every recommended lesson learned → line up the next rung(s)
-  const learned = new Set(kidLearn().learnedLessons.map(x => x.lessonId));
-  if (L.weekPath.items.length && L.weekPath.items.every(it => learned.has(it.id))) {
-    const more = weekPathCandidates(new Set(L.weekPath.items.map(it => it.id))).slice(0, 4);
-    if (more.length) {
-      L.weekPath.items = L.weekPath.items.concat(more.map(c => ({ id: c.id, strand: c.strand, subject: c.subject })));
-      save();
-    }
+  // 2) then the curriculum in order, skipping what they already know
+  for (const skillId of CURRICULUM_ORDER) {
+    if (items.length >= WEEK_PATH_SIZE) break;
+    if (taken.has(skillId) || curriculumDone(skillId, learnedSkills)) continue;
+    const it = lessonFor(skillId);
+    if (it) { items.push(it); taken.add(skillId); }
   }
+  L.weekPath = { week: weekKey(), items };
+  save();
+  return L.weekPath;
+}
+
+// kept as a fallback if curriculum.js is ever absent (data files load via typeof guards)
+function buildWeekLearnPathLegacy() {
+  const L = kidLearn();
+  const cands = weekPathCandidates();
+  L.weekPath = { week: weekKey(), items: cands.slice(0, WEEK_PATH_SIZE).map(c => ({ id: c.id, strand: c.strand, subject: c.subject })) };
+  save();
   return L.weekPath;
 }
 
@@ -445,7 +500,9 @@ function foxTalking(on) {
   const f = document.querySelector('.fox-col .fox-full, .fox-col svg.fox-svg');
   if (f) f.classList.toggle('talking', !!on);
 }
-function foxSpeak(text, { lang = 'en-US', rate = 0.8, onDone } = {}) {
+// Pip's own prosody lives in the defaults: a little brighter and a little
+// livelier than the app's neutral read-aloud, so the fox sounds like a friend.
+function foxSpeak(text, { lang = 'en-US', rate = 0.85, pitch = 1.15, onDone } = {}) {
   // Bump the token FIRST (even when speech is unavailable) so a fail-open
   // watchdog can be aborted by lpSpeechStop() the same way real speech is.
   const token = ++FOX_TALK_TOKEN;
@@ -487,8 +544,13 @@ function foxSpeak(text, { lang = 'en-US', rate = 0.8, onDone } = {}) {
     const u = new SpeechSynthesisUtterance(sentences[i]);
     u.lang = lang; const v = pickVoice(lang); if (v) u.voice = v;
     u.rate = rate;
+    u.pitch = pitch;
+    // "Say it with Pip: sun… flower… sunflower!" already splits into three
+    // chunks up above — a chunk that ENDS in an ellipsis gets a longer breath
+    // after it so the beats actually land instead of running together.
+    const beat = /…\s*$/.test(sentences[i]);
     u.onstart = () => { spoke = true; }; // proves voices work → let the real onend drive the gate
-    u.onend = () => setTimeout(() => speakNext(i + 1), 320);
+    u.onend = () => setTimeout(() => speakNext(i + 1), beat ? 520 : 300);
     u.onerror = done;
     speechSynthesis.speak(u);
   };

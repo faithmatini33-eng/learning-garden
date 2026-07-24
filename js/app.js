@@ -1924,6 +1924,53 @@ function renderGrownups() {
     <span><b>Grown-ups corner</b>Everything stays on this device — no accounts, no internet needed.</span>
     <span class="ab-spacer"></span>
     <button class="btn caps-btn" id="backHome">${icon('left', 14)} Back to kids</button>`);
+  // ---- THE LEARNING ROADMAP: how they're learning, how far, how long left ----
+  const roadmapCards = DB.kids.map(k => {
+    const p = typeof curriculumProgress === 'function' ? curriculumProgress(k.id) : null;
+    if (!p) return '';
+    const fmt = (d) => d ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
+    // per-subject coverage against the year plan
+    const learnedSkills = new Set((((DB.learn || {})[k.id] || {}).learnedLessons || []).map(x => x.skill).filter(Boolean));
+    const bySubj = {};
+    CURRICULUM_ORDER.forEach(id => {
+      const sk = SKILL_MAP[id]; if (!sk) return;
+      const sub = subjectOfSkill(id);
+      bySubj[sub] = bySubj[sub] || { total: 0, done: 0 };
+      bySubj[sub].total++;
+      if (curriculumDone(id, learnedSkills, k.id)) bySubj[sub].done++;
+    });
+    const subjBars = Object.entries(bySubj).map(([sub, v]) => {
+      const u = subjUI(sub);
+      const nm = (SUBJECTS.find(s => s.id === sub) || {}).name || sub;
+      const pct = v.total ? Math.round(v.done / v.total * 100) : 0;
+      return `<div class="rm-subj">
+        <span class="rm-subj-top">${subjTile(sub, 26, 13)}<b>${esc(nm)}</b><span class="note">${v.done}/${v.total}</span></span>
+        <span class="rm-bar"><i style="width:${pct}%;background:${u.color}"></i></span>
+      </div>`;
+    }).join('');
+    const paceLine = p.perWeek > 0.2
+      ? `Right now ${esc(k.name)} finishes about <b>${p.perWeek} lesson${p.perWeek === 1 ? '' : 's'} a week</b>.`
+      : `Once ${esc(k.name)} has a few weeks of lessons in, a real pace and finish date appear here.`;
+    const etaLine = p.finishDate
+      ? `At this pace the whole year is done around <b>${fmt(p.finishDate)}</b> — about ${p.weeksLeft} more week${p.weeksLeft === 1 ? '' : 's'}.`
+      : `<span class="note">Finish date appears once there's enough history to measure a pace.</span>`;
+    return `<div class="card rm-card">
+      <h2><span class="bubble" style="background:var(--teal-tint);color:var(--teal)">${icon('gradcap', 16)}</span>${esc(k.name)}'s learning roadmap</h2>
+      <div class="rm-top">
+        <span class="rm-ring"><b>${p.pct}%</b><small>of the year</small></span>
+        <span style="flex:1;min-width:200px">
+          <b class="rm-week">Week ${p.currentWeek} of ${p.totalWeeks}${p.weekInfo ? ` · ${esc(p.weekInfo.theme)}` : ''}</b>
+          ${p.weekInfo ? `<p class="note">Working on: ${esc(p.weekInfo.focus)}</p>` : ''}
+          <p class="note" style="margin-top:6px">${p.done} of ${p.total} lessons learned · ${p.remaining} to go</p>
+        </span>
+      </div>
+      <span class="rm-bar big"><i style="width:${p.pct}%"></i></span>
+      <p class="note" style="margin-top:10px">${paceLine} ${etaLine}</p>
+      <div class="rm-subjects">${subjBars}</div>
+      <div class="foot-note teal">${icon('bulb', 13)} The year is built from real 2nd-grade standards, in the order skills build on each other — ${esc(k.name)} moves at their own pace, and anything they already know is skipped.</div>
+    </div>`;
+  }).join('');
+
   app.innerHTML = `<div class="reveal">
     <div class="parent-grid">
       <div>
@@ -1934,6 +1981,7 @@ function renderGrownups() {
           </div>
           ${kidRows}
         </div>
+        ${roadmapCards}
         ${glanceCards}
         ${DB.kids.map(k => typeof gamesRecapHTML === 'function' ? gamesRecapHTML(k.id) : '').join('')}
         ${focusCards}
