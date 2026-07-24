@@ -158,7 +158,15 @@ function gameNudge(el) {
 }
 function gamesBar(inner) {
   setAppbar(`<button class="back" id="gBack" aria-label="Back">${icon('left', 18)}</button>${inner}`);
-  $('#gBack').onclick = () => { GAME = null; renderGames(); };
+  $('#gBack').onclick = () => {
+    // A round launched from a lesson's Garden Break carries GAME.onDone — leaving
+    // mid-round hands the kid back to the LESSON, never to the hub with the
+    // lesson dangling behind it.
+    const back = GAME && typeof GAME.onDone === 'function' ? GAME.onDone : null;
+    GAME = null;
+    if (back) return back();
+    renderGames();
+  };
 }
 function ticketPill(n) {
   return `<span class="pill tik-pill">${icon('award', 14)} <b id="gTickets">${n}</b></span>`;
@@ -171,16 +179,26 @@ function payTiles(tiles) {
 function gameWin({ title, sub, tiles, extra, againLabel, onAgain }) {
   sfx('cheer'); burst(90, true);
   $('#tabbar').style.display = 'none';
+  // A round launched from a lesson's Garden Break (GAME.onDone) ends in ONE
+  // round and one button: back to the lesson. The daily-budget door never fires
+  // on this path — a break must never dump a kid into the closed arcade.
+  const back = GAME && typeof GAME.onDone === 'function' ? GAME.onDone : null;
   app.innerHTML = `<div class="reveal lp-center"><div class="complete-card pop" style="max-width:520px">
     <h1 style="font-size:30px;font-weight:800">${title}</h1>
     <p class="note" style="margin-top:6px">${sub}</p>
     ${payTiles(tiles)}
     ${extra || ''}
     <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">
-      <button class="btn primary big caps-btn" id="gAgain">${againLabel || 'Play again'}</button>
-      <button class="btn big" id="gHub">Back to Game Corner</button>
+      ${back
+      ? `<button class="btn primary big caps-btn" id="gLesson">Back to my lesson</button>`
+      : `<button class="btn primary big caps-btn" id="gAgain">${againLabel || 'Play again'}</button>
+         <button class="btn big" id="gHub">Back to Game Corner</button>`}
     </div>
   </div></div>`;
+  if (back) {
+    $('#gLesson').onclick = () => { GAME = null; back(); };
+    return;
+  }
   $('#gAgain').onclick = onAgain;
   $('#gHub').onclick = () => { GAME = null; renderGames(); };
   // time limit: the round always finishes — the door closes BETWEEN games
@@ -546,7 +564,10 @@ function memoryPairs() {
 }
 function memoryStart() {
   const { type, pairs, skill } = memoryPairs();
-  GAME = { id: 'memory', skill, found: 0, lock: false, up: [], tickets: 0 };
+  // total, not a hardcoded 4: memoryPairs() can return fewer on a sparse
+  // catalog, and a board that completes without ever hitting the win screen
+  // would leave a Garden Break round with no natural way home.
+  GAME = { id: 'memory', skill, found: 0, total: pairs.length, lock: false, up: [], tickets: 0 };
   const cards = shuffle(pairs.flatMap(p => [{ k: p.k, label: p.a }, { k: p.k, label: p.b }]));
   gamesBar(`<div class="title">Memory Match · ${esc(type)}</div><span class="ab-spacer"></span><span class="pill" id="mmFound">0 pairs found</span>${ticketPill(kidGames().tickets)}`);
   app.innerHTML = `<div class="reveal lp-center">
@@ -573,7 +594,7 @@ function memoryStart() {
         recordGameAnswer(GAME.skill, true, 0, 'memory');
         awardTickets(1); GAME.tickets++;
         sfx('correct'); setTimeout(() => sfx('star'), 400);
-        if (GAME.found === 4) setTimeout(memoryWin, 600);
+        if (GAME.found >= (GAME.total || 4)) setTimeout(() => { if (GAME && GAME.id === 'memory' && !GAME.over) memoryWin(); }, 600);
       } else {
         GAME.lock = true;
         sfx('wrong');
@@ -1034,10 +1055,13 @@ function puzzlePaint() {
     <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
       ${opts.map(o => `<button class="pz-opt pz-a ${GAME.type === 'shadow' ? 'shadowed' : ''}" data-a="${escAttr(String(o))}">${o}</button>`).join('')}
     </div>
-    <p class="note" style="margin-top:12px"><button class="btn small ghost" id="pzAnother">want another?</button></p>
+    ${GAME && GAME.onDone ? '' : `<p class="note" style="margin-top:12px"><button class="btn small ghost" id="pzAnother">want another?</button></p>`}
   </div></div>`;
   speak(p.say || p.prompt || 'What comes next?', 'en');
-  $('#pzAnother').onclick = () => { GAME.pi = (GAME.pi + 1) % GAME.puzzles.length; puzzlePaint(); };
+  // On a Garden Break round we promised "one quick round, then straight back",
+  // so the endless "want another?" loop isn't offered there.
+  const another = $('#pzAnother');
+  if (another) another.onclick = () => { GAME.pi = (GAME.pi + 1) % GAME.puzzles.length; puzzlePaint(); };
   $$('.pz-a').forEach(b => b.onclick = () => {
     if (b.dataset.a === String(p.answer)) puzzleSolved(p, b);
     else gameNudge(b);
@@ -1058,7 +1082,7 @@ function puzzleSolved(p, btn) {
       againLabel: 'More puzzles',
       onAgain: puzzleStart,
     });
-  } else setTimeout(puzzlePaint, 800);
+  } else setTimeout(() => { if (GAME && GAME.id === 'puzzle' && !GAME.over) puzzlePaint(); }, 800);
 }
 
 // ============================================================

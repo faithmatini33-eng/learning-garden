@@ -1936,6 +1936,46 @@ body.calm-motion .wg-slot.next { animation: none; }
 .l2-worked-line { display: block; font-size: 17px; font-weight: 700; }
 .l2-worked-line .l2-solved-a { display: flex; justify-content: center; }
 
+/* ---- the Garden Break (Phase 3): rest, wiggle or one quick round ---- */
+.l2-break { padding-top: 22px; }
+.l2-break-fox { width: min(560px, 100%); }
+.l2-break-fox .fox-card { width: 100%; text-align: center; }
+.l2-break-fox .fox-say { font-size: 22px; }
+.l2-break-choices {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(198px, 1fr));
+  gap: 14px; margin-top: 22px; width: min(760px, 100%);
+}
+.l2-break-choice {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--card); border: 2px solid var(--border); border-radius: var(--r-card);
+  padding: 20px 16px; text-align: center; cursor: pointer;
+  box-shadow: var(--shadow-card); transition: transform .18s var(--spring), border-color .18s ease;
+}
+.l2-break-choice:hover, .l2-break-choice:focus-visible { border-color: var(--teal); transform: translateY(-2px); }
+.l2-break-choice b { font-family: var(--font-head); font-weight: 800; font-size: 18px; }
+.l2-break-choice small { color: var(--soft); font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+.l2-break-ico { width: 46px; height: 46px; border-radius: 100px; display: grid; place-items: center; }
+body.calm-motion .l2-break-choice:hover { transform: none; }
+
+/* wiggle break — moves in a row, never a clock */
+.l2-wiggle-list { width: min(520px, 100%); margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.l2-wiggle-row {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+  padding: 11px 14px; font-weight: 700; color: var(--soft);
+  transition: transform .2s var(--spring), border-color .2s ease, background .2s ease;
+}
+.l2-wiggle-row.cur { border-color: var(--green); background: var(--green-tint); color: var(--ink); transform: scale(1.025); }
+.l2-wiggle-row.done { border-style: dashed; }
+.l2-wiggle-n {
+  width: 26px; height: 26px; flex: none; border-radius: 100px;
+  display: inline-grid; place-items: center; background: var(--border);
+  font-family: var(--font-head); font-weight: 800; font-size: 13px; color: var(--soft);
+}
+.l2-wiggle-row.cur .l2-wiggle-n { background: var(--green); color: #fff; }
+.l2-wiggle-row.done .l2-wiggle-n { background: var(--green-tint); color: var(--green); }
+.l2-wiggle-foot { margin-top: 20px; text-align: center; }
+
 /* long question text in game cards scales down instead of overflowing */
 .gq-fact { font-size: 40px; }
 .gq-fact.long { font-size: 24px; line-height: 1.35; max-width: 520px; }

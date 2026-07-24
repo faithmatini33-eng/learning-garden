@@ -92,6 +92,24 @@ const L2_LINES = {
     'Well done — next up!',
     'You\'ve got this. Let\'s move on!',
   ],
+  // the Garden Break — Pip notices the thinking and offers a rest
+  breakAsk: [
+    'Your brain has been growing!',
+    'Whew — look at all that thinking!',
+    'That was a big pile of good thinking.',
+    'Your brain grew a whole bunch just now.',
+    'Nice work — your thinking muscles are warm.',
+    'You have been growing like a spring garden!',
+  ],
+  // the tail of the come-back-from-a-break bridge line
+  breakBack: [
+    'here we go!',
+    'ready when you are!',
+    'let\'s pick it right back up!',
+    'back to it!',
+    'let\'s keep growing!',
+    'onward, gardener!',
+  ],
 };
 // Rotate, don't randomize blindly: never hand back the line we just used.
 // Safe on a one-line bank (returns it) and on an unknown bank (returns '').
@@ -952,6 +970,7 @@ function l2State(lessonId) {
   L.l2[lessonId] = L.l2[lessonId] || {
     step: 0, stars: 0, streak: 0, mq: 0, status: 'not_started',
     missQ: {}, missKind: {}, avoidKind: null, used: [],
+    breakUsed: false, // Phase 3: the Garden Break fires at most once per lesson
   };
   return L.l2[lessonId];
 }
@@ -967,10 +986,13 @@ function l2Start(ls, strandId, opts = {}) {
     ls, def, strandId, flow, review: !!opts.review, t0: Date.now(),
     st, lastKind: null, q: null, mastQueue: null, resumed: st.step > 0 && !opts.review,
     qStart: 0, rushStreak: 0, // Phase 1 rush detection — session-only, never persisted
+    // Phase 3 break clock — ACTIVE lesson time only, paused while the tab hides
+    activeMs: 0, activeSince: 0, inBreak: false, breakReason: null,
   };
   VIEW = 'session';
   TT.ctx = ls.skillId;
   $('#tabbar').style.display = 'none';
+  l2ClockStart();
   if (LS2.resumed && flow[st.step].t !== 'done') l2Resume(); else l2Paint();
 }
 
@@ -1056,6 +1078,9 @@ function l2Bar(mid) {
 function l2Paint() {
   const step = LS2.flow[LS2.st.step];
   if (!step) return l2Celebrate();
+  // Phase 3: the Garden Break only ever lands HERE — at a phase boundary,
+  // before the pending step paints. A question in progress is never interrupted.
+  if (l2BreakDue()) return l2Break('scheduled');
   const map = {
     opener: l2Opener, isisnt: l2IsIsnt, quick: l2QuickCheck, worked: l2Worked, first: l2FirstTry,
     warmup: l2Warmup, teach: () => l2Teach(step.idea), together: () => l2Together(step.idea, step.n),
@@ -1080,10 +1105,303 @@ function l2Resume() {
   $('#l2Keep').onclick = () => { lpSpeechStop(); LS2.resumed = false; l2Paint(); };
   $('#l2Over').onclick = () => {
     lpSpeechStop();
-    const fresh = { step: 0, stars: 0, streak: 0, mq: 0, status: 'in_progress', missQ: {}, missKind: {}, avoidKind: null, used: [] };
+    const fresh = { step: 0, stars: 0, streak: 0, mq: 0, status: 'in_progress', missQ: {}, missKind: {}, avoidKind: null, used: [], breakUsed: false };
     Object.assign(LS2.st, fresh);
+    l2ClockStart(); // a real restart earns a fresh break clock too
     LS2.resumed = false; l2SaveStep(); l2Paint();
   };
+}
+
+/* ============================================================
+   PHASE 3 · THE GARDEN BREAK — one calm rest per lesson.
+
+   Built as a reusable component: `l2Break(reason)` renders the same
+   scene for today's scheduled break and for Turn 23's attention-miss
+   break (`l2Break('attention')`), which is not wired yet.
+
+   Trigger (l2BreakDue, checked ONLY from l2Paint = a phase boundary):
+   the first boundary after ~7 minutes of ACTIVE lesson time, or the
+   boundary just before the mastery check — whichever comes first.
+   "Active" excludes any stretch where the tab was hidden, so a lesson
+   left open overnight never insta-triggers on the next tap.
+
+   `breakUsed` lives in the persisted per-kid lesson state (l2State),
+   so the break happens at most once and a resume lands AFTER it —
+   never repeating it, never losing the pending step.
+
+   Every path ends in l2BreakReturn(), which repaints the exact pending
+   step. Nothing here can strand a kid: the app bar X always works, the
+   wiggle's "I'm ready" is live from the first second, and a game that
+   fails to launch for ANY reason falls back to resuming the lesson.
+   ============================================================ */
+const L2_BREAK_MS = 7 * 60 * 1000;      // ~7 minutes of ACTIVE lesson time
+const L2_BREAK_MIN_MS = 3 * 60 * 1000;  // …but a lesson that just started is never interrupted
+let L2_WIGGLE_RUN = 0;                  // aborts an in-flight wiggle chain
+let L2_LAST_BREAK_GAME = null;          // session-only variety between breaks
+
+/* ---- the active-time clock ----------------------------------------------
+   Time is accrued in SMALL FOLDED INCREMENTS, never as one lazy wall-clock
+   delta. A tablet can vanish without ever firing `visibilitychange` — clamshell
+   sleep, an app-switcher eviction, an OS freeze — and come back hours later with
+   the old timestamp still sitting there. Trusting that delta would fire the
+   Garden Break on the second screen of the lesson and burn the kid's one rest.
+   (app.js's timeTick already defends the daily minutes this exact way.)
+   So: a heartbeat folds elapsed time every few seconds, and any single
+   unobserved gap is capped at L2_CLOCK_MAX_STEP.
+   ------------------------------------------------------------------------ */
+const L2_CLOCK_TICK_MS = 5000;
+const L2_CLOCK_MAX_STEP = 60000; // one unobserved gap can never count as more than a minute
+let L2_CLOCK_WIRED = false, L2_CLOCK_TIMER = null;
+function l2WireClock() {
+  if (L2_CLOCK_WIRED || typeof document === 'undefined') return;
+  L2_CLOCK_WIRED = true;
+  const pause = () => { if (LS2) l2ClockPause(); };
+  document.addEventListener('visibilitychange', () => {
+    if (!LS2) return;
+    if (document.visibilityState === 'visible') l2ClockResume(); else l2ClockPause();
+  });
+  // belt and braces: these fire in cases visibilitychange misses
+  window.addEventListener('pagehide', pause);
+  window.addEventListener('freeze', pause);
+  L2_CLOCK_TIMER = setInterval(() => {
+    if (!LS2 || VIEW !== 'session') return; // lesson gone — nothing to accrue
+    l2ClockFold();
+  }, L2_CLOCK_TICK_MS);
+}
+function l2ClockStart() {
+  l2WireClock();
+  if (!LS2) return;
+  LS2.activeMs = 0;
+  LS2.activeSince = (typeof document !== 'undefined' && document.visibilityState === 'hidden') ? 0 : Date.now();
+}
+// fold whatever has elapsed since the last fold into the total, clamped
+function l2ClockFold() {
+  if (!LS2 || !LS2.activeSince) return;
+  const now = Date.now();
+  LS2.activeMs = (LS2.activeMs || 0) + Math.min(L2_CLOCK_MAX_STEP, Math.max(0, now - LS2.activeSince));
+  LS2.activeSince = now;
+}
+function l2ClockPause() {
+  if (!LS2 || !LS2.activeSince) return;
+  l2ClockFold();
+  LS2.activeSince = 0;
+}
+function l2ClockResume() { if (LS2 && !LS2.activeSince) LS2.activeSince = Date.now(); }
+function l2ActiveMs() {
+  if (!LS2) return 0;
+  l2ClockFold(); // clamped — a suspended tablet can't teleport the clock forward
+  return LS2.activeMs || 0;
+}
+
+/* ---- is a break due at this boundary? ---- */
+function l2BreakDue() {
+  if (!LS2 || !LS2.st || LS2.st.breakUsed || LS2.inBreak) return false;
+  const step = LS2.flow[LS2.st.step];
+  if (!step) return false;
+  if (step.t === 'opener' || step.t === 'done') return false; // not before it starts, not after it ends
+  const active = l2ActiveMs();
+  // the seam right before the mastery check is the last natural one — take it
+  if (step.t === 'mastery') return active >= L2_BREAK_MIN_MS;
+  // Otherwise only rest at a REAL seam — the top of a new idea or the warm-up.
+  // Every flow step is technically a boundary, but landing between two try-its
+  // inside one idea would interrupt a train of thought mid-climb.
+  const SEAM = { teach: 1, warmup: 1 };
+  return !!SEAM[step.t] && active >= L2_BREAK_MS;
+}
+
+/* ---- the break scene: Pip asks, three big choices ---- */
+function l2Break(reason = 'scheduled') {
+  if (!LS2) return;
+  lpSpeechStop();
+  LS2.inBreak = true;
+  LS2.breakReason = reason;
+  l2ClockPause(); // breakUsed is spent on the kid's choice below, not on render
+  const step = LS2.flow[LS2.st.step] || {};
+  const beforeMastery = step.t === 'mastery';
+  const ask = reason === 'attention'
+    ? `Let's give that busy brain a stretch. What sounds good?`
+    : `${l2Line('breakAsk')} Want a quick break${beforeMastery ? ' before the flower round' : ''}?`;
+  // the daily games budget is a grown-up setting — a break never becomes a
+  // back door around it (a break is never dumped into the closed arcade either)
+  const gamesOpen = typeof gamesMinutesLeft === 'function' ? gamesMinutesLeft() > 0 : true;
+  l2Bar({ pill: ['GARDEN BREAK · YOUR CHOICE', 'var(--teal-tint)', 'var(--teal)'] });
+  app.innerHTML = `<div class="reveal lp-center l2-break">
+    <div class="fox-col l2-break-fox">
+      <span class="fox-face pop">${typeof foxFullSVG === 'function' ? foxFullSVG(148, 'talk') : foxSVG(96, 'talk')}</span>
+      <div class="fox-card">
+        <p class="fox-say">${esc(ask)}</p>
+        <p class="note" style="margin-top:8px">No hurry at all — your lesson waits right here.</p>
+      </div>
+    </div>
+    <div class="l2-break-choices">
+      <button class="l2-break-choice" id="l2BrWiggle">
+        <span class="l2-break-ico" style="background:var(--green-tint);color:var(--green)">${icon('hand', 22)}</span>
+        <b>Wiggle break</b><small>Stretch and shake with Pip</small>
+      </button>
+      ${gamesOpen ? `<button class="l2-break-choice" id="l2BrGame">
+        <span class="l2-break-ico" style="background:var(--purple-tint);color:var(--purple)">${icon('puzzle', 22)}</span>
+        <b>Play one game</b><small>One quick round, then straight back</small>
+      </button>` : ''}
+      <button class="l2-break-choice" id="l2BrKeep">
+        <span class="l2-break-ico" style="background:var(--terra-tint);color:var(--terra)">${icon('arrowright', 22)}</span>
+        <b>Keep going!</b><small>I'm in the zone — no break for me</small>
+      </button>
+    </div>
+  </div>`;
+  foxSpeak(`${ask} A wiggle break${gamesOpen ? ', one quick game' : ''}, or keep going — you pick.`);
+  // The break is SPENT when the kid actually chooses, not when the screen paints:
+  // backing out with the app-bar X shouldn't quietly cost them their one rest,
+  // and a render that throws shouldn't either.
+  const spend = () => { LS2.st.breakUsed = true; l2ClockStart(); save(); };
+  // No sfx on plain navigation — sound is reserved for moments that MEAN
+  // something (correct, star, grow, cheer). The press animation is the feedback.
+  $('#l2BrWiggle').onclick = () => { spend(); lpSpeechStop(); l2Wiggle(); };
+  const gb = $('#l2BrGame');
+  if (gb) gb.onclick = () => { spend(); lpSpeechStop(); l2BreakGame(); };
+  // "Keep going!" skips the break entirely — no bridge, no guilt, no nagging,
+  // and not one star different from taking it.
+  $('#l2BrKeep').onclick = () => { spend(); lpSpeechStop(); l2BreakReturn({ bridge: false }); };
+}
+
+/* ---- wiggle break — guided movement, no clock anywhere ---- */
+const L2_WIGGLE_MOVES = [
+  { title: 'Stand up tall', say: 'Stand up tall like a sunflower reaching for the sun. Stretch your arms way, way up…' },
+  { title: 'Shake like a leaf', say: 'Now shake your hands like leaves in the wind. Shake, shake, shake them out!' },
+  { title: 'Big bee circles', say: 'Buzz like a bee — draw three big slow circles with your arms. Round… and round… and round.' },
+  { title: 'Roots and stretch', say: 'Press your feet down like roots, and grow up as tall as you can. Hold it… and soften.' },
+  { title: 'Two flower breaths', say: 'Last one. Breathe in like you are smelling a flower… and breathe out, soft as a breeze.' },
+];
+function l2Wiggle() {
+  if (!LS2) return;
+  const moves = L2_WIGGLE_MOVES;
+  l2Bar({ pill: ['WIGGLE BREAK · MOVE WITH PIP', 'var(--green-tint)', 'var(--green)'] });
+  app.innerHTML = `<div class="reveal lp-center l2-break">
+    <div class="fox-col l2-break-fox">
+      <span class="fox-face pop">${typeof foxFullSVG === 'function' ? foxFullSVG(148, 'cheer') : foxSVG(96, 'cheer')}</span>
+      <div class="fox-card"><p class="fox-say" id="l2WigSay">${esc(moves[0].say)}</p></div>
+    </div>
+    <div class="l2-wiggle-list" id="l2WigList">
+      ${moves.map((m, i) => `<div class="l2-wiggle-row ${i === 0 ? 'cur' : ''}" data-w="${i}"><span class="l2-wiggle-n">${i + 1}</span><span>${esc(m.title)}</span></div>`).join('')}
+    </div>
+    <div class="l2-wiggle-foot">
+      <button class="btn big caps-btn" id="l2WigDone">I'm ready ${icon('arrowright', 15)}</button>
+      <p class="note" style="margin-top:8px">Stop whenever you like — your lesson is waiting right here.</p>
+    </div>
+  </div>`;
+  // NEVER gated: the way out is live from the very first second.
+  $('#l2WigDone').onclick = () => { L2_WIGGLE_RUN++; lpSpeechStop(); l2BreakReturn(); };
+  const run = ++L2_WIGGLE_RUN;
+  const alive = () => run === L2_WIGGLE_RUN && !!$('#l2WigList');
+  const finish = () => {
+    if (!alive()) return;
+    sfx('grow'); // the gentle chime that says the wiggle is done
+    $$('#l2WigList .l2-wiggle-row').forEach(r => { r.classList.remove('cur'); r.classList.add('done'); });
+    const say = $('#l2WigSay');
+    if (say) say.textContent = 'All shaken out! Tap Ready whenever you want to plant more thinking.';
+    const b = $('#l2WigDone');
+    if (b) {
+      b.classList.add('primary');
+      b.innerHTML = `Ready! ${icon('arrowright', 15)}`;
+      if (!document.body.classList.contains('calm-motion')) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    }
+    foxSpeak('All shaken out! Tap Ready whenever you are set.');
+  };
+  const step = (i) => {
+    if (!alive()) return;                 // tapped Ready / left the screen → Pip stops
+    if (i >= moves.length) return finish();
+    $$('#l2WigList .l2-wiggle-row').forEach((r, n) => {
+      r.classList.toggle('cur', n === i);
+      r.classList.toggle('done', n < i);
+    });
+    const say = $('#l2WigSay'); if (say) say.textContent = moves[i].say;
+    // each move gets a real beat: Pip's line finishes AND a minimum dwell passes,
+    // so the whole wiggle still lasts ~30–45s on a device with no voices at all.
+    let spoken = false, dwelt = false;
+    const go = () => { if (spoken && dwelt) step(i + 1); };
+    setTimeout(() => { dwelt = true; go(); }, 4200);
+    foxSpeak(moves[i].say, { onDone: () => { spoken = true; go(); } });
+  };
+  step(0);
+}
+
+/* ---- play ONE game round, then come straight back ---- */
+// Only the short, calm, config-screen-free rounds are used: Puzzle Corner
+// (3 puzzles, no questions, no score) and Memory Match (4 pairs). Both end
+// themselves in about two minutes — no countdown UI exists or is needed.
+function l2BreakGameStarters() {
+  return {
+    puzzle: typeof puzzleStart === 'function' ? puzzleStart : null,
+    memory: typeof memoryStart === 'function' ? memoryStart : null,
+  };
+}
+function l2BreakGameOrder() {
+  const subj = (LS2 && LS2.def && LS2.def.subject) || '';
+  // a change of pace: a math lesson breaks with shapes and patterns, a wordy
+  // lesson breaks with quick matching. Each is the other's fallback.
+  let order = subj === 'math' ? ['puzzle', 'memory'] : ['memory', 'puzzle'];
+  if (L2_LAST_BREAK_GAME === order[0]) order = [order[1], order[0]];
+  return order;
+}
+function l2BreakGame() {
+  if (!LS2) return;
+  const back = () => l2BreakReturn();
+  let launched = false;
+  try {
+    const starters = l2BreakGameStarters();
+    for (const id of l2BreakGameOrder()) {
+      const start = starters[id];
+      if (!start) continue;
+      const prevView = typeof VIEW !== 'undefined' ? VIEW : 'session';
+      try {
+        // minutes accrue against the daily games budget exactly like the hub
+        // does (app.js timeTick only counts while VIEW === 'games'); tickets and
+        // mastery already flow on their own — answers power play, never gated.
+        VIEW = 'games';
+        if (typeof TT !== 'undefined') TT.ctx = null;
+        start();
+        if (typeof GAME === 'undefined' || !GAME) throw new Error('round did not start');
+        GAME.onDone = back;      // ← the return hook games.js honors (gameWin + gamesBar back)
+        L2_LAST_BREAK_GAME = id;
+        launched = true;
+        break;
+      } catch (e) {
+        VIEW = prevView;
+        console.warn('[garden break] could not start', id, e);
+      }
+    }
+  } catch (e) {
+    console.warn('[garden break] game pick failed', e);
+  }
+  // fail-safe: no game available, or every launch threw → back to the lesson,
+  // never a dead end and never a lost step.
+  if (!launched) l2BreakReturn();
+}
+
+/* ---- re-entry: always the EXACT pending step ---- */
+function l2BreakReturn(opts = {}) {
+  if (!LS2) { try { show('learn'); } catch (e) { /* nothing left to return to */ } return; }
+  if (typeof VIEW !== 'undefined') VIEW = 'session';
+  if (typeof TT !== 'undefined') TT.ctx = LS2.ls.skillId;
+  const tb = $('#tabbar'); if (tb) tb.style.display = 'none';
+  LS2.inBreak = false;
+  l2ClockResume();
+  if (opts.bridge === false) return l2Paint(); // "Keep going!" — they never left
+  l2BreakBridge();
+}
+function l2BreakBridge() {
+  const d = LS2.def;
+  const step = LS2.flow[LS2.st.step] || {};
+  const line = `Before the break we were working on ${d.term}${step.t === 'mastery' ? ' — and your flower round is next' : ''}. ${l2Line('breakBack')}`;
+  l2Bar();
+  app.innerHTML = `<div class="reveal lp-center">
+    <span class="fox-face big pop">${foxSVG(96, 'cheer')}</span>
+    <h1 class="lp-goal" style="font-size:30px;margin-top:14px">Welcome back!</h1>
+    <p style="font-size:19px;font-weight:600;color:var(--soft);max-width:560px">${esc(line)}</p>
+    <button class="btn primary big caps-btn" id="l2BrGo" style="margin-top:22px">Let's go! ${icon('arrowright', 15)}</button>
+  </div>`;
+  const g = l2GateBtn($('#l2BrGo'));
+  foxSpeak(line, { onDone: g });
+  $('#l2BrGo').onclick = () => { lpSpeechStop(); l2Paint(); };
 }
 
 /* ---------------- 22a · opener ---------------- */
