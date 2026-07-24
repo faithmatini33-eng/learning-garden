@@ -1139,7 +1139,6 @@ function renderPractice() {
         <span class="subj-ico" style="width:34px;height:34px;background:${su.tint}">${strand.emoji}</span>
         <h3>${esc(strand.name)}</h3>
         ${attempted.length ? `<span class="pill" style="font-size:11px;padding:4px 10px;color:var(--green);background:var(--green-tint);border-color:var(--green-tint)">${avg} avg</span>` : ''}
-        <button class="btn small learn-pill" data-learnpath="${strand.id}">${icon('bulb', 13)} Learn</button>
       </div>
       <span class="strand-bar"><i style="width:${pct}%"></i></span>
       <div class="${wide ? 'skill-cols' : ''}">${rows}</div>

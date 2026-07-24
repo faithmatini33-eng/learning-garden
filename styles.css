@@ -1954,3 +1954,30 @@ body.calm-motion .wg-slot.next { animation: none; }
   .appbar-inner .hero-meta { flex: 1 1 200px; }
   .appbar-inner .ab-spacer { flex: 0 0 0; }
 }
+
+/* ---- Learn tab: the weekly growth path + subject ladders ---- */
+.wp-row { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px dotted var(--border); }
+.wp-row:last-of-type { border-bottom: 0; }
+.wp-n {
+  width: 26px; height: 26px; border-radius: 100px; flex: none;
+  display: inline-grid; place-items: center; font-family: var(--font-head);
+  font-weight: 800; font-size: 13px; background: var(--bg); border: 1.5px dashed var(--border); color: var(--muted);
+}
+.wp-row.done .wp-n { background: var(--green-tint); border: 0; color: var(--green); }
+.wp-row.cur .wp-n { background: var(--terra); border: 0; color: #fff; box-shadow: 0 0 0 3px var(--terra-tint); }
+.wp-row.cur { background: #FFF; border-radius: 14px; border-bottom: 0; box-shadow: 0 0 0 2px var(--terra-tint); }
+.wp-row .wp-name { display: block; font-size: 14.5px; }
+.wp-row.done .wp-name { color: var(--soft); }
+.wp-row small { display: block; color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+.wp-subjects-head { margin: 20px 0 10px; font-size: 20px; }
+.wp-subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.wp-subject .wp-bar { display: block; height: 7px; background: var(--bg); border-radius: 100px; overflow: hidden; margin: 10px 0; }
+.wp-subject .wp-bar i { display: block; height: 100%; border-radius: 100px; transition: width .5s ease-out; }
+.wp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wp-chip {
+  border: 1.5px solid var(--border); background: #fff; border-radius: 100px;
+  padding: 5px 11px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--soft);
+}
+.wp-chip b { color: var(--ink); margin-left: 2px; }
+.wp-chip.active { border-color: var(--terra); color: var(--terra-dark); }
+.wp-chip.full { border-color: var(--green-tint); background: var(--green-tint); color: var(--green); }

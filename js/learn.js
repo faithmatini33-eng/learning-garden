@@ -116,8 +116,80 @@ function learnPathState(strandId) {
   const idx = lessons.findIndex(x => !doneIds.has(x.id));
   return { lessons, doneIds, currentIdx: idx === -1 ? lessons.length : idx };
 }
-// what should Today suggest? resume-in-progress > next lesson on the
-// most recently active path > first path with something unlearned
+// ------------------------------------------------------------
+// THE WEEKLY GROWTH PATH (Faith, 2026-07-23): the app recommends
+// the week's lessons from where the kid actually is — school focus
+// first, then paths already in motion, then the weakest areas —
+// balanced across subjects, always the NEXT lesson on each strand
+// so everything builds in order. Stable for the week; refills as
+// the kid finishes. Stored: DB.learn[kid].weekPath = {week, items}.
+// ------------------------------------------------------------
+const WEEK_PATH_SIZE = 10; // ~2 lessons a day across a school week
+
+function weekPathCandidates(exclude = new Set()) {
+  const L = kidLearn();
+  const st = kidStats();
+  const learned = new Set(L.learnedLessons.map(x => x.lessonId));
+  const focus = typeof focusSet === 'function' ? focusSet() : new Set();
+  const momentum = new Set(L.learnedLessons.map(x => x.strand));
+  Object.keys(L.paths).forEach(sid => { if (L.paths[sid].current) momentum.add(sid); });
+  const cands = [];
+  for (const strand of STRANDS.filter(s => !s.custom && s.id !== 'handwriting')) {
+    const lessons = lessonsForStrand(strand.id);
+    const idx = lessons.findIndex(l => !learned.has(l.id));
+    if (idx === -1) continue; // path complete
+    const next = lessons[idx];
+    if (exclude.has(next.id)) continue;
+    const v = st[next.skillId] || { s: 0, a: 0, c: 0 };
+    let score = 0;
+    if (focus.has(next.skillId)) score += 100;                    // school focus leads
+    if (momentum.has(strand.id)) score += 40;                     // keep started paths moving
+    if (v.a >= 3 && v.c / v.a < 0.6) score += 30;                 // practice shows struggle
+    score += Math.max(0, 25 - v.s / 4);                           // weaker mastery = sooner
+    score += Math.max(0, 8 - idx);                                // foundations before later rungs
+    cands.push({ id: next.id, strand: strand.id, subject: strand.subject, score });
+  }
+  return cands.sort((a, b) => b.score - a.score);
+}
+
+function buildWeekLearnPath() {
+  const L = kidLearn();
+  const wk = weekKey();
+  if (!L.weekPath || L.weekPath.week !== wk) {
+    // fresh week: subject-balanced pick — best candidate per subject,
+    // round-robin, so the week isn't ten math lessons in a row
+    const cands = weekPathCandidates();
+    const bySubject = {};
+    cands.forEach(c => { (bySubject[c.subject] = bySubject[c.subject] || []).push(c); });
+    const subjects = Object.keys(bySubject).sort((a, b) => bySubject[b][0].score - bySubject[a][0].score);
+    const picked = [];
+    let round = 0;
+    while (picked.length < WEEK_PATH_SIZE && round < 12) {
+      let took = false;
+      for (const s of subjects) {
+        const c = (bySubject[s] || [])[round];
+        if (c && picked.length < WEEK_PATH_SIZE) { picked.push({ id: c.id, strand: c.strand, subject: c.subject }); took = true; }
+      }
+      if (!took) break;
+      round++;
+    }
+    L.weekPath = { week: wk, items: picked };
+    save();
+  }
+  // refill: every recommended lesson learned → line up the next rung(s)
+  const learned = new Set(kidLearn().learnedLessons.map(x => x.lessonId));
+  if (L.weekPath.items.length && L.weekPath.items.every(it => learned.has(it.id))) {
+    const more = weekPathCandidates(new Set(L.weekPath.items.map(it => it.id))).slice(0, 4);
+    if (more.length) {
+      L.weekPath.items = L.weekPath.items.concat(more.map(c => ({ id: c.id, strand: c.strand, subject: c.subject })));
+      save();
+    }
+  }
+  return L.weekPath;
+}
+
+// what should Today suggest? resume-in-progress > the week path's
+// next unfinished recommendation > any path with something unlearned
 function todayLessonPick() {
   const L = kidLearn();
   for (const [strandId, pth] of Object.entries(L.paths)) {
@@ -130,6 +202,12 @@ function todayLessonPick() {
   const doneToday = L.learnedLessons.filter(e => e.date === today).length;
   if (doneToday) return { doneToday };
   const learned = new Set(L.learnedLessons.map(e => e.lessonId));
+  const wp = buildWeekLearnPath();
+  for (const it of wp.items) {
+    if (learned.has(it.id)) continue;
+    const ls = lessonsForStrand(it.strand).find(l => l.id === it.id);
+    if (ls) return { ls, strandId: it.strand };
+  }
   const recent = [...L.learnedLessons].reverse().map(e => e.strand);
   const order = [...new Set(recent.concat(STRANDS.filter(x => x.lesson && !x.custom).map(x => x.id)))];
   for (const sid of order) {
@@ -871,7 +949,7 @@ function renderMyLearning() {
           <span class="eyebrow" style="color:var(--terra)">Learning now</span>
           <b style="display:block;font-size:24px;font-family:var(--font-head)">${esc(ls.name)}</b>
           <p class="note">${esc(SUBJECTS.find(s => s.id === strand.subject)?.name || '')} · ${esc(strand.name)} path · lesson ${n} of ${lessons.length}</p>
-          <span class="sdot-row">${dots}<small>step ${now.step + 1} of ${total} · about ${Math.max(1, (total - now.step) * 2)} min left</small></span>
+          <span class="sdot-row">${dots}<small>step ${now.step + 1} of ${total} · about ${Math.max(1, total - now.step)} min left</small></span>
         </span>
         <button class="btn primary big caps-btn" id="mlResume">Resume</button>
       </div>`;
@@ -885,32 +963,59 @@ function renderMyLearning() {
       <button class="btn primary big caps-btn" id="mlPick">Pick a path</button>
     </div>`;
 
-  // coming up: next lesson on each started-or-focus path (up to 3), tagged w/ plan day when its skill is planned
+  // THE WEEK'S GROWTH PATH — the app's recommendation, in order
   const wk = weekKey();
   const focus = (DB.focus[DB.activeKid] && DB.focus[DB.activeKid].week === wk) ? DB.focus[DB.activeKid].skills : [];
-  const plan = getWeekPlan();
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const planDay = (skillId) => { const d = plan.findIndex(day => day.includes(skillId)); return d >= 0 ? DAYS[d] : null; };
-  const touched = new Set(Object.keys(L.paths).concat(L.learnedLessons.map(x => x.strand)));
-  focus.forEach(sid => { const sk = SKILL_MAP[sid]; if (sk) touched.add(sk.strand); });
-  const coming = [];
-  for (const strandId of touched) {
-    const { lessons, currentIdx } = learnPathState(strandId);
-    if (currentIdx >= lessons.length) continue;
-    const ls = lessons[currentIdx];
-    if (now && ls.id === now.lessonId) { if (lessons[currentIdx + 1]) coming.push({ ls: lessons[currentIdx + 1], strandId }); continue; }
-    coming.push({ ls, strandId });
-  }
-  const comingRows = coming.slice(0, 3).map(({ ls, strandId }) => {
-    const strand = STRANDS.find(x => x.id === strandId) || {};
+  const wp = buildWeekLearnPath();
+  const learnedSet = new Set(L.learnedLessons.map(x => x.lessonId));
+  const curIdx = wp.items.findIndex(it => !learnedSet.has(it.id));
+  const weekDone = wp.items.filter(it => learnedSet.has(it.id)).length;
+  const weekRows = wp.items.map((it, i) => {
+    const strand = STRANDS.find(x => x.id === it.strand) || {};
+    const ls = lessonsForStrand(it.strand).find(l => l.id === it.id);
+    if (!ls) return '';
+    const done = learnedSet.has(it.id);
+    const isCur = i === curIdx;
+    const rec = done ? L.learnedLessons.find(x => x.lessonId === it.id) : null;
+    const mastered = rec && rec.status === 'mastered';
     const isFocus = focus.includes(ls.skillId);
-    const day = planDay(ls.skillId);
-    return `<div class="kid-admin-row" style="border-bottom-style:dotted">
-      <span class="subj-ico" style="width:36px;height:36px;background:${subjUI(strand.subject).tint}">${strand.emoji}</span>
-      <span class="nm" style="font-size:14.5px">${esc(ls.name)}<br><span style="color:var(--ink-soft);font-size:12.5px;font-weight:600">next on the ${esc(strand.name)} path${isFocus ? ` · <span style="color:var(--terra)">${icon('target', 11)} school focus</span>` : ''}</span></span>
-      ${day ? `<span class="pill ghost-pill" style="flex:none">${day}</span>` : `<button class="btn small ghost" style="flex:none" data-gopath="${strandId}">Open path</button>`}
+    return `<div class="wp-row ${done ? 'done' : isCur ? 'cur' : ''}">
+      <span class="wp-n">${done ? icon('check', 13) : i + 1}</span>
+      <span class="subj-ico" style="width:34px;height:34px;background:${subjUI(strand.subject).tint};color:${subjUI(strand.subject).color}">${icon(subjUI(strand.subject).icon, 16)}</span>
+      <span style="flex:1;min-width:0">
+        <b class="wp-name">${esc(ls.name)}</b>
+        <small>${esc(strand.name)} path${isFocus ? ` · <span style="color:var(--terra)">${icon('target', 10)} school focus</span>` : ''}${done ? ` · <span style="color:${mastered ? 'var(--teal)' : 'var(--green)'}">${mastered ? 'mastered' : 'learned'}</span>` : ''}</small>
+      </span>
+      ${isCur ? `<button class="btn primary small caps-btn" data-wpstart="${ls.id}:${it.strand}" style="flex:none">Start</button>`
+        : done ? '' : `<span class="pill ghost-pill" style="flex:none;font-size:11px">up next</span>`}
     </div>`;
-  }).join('') || '<p class="note">Start a path and your next lessons line up here.</p>';
+  }).join('');
+
+  // SUBJECT LADDERS — what they're learning + progress, per subject
+  const subjCards = SUBJECTS.filter(s => s.id !== 'custom').map(sub => {
+    const strands = STRANDS.filter(x => x.subject === sub.id && !x.custom && x.id !== 'handwriting');
+    if (!strands.length) return '';
+    let total = 0, learnedN = 0, masteredN = 0;
+    const chips = strands.map(str => {
+      const lessons = lessonsForStrand(str.id);
+      const doneN = lessons.filter(l => learnedSet.has(l.id)).length;
+      total += lessons.length; learnedN += doneN;
+      masteredN += lessons.filter(l => { const r = L.learnedLessons.find(x => x.lessonId === l.id); return r && r.status === 'mastered'; }).length;
+      const active = doneN > 0 && doneN < lessons.length;
+      return `<button class="wp-chip ${doneN === lessons.length ? 'full' : active ? 'active' : ''}" data-gopath="${str.id}">${esc(str.name)} <b>${doneN}/${lessons.length}</b></button>`;
+    }).join('');
+    const u = subjUI(sub.id);
+    const pct = total ? Math.round(learnedN / total * 100) : 0;
+    return `<div class="card wp-subject">
+      <div style="display:flex;align-items:center;gap:10px">
+        ${subjTile(sub.id, 36, 18)}
+        <b style="font-family:var(--font-head);font-size:16px;flex:1">${esc(sub.name)}</b>
+        <span class="note" style="font-weight:700">${learnedN} of ${total} learned${masteredN ? ` · ${masteredN} mastered` : ''}</span>
+      </div>
+      <span class="wp-bar"><i style="width:${pct}%;background:${u.color}"></i></span>
+      <div class="wp-chips">${chips}</div>
+    </div>`;
+  }).join('');
 
   // already learned
   const learnedRows = L.learnedLessons.slice().reverse().slice(0, 8).map(rec => {
@@ -932,21 +1037,30 @@ function renderMyLearning() {
       <div>
         ${nowCard}
         <div class="card">
-          <h2><span class="bubble" style="background:var(--gold-tint);color:var(--gold)">${icon('calendar', 16)}</span>Coming up</h2>
-          ${comingRows}
-          <div class="foot-note teal">${icon('bulb', 13)} The plan follows your paths and the ${icon('target', 12)} skills a grown-up picked for school.</div>
+          <h2><span class="bubble" style="background:var(--gold-tint);color:var(--gold)">${icon('sprout', 16)}</span>This week's path
+            <span class="pill" style="margin-left:auto;background:var(--green-tint);border-color:var(--green-tint);color:var(--green)">${weekDone} of ${wp.items.length}</span></h2>
+          <p class="note" style="margin:2px 0 8px">Picked for you — each lesson builds on the last. Finish one and the next opens up.</p>
+          ${weekRows || '<p class="note">Every path is complete — amazing! New lessons appear when new skills arrive.</p>'}
+          <div class="foot-note teal">${icon('bulb', 13)} How it's chosen: ${icon('target', 12)} school focus first, then paths you've started, then the skills that need the most sunshine.</div>
         </div>
       </div>
-      <div class="card">
-        <h2><span class="bubble" style="background:var(--green-tint);color:var(--green)">${icon('check', 16)}</span>Already learned
-          <span class="note" style="margin-left:auto;font-weight:700">${L.learnedLessons.length} lesson${L.learnedLessons.length === 1 ? '' : 's'}</span></h2>
-        ${learnedRows}
-        <div class="foot-note gold">${icon('flame', 13)} Learned lessons keep growing through Practice — that's how they reach mastered.</div>
+      <div>
+        <div class="card">
+          <h2><span class="bubble" style="background:var(--green-tint);color:var(--green)">${icon('check', 16)}</span>Already learned
+            <span class="note" style="margin-left:auto;font-weight:700">${L.learnedLessons.length} lesson${L.learnedLessons.length === 1 ? '' : 's'}</span></h2>
+          ${learnedRows}
+        </div>
       </div>
     </div>
+    <h2 class="wp-subjects-head"><span class="bubble" style="background:var(--teal-tint);color:var(--teal)">${icon('gradcap', 16)}</span>My subjects</h2>
+    <div class="wp-subject-grid">${subjCards}</div>
   </div>`;
   const mr = $('#mlResume'); if (mr && now) mr.onclick = () => startLesson(now.lessonId, now.strandId);
-  const mp = $('#mlPick'); if (mp) mp.onclick = () => show('practice');
+  const mp = $('#mlPick'); if (mp) mp.onclick = () => {
+    const first = document.querySelector('[data-wpstart]');
+    if (first) { const [lid, sid] = first.dataset.wpstart.split(':'); startLesson(lid, sid); } else show('practice');
+  };
+  $$('[data-wpstart]').forEach(b => b.onclick = () => { const [lid, sid] = b.dataset.wpstart.split(':'); startLesson(lid, sid); });
   $$('[data-gopath]').forEach(b => b.onclick = () => show('learnpath', b.dataset.gopath));
   $$('[data-relearn]').forEach(b => b.onclick = () => startLesson(b.dataset.relearn, b.dataset.strand, { review: true }));
 }
