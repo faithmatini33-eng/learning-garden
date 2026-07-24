@@ -842,20 +842,22 @@ function l2AutoTwoChoices(sk) {
   return { g, ans, wrong: wrong === ans ? ans + '?' : wrong };
 }
 
-// teach material: strand lesson cards, topped up with Pip-solved examples
-function l2AutoTeachCards(sk, strand) {
-  const chunks = strand.lesson ? lessonChunks(strand.lesson).slice(0, 3) : [];
-  const cards = chunks.map(c => ({
-    html: `<div class="ls-chunk cur" style="font-size:15px">${c}</div>`,
-    say: speakableText(c),
-  }));
-  while (cards.length < 3) {
+// teach material: rich Pip-solved worked cards (Phase 4).
+// The old ".ls-chunk" strand-prose card is GONE — it was the source of the
+// bare boxes (e.g. Synonyms' empty "Word power-ups:" header). Every auto teach
+// screen now shows a clean, framed, Pip-narrated solved example instead. Each
+// idea (1/2/3) gets its own fresh solve; math cards carry the generator's
+// SVG body (number line / array / clock…) so Math stops looking like Language.
+function l2AutoTeachCards(sk) {
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
     const g = sk.gen(1);
     cards.push({
       html: `<div class="l2-solved"><p class="l2-solved-q">${g.prompt}</p>${g.body ? `<div class="qbody">${g.body}</div>` : ''}
         <div class="l2-solved-a">${icon('arrowright', 14)} <b>${esc(String(g.answer))}</b></div>
         <p class="sent-note">${g.explain || ''}</p></div>`,
       say: `Watch me do one! ${speakableText(g.prompt)} … The answer is ${g.answer}. ${speakableText(g.explain || '')}`,
+      sayIt: String(g.answer),
       solved: true,
     });
   }
@@ -868,7 +870,25 @@ function l2AutoDef(sk) {
   const lessons = lessonsForStrand(strand.id || sk.strand);
   const n = Math.max(1, lessons.findIndex(l => l.skillId === sk.id) + 1);
   const prev = n > 1 ? SKILL_MAP[lessons[n - 2].skillId] : null;
-  const teach = l2AutoTeachCards(sk, strand);
+  const teach = l2AutoTeachCards(sk);
+  // Phase 4 — concept-attainment frames (is-vs-isn't) live in window.L2_FRAMES
+  // (js/lesson_frames.js), authored per skill by a parallel data step. Read it
+  // DEFENSIVELY so the app runs identically when that file is absent: a missing
+  // global, a missing entry, or a malformed entry all fall back to the rich
+  // worked-example teach. A wrong non-example mis-teaches a child, so the data
+  // side owns correctness — we only present what it delivers.
+  const L2F = (typeof window !== 'undefined' && window.L2_FRAMES) ? window.L2_FRAMES : {};
+  const fr = hasOwn(L2F, sk.id) ? L2F[sk.id] : null;
+  const hasFrame = !!(fr && fr.rule
+    && Array.isArray(fr.examples) && fr.examples.length
+    && Array.isArray(fr.nonExamples) && fr.nonExamples.length);
+  // frame examples arrive as {label, why, emoji?}; the is/isn't renderer maps
+  // {html, why}, so normalise once here (accepts an author-supplied {html} too).
+  const frameEx = (e) => ({
+    html: (e && e.html != null) ? e.html
+      : `<b>${esc(String(e && e.label != null ? e.label : ''))}</b>${e && e.emoji ? ' ' + e.emoji : ''}`,
+    why: (e && e.why) ? e.why : '',
+  });
   const mkQ = (lvl, idea, tag) => (used) => l2FromGen(sk, lvl, idea, tag) || l2FromGen(sk, 1, idea, tag + 'f');
   const w1 = sk.gen(1), w2 = sk.gen(1);
   const solvedHTML = (g) => `<span class="l2-worked-line">${g.prompt}${g.body ? `<div class="qbody" style="margin-top:6px">${g.body}</div>` : ''}<span class="l2-solved-a">${icon('arrowright', 14)} <b>${esc(String(g.answer))}</b></span></span>`;
@@ -878,6 +898,7 @@ function l2AutoDef(sk) {
   const name = sk.name;
   const def = {
     auto: true,
+    frame: hasFrame, // true ⇒ idea 1 renders the is/isn't concept frame; false ⇒ worked-example teach
     id: 'auto.' + sk.id, n, skill: sk.id, strand: strand.id || sk.strand, subject: strand.subject || 'custom',
     title: name, term: name.toLowerCase(),
     teaser: `${name} — let's figure it out together!`,
@@ -889,8 +910,22 @@ function l2AutoDef(sk) {
     } : null,
     teachCards: teach,
     idea1: {
-      teachSay: teach[0].say,
-      teachHTML: `<b>${esc(name)}</b> — watch first, then we try together!`,
+      // Concept teach. When a frame exists we speak/show the is-vs-isn't idea;
+      // otherwise Pip introduces the skill and demonstrates by solving one.
+      teachSay: hasFrame
+        ? `Let's learn ${name.toLowerCase()}. Some fit, and some don't. ${speakableText(fr.rule)} Here's how to tell them apart!`
+        : `Let's learn ${name.toLowerCase()}! Watch me solve one, then it's your turn.`,
+      teachHTML: hasFrame
+        ? `<b>${esc(name)}</b> — some fit, and some don't. Here's how to tell!`
+        : `<b>${esc(name)}</b> — watch me solve one, then it's your turn!`,
+      // is/isn't concept frame — populated ONLY when authored for this skill.
+      // Present ⇒ l2IsIsnt renders the two-column green/amber frame from these.
+      isLabel: hasFrame ? (fr.isLabel || 'THIS FITS') : undefined,
+      isntLabel: hasFrame ? (fr.isntLabel || "THIS DOESN'T") : undefined,
+      examples: hasFrame ? fr.examples.map(frameEx) : undefined,
+      nonExamples: hasFrame ? fr.nonExamples.map(frameEx) : undefined,
+      ruleHTML: hasFrame ? fr.rule : '',
+      ruleSay: hasFrame ? speakableText(fr.rule) : '',
       quickGen: () => l2FromGen(sk, 1, 1, 'qc'),
       worked: [
         { html: solvedHTML(w1), say: `Watch me do one! ${speakableText(w1.prompt)} … The answer is ${w1.answer}. ${speakableText(w1.explain || '')}`, sayIt: String(w1.answer) },
@@ -1436,25 +1471,35 @@ function l2Opener() {
 /* ---------------- 22b · the lesson: is / isn't ---------------- */
 function l2IsIsnt() {
   const d = LS2.def, i1 = d.idea1, u = subjUI(d.subject);
-  if (d.auto) {
-    // auto lessons: the strand's own teach card, Pip-narrated
+  if (d.auto && !d.frame) {
+    // Auto lessons with NO concept frame: a RICH worked-example teach — Pip
+    // solves one in a clean framed card, narrated aloud. (This replaces the old
+    // bare ".ls-chunk" strand-prose box — Faith's #1 complaint.) Math cards show
+    // the generator's SVG body; Spanish gets an audio-first "listen & repeat".
     l2Bar({ pill: [`THE LESSON · WATCH FIRST`, u.tint, u.color] });
+    const w = d.teachCards[0];
+    const isSpanish = d.subject === 'spanish';
     app.innerHTML = `<div class="reveal lesson-grid">
       ${foxPanel(i1.teachHTML)}
       <div class="teach-panel">
-        <p class="eyebrow" style="color:${u.color};text-align:center">Learn · idea 1 of 3</p>
-        ${d.teachCards[0].html}
+        <p class="eyebrow" style="color:${u.color};text-align:center">Learn · idea 1 of 3 · watch Pip solve one</p>
+        ${isSpanish ? `<div style="text-align:center;margin-bottom:10px"><button class="btn primary big" id="l2Say">${icon('volume', 20)} Listen &amp; repeat</button></div>` : ''}
+        ${w.html}
+        ${w.sayIt ? `<div class="l2-sayit-band">${icon('volume', 13)} Say it with Pip: "${esc(w.sayIt)}"</div>` : ''}
         <div style="text-align:center;margin-top:16px">
           <button class="btn primary big caps-btn" id="l2Go">Let me try one! ${icon('arrowright', 15)}</button>
         </div>
       </div>
     </div>`;
     upgradeSayButtons(app);
+    if ($('#l2Say')) $('#l2Say').onclick = () => foxSpeak(w.say);
     const g = l2GateBtn($('#l2Go'));
-    wireFox(i1.teachSay, { onDone: g });
+    wireFox(w.say, { onDone: g });
     $('#l2Go').onclick = () => { lpSpeechStop(); l2Advance(); };
     return;
   }
+  // Authored is/isn't AND framed auto lessons fall through here (framed autos
+  // carry idea1.examples/nonExamples/isLabel/ruleHTML populated from L2_FRAMES).
   l2Bar({ pill: [`THE LESSON · WHAT IT IS — AND WHAT IT ISN'T`, u.tint, u.color] });
   app.innerHTML = `<div class="reveal lesson-grid">
     ${foxPanel(i1.teachHTML)}
